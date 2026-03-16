@@ -106,14 +106,16 @@ export default function Header() {
       <header className="w-full bg-white sticky top-0 z-50 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.08)]">
         {/* Dynamic Banner */}
       
-          <div
-            className="w-full py-1 px-4 text-center transition-all duration-500 border-b border-black/5"
-            style={{ backgroundColor: banner.bg_color, color: banner.text_color }}
-          >
-            <p className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.3em] leading-none py-1">
-              {banner.title}
-            </p>
-          </div>
+         {banner && (
+  <div
+    className="w-full py-1 px-4 text-center transition-all duration-500 border-b border-black/5"
+    style={{ backgroundColor: banner.bg_color, color: banner.text_color }}
+  >
+    <p className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.3em] leading-none py-1">
+      {banner.title}
+    </p>
+  </div>
+)}
     
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
