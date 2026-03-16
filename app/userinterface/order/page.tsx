@@ -6,7 +6,6 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Toaster, toast } from "react-hot-toast";
 
-
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -51,12 +50,12 @@ const statusLabels: Record<string, string> = {
   cancelled: "Cancelled",
 };
 const statusColors: Record<string, string> = {
-  pending: "bg-yellow-400 text-black",
-  confirmed: "bg-blue-500 text-white",
-  processing: "bg-indigo-600 text-white",
-  "out for delivery": "bg-orange-500 text-white",
-  delivered: "bg-green-600 text-white",
-  cancelled: "bg-red-600 text-white",
+  pending: "bg-amber-50 text-amber-700 border-amber-200",
+  confirmed: "bg-blue-50 text-blue-700 border-blue-200",
+  processing: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  "out for delivery": "bg-orange-50 text-orange-700 border-orange-200",
+  delivered: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  cancelled: "bg-rose-50 text-rose-700 border-rose-200",
 };
 
 export default function UserOrdersPage() {
@@ -65,10 +64,9 @@ export default function UserOrdersPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [reviewModal, setReviewModal] = useState(false);
-const [reviewProduct, setReviewProduct] = useState<{ productId: number; name: string } | null>(null);
-const [rating, setRating] = useState(0);
-const [comment, setComment] = useState("");
-
+  const [reviewProduct, setReviewProduct] = useState<{ productId: number; name: string } | null>(null);
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -78,135 +76,116 @@ const [comment, setComment] = useState("");
     fetchUser();
   }, []);
 
-    useEffect(() => {
-  const fetchOrders = async () => {
-    if (!userId) return;
-
-    const { data: ordersData } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("user_id", userId)
-      .order("order_date", { ascending: false });
-
-    if (!ordersData) return;
-
-    // Fetch all product images
-    const { data: imagesData } = await supabase
-      .from("product_images")
-      .select("product_id, image_url");
-
-    const imageMap = new Map();
-    imagesData?.forEach((img) => {
-      if (!imageMap.has(img.product_id)) {
-        imageMap.set(img.product_id, img.image_url);
+  useEffect(() => {
+    const fetchOrders = async () => {
+      if (!userId) {
+        setLoading(false);
+        return;
       }
-    });
 
-    // Attach image_url to cart items
-    const updatedOrders = ordersData.map((order) => ({
-      ...order,
-      cart_items: order.cart_items.map((item : any ) => ({
-        ...item,
-        image_url: imageMap.get(item.productId) || "/placeholder.png",
-      })),
-    }));
+      try {
+        const { data: ordersData, error: ordersError } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("user_id", userId)
+          .order("order_date", { ascending: false });
 
-    setOrders(updatedOrders);
-    setLoading(false);
-  };
+        if (ordersError) throw ordersError;
+        if (!ordersData) {
+          setOrders([]);
+          setLoading(false);
+          return;
+        }
 
-  fetchOrders();
-}, [userId]);
+        const { data: imagesData } = await supabase
+          .from("product_images")
+          .select("product_id, image_url");
 
-  
+        const imageMap = new Map();
+        imagesData?.forEach((img) => {
+          if (!imageMap.has(img.product_id)) {
+            imageMap.set(img.product_id, img.image_url);
+          }
+        });
 
-  if (loading) return <p className="text-center mt-12">Loading orders...</p>;
-  if (orders.length === 0) return <p className="text-center mt-12">No orders found.</p>;
+        const updatedOrders = ordersData.map((order) => ({
+          ...order,
+          cart_items: (order.cart_items || []).map((item: any) => ({
+            ...item,
+            image_url: imageMap.get(item.productId) || "/placeholder.png",
+          })),
+        }));
+
+        setOrders(updatedOrders);
+      } catch (err) {
+        console.error("Error fetching orders:", err);
+        toast.error("Failed to load orders");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, [userId]);
 
   const selectedOrder = orders.find((o) => o.id === selectedOrderId);
-const submitReview = async () => {
-  if (!rating) {
-    toast.error("Please select a rating");
-    return;
-  }
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const user_id = sessionData.session?.user?.id;
+  const submitReview = async () => {
+    if (!rating) {
+      toast.error("Please select a rating");
+      return;
+    }
+    const { data: sessionData } = await supabase.auth.getSession();
+    const user_id = sessionData.session?.user?.id;
+    if (!user_id) {
+      toast.error("Login required");
+      return;
+    }
 
-  if (!user_id) {
-    toast.error("Login required");
-    return;
-  }
+    const { data: existing } = await supabase
+      .from("product_reviews")
+      .select("*")
+      .eq("product_id", reviewProduct?.productId)
+      .eq("user_id", user_id);
 
-  // Prevent duplicate reviews
-  const { data: existing } = await supabase
-    .from("product_reviews")
-    .select("*")
-    .eq("product_id", reviewProduct?.productId)
-    .eq("user_id", user_id);
+    if (existing && existing.length > 0) {
+      toast.error("You already reviewed this product");
+      return;
+    }
 
-  if (existing && existing.length > 0) {
-    toast.error("You already reviewed this product");
-    return;
-  }
+    const { error } = await supabase.from("product_reviews").insert({
+      product_id: reviewProduct?.productId,
+      user_id,
+      rating,
+      comment,
+    });
 
-  const { error } = await supabase.from("product_reviews").insert({
-    product_id: reviewProduct?.productId,
-    user_id,
-    rating,
-    comment,
-  });
+    if (error) {
+      toast.error("Failed to submit review");
+      return;
+    }
 
-  if (error) {
-    toast.error("Failed to submit review");
-    return;
-  }
-
-  toast.success("Review submitted successfully");
-  setReviewModal(false);
-  setRating(0);
-  setComment("");
-};
+    toast.success("Review submitted successfully");
+    setReviewModal(false);
+    setRating(0);
+    setComment("");
+  };
 
   const renderStatusTimeline = (currentStatus: string) => {
     const currentIndex = statusFlow.indexOf(currentStatus.toLowerCase());
-    
-
-
     return (
-      <div className="relative pl-10">
+      <div className="relative pl-8">
         {statusFlow.map((status, idx) => {
           const active = idx <= currentIndex;
           const isLast = idx === statusFlow.length - 1;
-
           return (
-            <div key={status} className="flex items-start mb-8 relative">
-              {/* Vertical line and dot */}
+            <div key={status} className="flex items-start mb-6 relative">
               <div className="absolute left-0 top-0 flex flex-col items-center">
-                <div
-                  className={`w-5 h-5 rounded-full border-4 transition-colors duration-300 ${
-                    active ? "border-green-500 bg-green-500" : "border-gray-300 bg-white"
-                  }`}
-                />
-                {!isLast && (
-                  <div
-                    className={`w-1 flex-1 mt-1 transition-colors duration-300 ${
-                      active ? "bg-green-500" : "bg-gray-300"
-                    }`}
-                    style={{ minHeight: "50px" }}
-                  />
-                )}
+                <div className={`w-4 h-4 rounded-full transition-all duration-500 ${active ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : "bg-gray-200"}`} />
+                {!isLast && <div className={`w-0.5 h-12 transition-colors duration-500 ${active ? "bg-emerald-500" : "bg-gray-200"}`} />}
               </div>
-
-              {/* Status content */}
-              <div className="ml-8">
-                <div
-                  className={`text-lg font-semibold transition-colors duration-300 ${
-                    active ? "text-green-600" : "text-gray-400"
-                  }`}
-                >
-                  {statusLabels[status]}
-                </div>
+              <div className="ml-6">
+                <p className={`text-sm font-bold ${active ? "text-gray-900" : "text-gray-400"}`}>{statusLabels[status]}</p>
               </div>
             </div>
           );
@@ -215,298 +194,196 @@ const submitReview = async () => {
     );
   };
 
-  // Function to download professional PDF invoice
   const downloadInvoice = (order: Order) => {
     const doc = new jsPDF();
-
     doc.setFontSize(18);
-    doc.text("Invoice", 105, 20, { align: "center" });
-
-    doc.setFontSize(12);
+    doc.text("INVOICE", 105, 20, { align: "center" });
+    doc.setFontSize(10);
     doc.text(`Order ID: ${order.id}`, 14, 35);
-    doc.text(`Order Date: ${new Date(order.order_date).toLocaleDateString()}`, 14, 43);
-    doc.text(`Name: ${order.full_name}`, 14, 51);
-    doc.text(`Phone: ${order.phone_number}`, 14, 59);
-    doc.text(
-      `Address: ${order.house_number}, ${order.street}, ${order.city}, ${order.state} - ${order.pincode}`,
-      14,
-      67
-    );
-    doc.text(`Payment Method: ${order.payment_method}`, 14, 75);
-    doc.text(`Payment Status: ${order.payment_status || "PENDING"}`, 14, 83);
+    doc.text(`Date: ${new Date(order.order_date).toLocaleDateString()}`, 14, 40);
+    doc.text(`Customer: ${order.full_name}`, 14, 50);
+    doc.text(`Address: ${order.house_number}, ${order.street}, ${order.city}`, 14, 55);
 
-    // Products Table
-    const tableColumn = ["Product", "Qty", "Price", "Subtotal"];
-    const tableRows: any[] = [];
-
-    order.cart_items.forEach((item) => {
-      const itemData = [
-        item.variationName ? `${item.name} (${item.variationName})` : item.name,
-        item.quantity.toString(),
-        `₹${item.price.toFixed(2)}`,
-        `₹${(item.price * item.quantity).toFixed(2)}`,
-      ];
-      tableRows.push(itemData);
-    });
+    const tableRows = order.cart_items.map(item => [
+      item.variationName ? `${item.name} (${item.variationName})` : item.name,
+      item.quantity,
+      `INR ${item.price.toFixed(2)}`,
+      `INR ${(item.price * item.quantity).toFixed(2)}`
+    ]);
 
     autoTable(doc, {
-      startY: 95,
-      head: [tableColumn],
+      startY: 65,
+      head: [["Product", "Qty", "Price", "Total"]],
       body: tableRows,
-      theme: "grid",
-      headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: "bold" },
-      footStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: "bold" },
-      styles: { fontSize: 10, cellPadding: 3 },
+      theme: 'striped',
+      headStyles: { fillColor: [31, 41, 55] }
     });
 
-    // Totals
-  const finalY = (doc as any).lastAutoTable.finalY || 110;
-
-// Set positions closer to the left (e.g., 14)
-doc.setFontSize(12);
-doc.setFont( "normal");
-doc.text(`Shipping: ₹${order.shipping_cost.toFixed(2)}`, 14, finalY + 10);
-
-doc.setFontSize(14);
-doc.setFont( "bold");
-doc.text(`Grand Total: ₹${order.grand_total.toFixed(2)}`, 14, finalY + 20);
-
-// Save the PDF
-doc.save(`Invoice-${order.id}.pdf`);
-
+    const finalY = (doc as any).lastAutoTable.finalY || 100;
+    doc.text(`Shipping: INR ${order.shipping_cost.toFixed(2)}`, 140, finalY + 10);
+    doc.setFontSize(12);
+    doc.text(`Grand Total: INR ${order.grand_total.toFixed(2)}`, 140, finalY + 20);
+    doc.save(`Invoice-${order.id.slice(0, 8)}.pdf`);
   };
 
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      <p className="text-gray-500 font-medium">Loading your orders...</p>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-white relative">
+    <div className="min-h-screen bg-gray-50/50 pb-20">
       <Toaster position="top-right" />
 
-      {/* Orders list */}
-      <div className="p-6 w-full mx-auto">
-<h1 className="text-3xl font-bold mb-8 w-[800px]">My Orders</h1>
-<div className="w-full min-h-screen bg-white-50 p-6">
-
-  <div className="space-y-6">
-    {orders.map((order) => (
-      <div
-        key={order.id}
-        className="w-full flex flex-col md:flex-row items-start md:items-center justify-between w-full bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition p-6 cursor-pointer"
-        onClick={() => setSelectedOrderId(order.id)}
-      >
-        {/* Products preview */}
-        <div className="flex space-x-4 overflow-x-auto w-full md:w-2/3">
-          {order.cart_items.map((item) => (
-  <div
-    key={item.productId}
-    className="flex flex-col items-center min-w-[120px] bg-gray-50 p-2 rounded-lg"
-  >
-    <img
-      src={item.image_url || "/placeholder.png"}
-      alt={item.name}
-      className="w-20 h-20 object-cover rounded-lg mb-2"
-      loading="lazy"
-    />
-    <p className="text-xs text-center truncate max-w-[100px] font-medium">
-      {item.name} {item.variationName ? `(${item.variationName})` : ""}
-    </p>
-    <p className="text-xs font-semibold mt-1">
-      {item.quantity} × ₹{item.price.toFixed(2)}
-    </p>
-
-    {order.status === "delivered" && (
-  <button
-    onClick={(e) => {
-      e.stopPropagation();
-      setReviewProduct({ productId: item.productId, name: item.name });
-      setReviewModal(true);
-    }}
-    className="bg-orange-600 text-white px-4 py-1 mt-2 rounded hover:bg-orange-700 transition w-full text-xs"
-  >
-    Write Review
-  </button>
-)}
-
-  </div>
-))}
-
-        </div>
-
-        {/* Order status & total */}
-        <div className="mt-4 md:mt-0 flex flex-col items-start md:items-end">
-          <span
-            className={`px-4 py-1 rounded-full font-semibold text-sm whitespace-nowrap ${
-              statusColors[order.status.toLowerCase()] || "bg-gray-400 text-white"
-            }`}
-          >
-            {statusLabels[order.status.toLowerCase()] || order.status.toUpperCase()}
-          </span>
-          <p className="mt-2 text-gray-700 font-medium">
-            Total: ₹{order.grand_total.toFixed(2)}
-          </p>
-          <p className="text-gray-400 text-xs mt-1">
-            {new Date(order.order_date).toLocaleDateString()}
-          </p>
+      {/* Header */}
+      <div className="bg-white border-b sticky top-0 z-30">
+        <div className="max-w-5xl mx-auto px-6 py-8">
+          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">My Orders</h1>
+          <p className="text-gray-500 mt-1">Manage and track your recent purchases</p>
         </div>
       </div>
-    ))}
-  </div>
-</div>
-</div>
 
-
-      {/* Drawer + Overlay */}
-      {selectedOrderId && (
-        <>
-          <div
-            className="fixed inset-0 bg-black bg-opacity-30 z-40"
-            onClick={() => setSelectedOrderId(null)}
-          />
-          <div className="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-lg overflow-y-auto z-50 animate-slide-in">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold">Order Details</h2>
-                <div className="flex space-x-2">
-                  <button
-                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                    onClick={() => downloadInvoice(selectedOrder!)}
-                  >
-                    Download Invoice
-                  </button>
-                  <button
-                    className="text-gray-500 hover:text-gray-800"
-                    onClick={() => setSelectedOrderId(null)}
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-
-              {/* Shipping & Billing */}
-              <div className="space-y-2 mb-6 text-gray-700 text-sm">
-                <h3 className="font-semibold">Shipping & Billing</h3>
-                <p>
-                  <strong>Full Name:</strong> {selectedOrder?.full_name}
-                </p>
-                <p>
-                  <strong>Phone:</strong> {selectedOrder?.phone_number}
-                </p>
-                <p>
-                  <strong>Address:</strong>{" "}
-                  {`${selectedOrder?.house_number}, ${selectedOrder?.street}, ${selectedOrder?.city}, ${selectedOrder?.state} - ${selectedOrder?.pincode}`}
-                </p>
-                <p>
-                  <strong>Payment Method:</strong> {selectedOrder?.payment_method}
-                </p>
-                <p>
-                  <strong>Payment Status:</strong> {selectedOrder?.payment_status || "PENDING"}
-                </p>
-              </div>
-
-              {/* Products & Billing */}
-              <div className="mb-6">
-                <h3 className="font-semibold text-lg mb-4">Products & Billing</h3>
-                <div className="border rounded-md overflow-hidden">
-                  <div className="grid grid-cols-4 gap-4 bg-gray-100 p-2 font-semibold text-sm">
-                    <div className="col-span-2">Product</div>
-                    <div className="text-center">Qty</div>
-                    <div className="text-right">Subtotal</div>
-                  </div>
-
-                  {selectedOrder?.cart_items.map((item) => (
-                    <div
-                      key={item.productId}
-                      className="grid grid-cols-4 gap-4 p-2 items-center border-t text-sm"
-                    >
-                      <div className="col-span-2">
-                        <p className="font-medium">{item.name}</p>
-                        {item.variationName && (
-                          <p className="text-xs text-gray-500">({item.variationName})</p>
-                        )}
-                        <p className="text-xs text-gray-500">₹{item.price.toFixed(2)} each</p>
+      <div className="max-w-5xl mx-auto px-6 py-10">
+        {orders.length === 0 ? (
+          <div className="text-center bg-white border border-dashed border-gray-300 rounded-3xl p-16">
+            <p className="text-gray-400 text-lg">No orders found in your history.</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {orders.map((order) => (
+              <div
+                key={order.id}
+                onClick={() => setSelectedOrderId(order.id)}
+                className="group bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-xl hover:border-blue-200 transition-all duration-300 overflow-hidden cursor-pointer"
+              >
+                <div className="p-6">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-gray-100 rounded-lg text-gray-600">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Order ID</p>
+                          <p className="text-sm font-mono font-bold text-gray-700">#{order.id.slice(0, 8)}</p>
+                        </div>
                       </div>
-                      <div className="text-center">{item.quantity}</div>
-                      <div className="text-right font-semibold">
-                        ₹{(item.price * item.quantity).toFixed(2)}
+                      <div className="flex flex-wrap gap-3">
+                        {order.cart_items.slice(0, 4).map((item, idx) => (
+                          <div key={idx} className="relative">
+                            <img src={item.image_url} alt={item.name} className="w-16 h-16 object-cover rounded-xl border border-gray-100" />
+                            {item.quantity > 1 && (
+                              <span className="absolute -top-2 -right-2 bg-gray-900 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{item.quantity}</span>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ))}
-
-                  <div className="border-t p-2 space-y-1 text-sm text-right">
-                    <p>Shipping: ₹{selectedOrder?.shipping_cost.toFixed(2)}</p>
-                    <p className="font-semibold text-base">
-                      Grand Total: ₹{selectedOrder?.grand_total.toFixed(2)}
-                    </p>
+                    <div className="flex flex-row lg:flex-col justify-between items-end gap-4 pt-6 lg:pt-0 border-t lg:border-t-0 border-gray-100">
+                      <div className="text-left lg:text-right">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${statusColors[order.status.toLowerCase()] || "bg-gray-100"}`}>
+                          {statusLabels[order.status.toLowerCase()] || order.status}
+                        </span>
+                        <p className="text-2xl font-black text-gray-900 mt-2">₹{order.grand_total.toLocaleString()}</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-              {/* Order Status */}
+      {/* Detail Drawer */}
+      {selectedOrderId && selectedOrder && (
+        <>
+          <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 transition-opacity" onClick={() => setSelectedOrderId(null)} />
+          <div className="fixed top-0 right-0 h-full w-full max-w-xl bg-white shadow-2xl z-50 flex flex-col animate-slide-in">
+            <div className="p-6 border-b flex items-center justify-between bg-gray-50/50">
               <div>
-                <h3 className="font-semibold mb-3">Order Status</h3>
-                {renderStatusTimeline(selectedOrder?.status || "pending")}
+                <h2 className="text-xl font-bold text-gray-900">Order Details</h2>
+                <p className="text-sm text-gray-500">{new Date(selectedOrder.order_date).toLocaleDateString()}</p>
               </div>
+              <div className="flex gap-2">
+                <button onClick={() => downloadInvoice(selectedOrder)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-full">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                </button>
+                <button onClick={() => setSelectedOrderId(null)} className="p-2 text-gray-400 hover:bg-gray-100 rounded-full">✕</button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+              <section>
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">Tracking</h3>
+                {renderStatusTimeline(selectedOrder.status)}
+              </section>
+
+              <section className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                <h3 className="font-bold text-gray-900 mb-4">Items Ordered</h3>
+                <div className="space-y-3">
+                  {selectedOrder.cart_items.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-4 bg-white p-3 rounded-xl border border-gray-100">
+                      <img src={item.image_url} className="w-12 h-12 rounded-lg object-cover" />
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-gray-800">{item.name}</p>
+                        <p className="text-xs text-gray-500">{item.quantity} x ₹{item.price}</p>
+                      </div>
+                      {selectedOrder.status === 'delivered' && (
+                        <button 
+                          onClick={() => { setReviewProduct({ productId: item.productId, name: item.name }); setReviewModal(true); }}
+                          className="text-xs font-bold text-orange-600 bg-orange-50 px-3 py-1.5 rounded-lg"
+                        >
+                          Review
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            <div className="p-6 border-t bg-gray-50">
+               <div className="flex justify-between items-center text-xl font-black text-gray-900">
+                  <span>Grand Total</span>
+                  <span>₹{selectedOrder.grand_total.toFixed(2)}</span>
+               </div>
             </div>
           </div>
         </>
-        
       )}
+
+      {/* Review Modal */}
       {reviewModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-    <div className="bg-white w-full max-w-md rounded-lg p-6 shadow-xl">
-      <h2 className="text-xl font-bold mb-4">Review {reviewProduct?.name}</h2>
-
-      {/* Rating Stars */}
-      <div className="flex space-x-2 mb-4">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <button
-            key={star}
-            onClick={() => setRating(star)}
-            className={`text-2xl ${rating >= star ? "text-yellow-400" : "text-gray-300"}`}
-          >
-            ★
-          </button>
-        ))}
-      </div>
-
-      {/* Comment */}
-      <textarea
-        className="w-full border rounded p-3 text-sm"
-        placeholder="Write your feedback..."
-        rows={4}
-        value={comment}
-        onChange={(e) => setComment(e.target.value)}
-      />
-
-      <div className="flex justify-end gap-3 mt-4">
-        <button
-          onClick={() => setReviewModal(false)}
-          className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={submitReview}
-          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-        >
-          Submit
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl p-8 shadow-2xl">
+            <h2 className="text-2xl font-bold mb-2">Write a Review</h2>
+            <p className="text-gray-500 text-sm mb-6">How was your experience with {reviewProduct?.name}?</p>
+            <div className="flex justify-center space-x-2 mb-8">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button key={star} onClick={() => setRating(star)} className={`text-4xl transition-transform active:scale-90 ${rating >= star ? "text-yellow-400" : "text-gray-200"}`}>★</button>
+              ))}
+            </div>
+            <textarea
+              className="w-full border border-gray-200 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              placeholder="Tell others what you loved or how it can be improved..."
+              rows={4}
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+            />
+            <div className="flex gap-3 mt-8">
+              <button onClick={() => setReviewModal(false)} className="flex-1 py-3 font-bold text-gray-500 bg-gray-100 rounded-xl hover:bg-gray-200 transition">Cancel</button>
+              <button onClick={submitReview} className="flex-1 py-3 font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition">Submit Review</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
-        .animate-slide-in {
-          animation: slide-in 0.3s ease-out forwards;
-        }
-        @keyframes slide-in {
-          0% {
-            transform: translateX(100%);
-          }
-          100% {
-            transform: translateX(0%);
-          }
-        }
+        .animate-slide-in { animation: slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes slide-in { 0% { transform: translateX(100%); } 100% { transform: translateX(0%); } }
       `}</style>
     </div>
   );

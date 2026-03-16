@@ -3,6 +3,18 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
+import { 
+  Download, 
+  Search, 
+  FilterX, 
+  ChevronLeft, 
+  ChevronRight, 
+  TrendingUp, 
+  Clock, 
+  CheckCircle2, 
+  Package,
+  Calendar
+} from "lucide-react";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -42,10 +54,9 @@ export default function OrderReport() {
       .from("orders")
       .select("id, full_name, phone_number, total_price, grand_total, status, order_date")
       .order("order_date", { ascending: false })
-      .limit(100);
+      .limit(200);
 
     if (error) {
-      console.error(error);
       setOrders([]);
     } else {
       setOrders(data as Order[]);
@@ -78,11 +89,13 @@ export default function OrderReport() {
     setSortBy("order_date");
   };
 
+  // Stats Calculations
   const totalOrders = orders.length;
   const pendingOrders = orders.filter((o) => o.status === "pending").length;
   const deliveredOrders = orders.filter((o) => o.status === "delivered").length;
   const totalRevenue = orders.reduce((sum, o) => sum + Number(o.grand_total), 0);
 
+  // Pagination
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const paginatedOrders = filteredOrders.slice(
     (currentPage - 1) * itemsPerPage,
@@ -92,180 +105,250 @@ export default function OrderReport() {
   const exportToExcel = () => {
     const worksheet = XLSX.utils.json_to_sheet(filteredOrders);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
-    XLSX.writeFile(workbook, "orders.xlsx");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Orders Report");
+    XLSX.writeFile(workbook, `Swaadha_Orders_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  if (loading)
-    return <p className="text-center mt-10 text-gray-600 font-medium">Loading orders...</p>;
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+    </div>
+  );
 
   return (
-    <div className="p-6 bg-white min-h-screen">
-      <h1 className="text-3xl font-bold mb-3">Order Report</h1>
+    <div className="p-4 md:p-8 bg-[#F9FAFB] min-h-screen text-slate-900">
+      <div className="max-w-8xl mx-auto">
+        
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight text-slate-900">ORDER REPORTS</h1>
+            <p className="text-slate-500 font-medium">Monitor your sales performance and order statuses.</p>
+          </div>
+          <button
+            onClick={exportToExcel}
+            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl font-bold shadow-lg shadow-emerald-100 transition-all active:scale-95"
+          >
+            <Download size={20} /> Export Excel
+          </button>
+        </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card title="Total Orders" value={totalOrders} color="blue" />
-        <Card title="Pending Orders" value={pendingOrders} color="yellow" />
-        <Card title="Delivered Orders" value={deliveredOrders} color="green" />
-        <Card title="Total Revenue" value={totalRevenue} color="purple" prefix="₹" />
-      </div>
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          <StatCard title="Total Orders" value={totalOrders} icon={<Package size={24}/>} variant="blue" />
+          <StatCard title="Pending" value={pendingOrders} icon={<Clock size={24}/>} variant="yellow" />
+          <StatCard title="Delivered" value={deliveredOrders} icon={<CheckCircle2 size={24}/>} variant="green" />
+          <StatCard title="Net Revenue" value={totalRevenue} icon={<TrendingUp size={24}/>} variant="orange" isCurrency />
+        </div>
 
-      {/* Search, Sort, Export */}
-      <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-4">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by customer or phone"
-          className="border rounded px-3 py-2 w-[900px] focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as any)}
-          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-        >
-          <option value="order_date">Sort by Order Date</option>
-          <option value="total_price">Sort by Total Price</option>
-          <option value="grand_total">Sort by Grand Total</option>
-        </select>
-        <button
-          onClick={clearFilters}
-          className="bg-gray-200 text-black px-3 py-2 rounded transition "
-        >
-          Clear Filter
-        </button>
-        <button
-          onClick={exportToExcel}
-          className="bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600 transition"
-        >
-          Excel
-        </button>
-      </div>
+        {/* Filters & Search Section */}
+        <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100 mb-6">
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="relative flex-grow">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by customer name or phone..."
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 font-medium text-slate-700 transition-all"
+              />
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="bg-slate-50 border-none rounded-2xl px-6 py-4 font-bold text-slate-600 focus:ring-2 focus:ring-orange-500"
+              >
+                <option value="order_date">Newest First</option>
+                <option value="total_price">Total Price</option>
+                <option value="grand_total">Grand Total</option>
+              </select>
 
-      {/* Orders Table */}
-      <div className="overflow-x-auto bg-white shadow rounded-lg">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-100">
-            <tr>
-              <Th>Order ID</Th>
-              <Th>Customer</Th>
-              <Th>Phone</Th>
-              <Th>Total</Th>
-              <Th>Grand Total</Th>
-              <Th>Status</Th>
-              <Th>Order Date</Th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {paginatedOrders.map((order) => (
-              <tr key={order.id}>
-                <Td>{order.id}</Td>
-                <Td>{order.full_name}</Td>
-                <Td>{order.phone_number}</Td>
-                <Td>{order.total_price}</Td>
-                <Td>{order.grand_total}</Td>
-                <Td className={statusColor(order.status) + " font-semibold"}>
-                  {order.status}
-                </Td>
-                <Td>{new Date(order.order_date).toLocaleString()}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+              <button
+                onClick={clearFilters}
+                className="flex items-center gap-2 px-6 py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-bold transition-colors"
+              >
+                <FilterX size={18} /> Reset
+              </button>
+            </div>
+          </div>
+        </div>
 
-      {/* Pagination with page numbers */}
-      <div className="flex justify-center items-center mt-4 gap-2">
-        <button
-          onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-          disabled={currentPage === 1}
-          className="px-3 py-1 bg-gray-200  rounded disabled:opacity-50"
-        >
-          Prev
-        </button>
+        {/* Orders Table */}
+        <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/50">
+                  <Th>ID</Th>
+                  <Th>Customer Details</Th>
+                  <Th>Amount</Th>
+                  <Th>Status</Th>
+                  <Th>Order Date</Th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {paginatedOrders.map((order) => (
+                  <tr key={order.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <Td>
+                      <span className="font-mono text-xs text-slate-400 font-bold">#{order.id}</span>
+                    </Td>
+                    <Td>
+                      <div className="flex flex-col">
+                        <span className="font-bold text-slate-800">{order.full_name}</span>
+                        <span className="text-xs text-slate-500">{order.phone_number}</span>
+                      </div>
+                    </Td>
+                    <Td>
+                      <div className="flex flex-col">
+                        <span className="font-black text-slate-900">₹{order.grand_total.toLocaleString()}</span>
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Sub: ₹{order.total_price}</span>
+                      </div>
+                    </Td>
+                    <Td>
+                      <StatusBadge status={order.status} />
+                    </Td>
+                    <Td>
+                      <div className="flex items-center gap-2 text-slate-500">
+                        <Calendar size={14} />
+                        <span className="text-sm font-medium">
+                          {new Date(order.order_date).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </span>
+                      </div>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-        {[...Array(totalPages)].map((_, idx) => {
-          const page = idx + 1;
-          return (
-            <button
-              key={page}
-              onClick={() => setCurrentPage(page)}
-              className={`px-3 py-1 rounded ${page === currentPage ? "bg-gray-200" : "bg-gray-200 text-gray-700"
-                }`}
-            >
-              {page}
-            </button>
-          );
-        })}
+          {/* Empty State */}
+          {filteredOrders.length === 0 && (
+            <div className="py-20 text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-full mb-4">
+                <Search className="text-slate-400" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800">No orders found</h3>
+              <p className="text-slate-500">Try adjusting your filters or search term.</p>
+            </div>
+          )}
 
-        <button
-          onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-          disabled={currentPage === totalPages}
-          className="px-3 py-1 bg-gray-200  rounded disabled:opacity-50"
-        >
-          Next
-        </button>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-8 py-6 bg-slate-50/50 border-t border-slate-50">
+              <p className="text-sm text-slate-500 font-medium">
+                Showing <span className="font-bold text-slate-900">{paginatedOrders.length}</span> of {filteredOrders.length}
+              </p>
+              
+              <div className="flex items-center gap-2">
+                <PaginationButton 
+                  onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} 
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft size={18} />
+                </PaginationButton>
+
+                <div className="flex gap-1">
+                  {[...Array(totalPages)].map((_, idx) => {
+                    const p = idx + 1;
+                    if (p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1)) {
+                      return (
+                        <button
+                          key={p}
+                          onClick={() => setCurrentPage(p)}
+                          className={`w-10 h-10 rounded-xl font-bold transition-all ${
+                            p === currentPage 
+                            ? "bg-orange-500 text-white shadow-lg shadow-orange-100" 
+                            : "text-slate-500 hover:bg-white"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+
+                <PaginationButton 
+                  onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} 
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight size={18} />
+                </PaginationButton>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-// Status color helper
-function statusColor(status: string) {
-  switch (status) {
-    case "pending": return "text-yellow-600";
-    case "confirmed": return "text-blue-600";
-    case "processing": return "text-indigo-600";
-    case "out of delivery": return "text-orange-600";
-    case "delivered": return "text-green-600";
-    default: return "text-gray-600";
-  }
-}
-
-// Table header
-function Th({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+// Custom Components
+function Th({ children }: { children: React.ReactNode }) {
   return (
-    <th
-      className={`px-4 py-2 text-left text-sm font-semibold text-gray-700 ${className}`}
-    >
+    <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.15em]">
       {children}
     </th>
   );
 }
 
-
-// Table cell
-function Td({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <td className={`px-4 py-2 text-sm text-gray-700 ${className}`}>
+    <td className={`px-8 py-5 text-sm ${className}`}>
       {children}
     </td>
   );
 }
 
-
-// Summary card component
-function Card({ title, value, color, prefix = "" }: { title: string; value: number; color: string; prefix?: string }) {
-  const bgColor = `bg-${color}-100`;
-  const textColor = `text-${color}-700`;
+function StatusBadge({ status }: { status: string }) {
+  const configs: Record<string, string> = {
+    pending: "bg-amber-100 text-amber-700",
+    confirmed: "bg-blue-100 text-blue-700",
+    processing: "bg-indigo-100 text-indigo-700",
+    "out of delivery": "bg-orange-100 text-orange-700",
+    delivered: "bg-emerald-100 text-emerald-700",
+  };
 
   return (
-    <div className={`${bgColor} p-4 rounded shadow`}>
-      <p className="text-sm font-medium text-gray-600">{title}</p>
-      <p className={`text-2xl font-bold ${textColor}`}>{prefix}{value.toLocaleString()}</p>
+    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${configs[status] || "bg-slate-100 text-slate-700"}`}>
+      {status}
+    </span>
+  );
+}
+
+function StatCard({ title, value, icon, variant, isCurrency }: any) {
+  const styles: any = {
+    blue: "bg-blue-50 text-blue-600",
+    yellow: "bg-amber-50 text-amber-600",
+    green: "bg-emerald-50 text-emerald-600",
+    orange: "bg-orange-50 text-orange-600",
+  };
+
+  return (
+    <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+      <div className={`w-12 h-12 ${styles[variant]} rounded-2xl flex items-center justify-center mb-4`}>
+        {icon}
+      </div>
+      <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">{title}</p>
+      <h2 className="text-3xl font-black text-slate-900 mt-1">
+        {isCurrency ? "₹" : ""}{value.toLocaleString()}
+      </h2>
     </div>
+  );
+}
+
+function PaginationButton({ children, disabled, onClick }: any) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="w-10 h-10 flex items-center justify-center bg-white border border-slate-100 rounded-xl text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors shadow-sm"
+    >
+      {children}
+    </button>
   );
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import toast, { Toaster } from "react-hot-toast";
-import { Trash } from "lucide-react";
+import { Trash, Pencil, Plus, X, CheckCircle2, AlertCircle, ChevronLeft, ChevronRight, Palette } from "lucide-react";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,17 +26,17 @@ export default function BannerSettings() {
 
   // Pagination state
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 8;
   const [totalBanners, setTotalBanners] = useState(0);
 
   // Delete modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const fetchBanners = async (pageNumber: number = 1) => {
+  const fetchBanners = async () => {
     setLoading(true);
     try {
-      const from = (pageNumber - 1) * pageSize;
+      const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
 
       const { data, error, count } = await supabase
@@ -45,34 +45,24 @@ export default function BannerSettings() {
         .order("created_at", { ascending: false })
         .range(from, to);
 
-      if (error) {
-        console.error(error);
-        toast.error("Failed to fetch banners");
-      } else {
-        setBanners(data || []);
-        if (count !== null) setTotalBanners(count);
-      }
+      if (error) throw error;
+      setBanners(data || []);
+      if (count !== null) setTotalBanners(count);
     } catch (err) {
-      console.error(err);
-      toast.error("Something went wrong");
+      toast.error("Failed to fetch banners");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchBanners(page);
+    fetchBanners();
   }, [page]);
 
-  const totalPages = Math.ceil(totalBanners / pageSize);
-
-  const goToPage = (newPage: number) => {
-    if (newPage < 1 || newPage > totalPages) return;
-    setPage(newPage);
-  };
-
   const saveBanner = async () => {
-    if (!selectedBanner) return;
+    if (!selectedBanner || !selectedBanner.title.trim()) {
+      return toast.error("Please provide a banner title");
+    }
 
     setLoading(true);
     try {
@@ -87,239 +77,250 @@ export default function BannerSettings() {
           })
           .eq("id", selectedBanner.id);
 
-        if (error) {
-          console.error(error);
-          toast.error("Failed to update banner");
-        } else {
-          toast.success("Banner updated successfully!");
-          fetchBanners(page);
-        }
+        if (error) throw error;
+        toast.success("Banner updated!");
       } else {
-        const { data, error } = await supabase
-          .from("banner")
-          .insert({
-            title: selectedBanner.title,
-            bg_color: selectedBanner.bg_color,
-            text_color: selectedBanner.text_color,
-            active: selectedBanner.active,
-          })
-          .select()
-          .single();
+        const { error } = await supabase.from("banner").insert({
+          title: selectedBanner.title,
+          bg_color: selectedBanner.bg_color,
+          text_color: selectedBanner.text_color,
+          active: selectedBanner.active,
+        });
 
-        if (error) {
-          console.error(error);
-          toast.error("Failed to create banner");
-        } else {
-          toast.success("Banner created successfully!");
-          fetchBanners(page);
-          setSelectedBanner(data);
-        }
+        if (error) throw error;
+        toast.success("Banner created!");
       }
+      fetchBanners();
+      setSelectedBanner(null);
     } catch (err) {
-      console.error(err);
-      toast.error("Something went wrong while saving banner");
+      toast.error("Error saving banner");
     } finally {
       setLoading(false);
     }
   };
 
-  const createNewBanner = () => {
-    setSelectedBanner({
-      id: "",
-      title: "",
-      bg_color: "#ffffff",
-      text_color: "#000000",
-      active: true,
-      created_at: new Date().toISOString(),
-    });
-  };
-
   const deleteBanner = async () => {
     if (!deleteId) return;
-
-    const { error } = await supabase
-      .from("banner")
-      .delete()
-      .eq("id", deleteId);
-
-    if (error) {
-      toast.error("Failed to delete banner");
-    } else {
-      toast.success("Banner deleted successfully");
-      fetchBanners(page);
+    try {
+      const { error } = await supabase.from("banner").delete().eq("id", deleteId);
+      if (error) throw error;
+      toast.success("Banner removed");
+      fetchBanners();
+    } catch (err) {
+      toast.error("Failed to delete");
     }
-
     setShowDeleteModal(false);
     setDeleteId(null);
   };
 
-  const renderPageNumbers = () => {
-    const buttons = [];
-    for (let i = 1; i <= totalPages; i++) {
-      buttons.push(
-        <button
-          key={i}
-          onClick={() => goToPage(i)}
-          className={`px-3 py-1 rounded ${
-            page === i ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"
-          }`}
-        >
-          {i}
-        </button>
-      );
-    }
-    return buttons;
-  };
-
   return (
-    <div className="p-6 w-full mx-auto space-y-6 bg-white">
+    <div className="p-6 md:p-10 min-h-screen bg-gray-50 space-y-8">
       <Toaster position="top-right" />
-      <h2 className="text-3xl font-bold">Banner Management</h2>
 
-      <button
-        onClick={createNewBanner}
-        className="px-4 py-2 bg-orange-400 text-white rounded"
-      >
-        + Create New Banner
-      </button>
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold text-orange-600 tracking-tight">Banner Ads</h1>
+          <p className="text-gray-500">Manage promotional text banners for your site header.</p>
+        </div>
+        <button
+          onClick={() => setSelectedBanner({ id: "", title: "", bg_color: "#ea580c", text_color: "#ffffff", active: true, created_at: "" })}
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 shadow-lg shadow-orange-100 transition-all active:scale-95"
+        >
+          <Plus size={20} />
+          Create New Banner
+        </button>
+      </div>
 
-      {/* Banner Table */}
-      <table className="w-full border rounded-md text-left mt-4">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="p-2 border">Title</th>
-            <th className="p-2 border">Background Color</th>
-            <th className="p-2 border">Text Color</th>
-            <th className="p-2 border">Active</th>
-            <th className="p-2 border">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {banners.map((banner) => (
-            <tr key={banner.id} className="hover:bg-gray-50">
-              <td className="p-2 border">{banner.title}</td>
-              <td className="p-2 border">
-                <div className="w-6 h-6 rounded-full border" style={{ backgroundColor: banner.bg_color }} />
-              </td>
-              <td className="p-2 border">
-                <div className="w-6 h-6 rounded-full border" style={{ backgroundColor: banner.text_color }} />
-              </td>
-              <td className="p-2 border">{banner.active ? "Yes" : "No"}</td>
-              <td className="p-2 border flex gap-2">
-                <button
-                  className="px-3 py-1 bg-blue-500 text-white rounded"
-                  onClick={() => setSelectedBanner(banner)}
-                >
-                  Edit
-                </button>
-                <button
-                  className="p-2 bg-red-500 text-white rounded"
-                  onClick={() => {
-                    setDeleteId(banner.id);
-                    setShowDeleteModal(true);
-                  }}
-                >
-                  <Trash className="h-4 w-4" />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* Table Content */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-gray-50/50 border-b border-gray-100 text-gray-400 text-xs uppercase tracking-widest font-bold">
+              <tr>
+                <th className="px-6 py-4">Preview & Title</th>
+                <th className="px-6 py-4">Colors</th>
+                <th className="px-6 py-4 text-center">Status</th>
+                <th className="px-6 py-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {banners.map((banner) => (
+                <tr key={banner.id} className="hover:bg-orange-50/20 transition">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-10 h-6 rounded border shadow-sm shrink-0" 
+                        style={{ backgroundColor: banner.bg_color }}
+                      />
+                      <span className="font-semibold text-gray-800 line-clamp-1">{banner.title}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex gap-1.5">
+                      <div className="text-[10px] font-bold px-2 py-0.5 rounded bg-gray-100 text-gray-500 uppercase">BG: {banner.bg_color}</div>
+                      <div className="text-[10px] font-bold px-2 py-0.5 rounded bg-gray-100 text-gray-500 uppercase">TX: {banner.text_color}</div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    {banner.active ? (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-black uppercase">
+                        <CheckCircle2 size={12} /> Active
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-400 rounded-full text-[10px] font-black uppercase">
+                        Inactive
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => setSelectedBanner(banner)} className="p-2 text-gray-400 hover:text-orange-600 transition">
+                        <Pencil size={18} />
+                      </button>
+                      <button onClick={() => { setDeleteId(banner.id); setShowDeleteModal(true); }} className="p-2 text-gray-400 hover:text-red-600 transition">
+                        <Trash size={18} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex gap-2 mt-4 flex-wrap items-center">
-          <button
-            onClick={() => goToPage(page - 1)}
-            disabled={page === 1}
-            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+        {/* Pagination */}
+        <div className="px-6 py-4 bg-gray-50/50 flex items-center justify-between border-t border-gray-100">
+          <button 
+            disabled={page === 1} 
+            onClick={() => setPage(p => p - 1)}
+            className="p-2 bg-white rounded-lg border border-gray-200 disabled:opacity-30 hover:shadow-sm transition"
           >
-            Previous
+            <ChevronLeft size={18} />
           </button>
-          {renderPageNumbers()}
-          <button
-            onClick={() => goToPage(page + 1)}
-            disabled={page === totalPages}
-            className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+          <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+            Page {page} / {Math.ceil(totalBanners / pageSize) || 1}
+          </span>
+          <button 
+            disabled={page >= Math.ceil(totalBanners / pageSize)} 
+            onClick={() => setPage(p => p + 1)}
+            className="p-2 bg-white rounded-lg border border-gray-200 disabled:opacity-30 hover:shadow-sm transition"
           >
-            Next
+            <ChevronRight size={18} />
           </button>
         </div>
-      )}
+      </div>
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-md">
-            <h3 className="text-xl font-semibold text-red-600">Confirm Deletion</h3>
-            <p className="text-gray-700 mt-3">Are you sure you want to delete this banner?</p>
-            <div className="flex justify-end gap-3 mt-6">
+      {/* POPUP MODAL FORM */}
+      {selectedBanner && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-xl font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
+                <Palette className="text-orange-600" />
+                {selectedBanner.id ? "Edit Banner" : "New Banner"}
+              </h3>
+              <button onClick={() => setSelectedBanner(null)} className="p-2 hover:bg-gray-100 rounded-full transition">
+                <X size={24} className="text-gray-400" />
+              </button>
+            </div>
+
+            <div className="p-8 space-y-6">
+              {/* Live Preview Card */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Live Preview</label>
+                <div 
+                  className="w-full h-16 rounded-2xl flex items-center justify-center px-6 text-center font-bold shadow-inner transition-colors duration-300"
+                  style={{ backgroundColor: selectedBanner.bg_color, color: selectedBanner.text_color }}
+                >
+                  {selectedBanner.title || "Your Banner Text Here"}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-700 uppercase">Banner Text</label>
+                  <input
+                    type="text"
+                    placeholder="Enter promotion title..."
+                    className="w-full border-2 border-gray-100 p-3 rounded-xl focus:border-orange-500 outline-none transition font-medium"
+                    value={selectedBanner.title}
+                    onChange={(e) => setSelectedBanner({ ...selectedBanner, title: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-700 uppercase">Background</label>
+                    <div className="flex items-center gap-2 border-2 border-gray-100 p-2 rounded-xl">
+                      <input
+                        type="color"
+                        className="w-8 h-8 rounded-lg cursor-pointer overflow-hidden border-none"
+                        value={selectedBanner.bg_color}
+                        onChange={(e) => setSelectedBanner({ ...selectedBanner, bg_color: e.target.value })}
+                      />
+                      <span className="text-xs font-mono uppercase text-gray-500">{selectedBanner.bg_color}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-700 uppercase">Text Color</label>
+                    <div className="flex items-center gap-2 border-2 border-gray-100 p-2 rounded-xl">
+                      <input
+                        type="color"
+                        className="w-8 h-8 rounded-lg cursor-pointer overflow-hidden border-none"
+                        value={selectedBanner.text_color}
+                        onChange={(e) => setSelectedBanner({ ...selectedBanner, text_color: e.target.value })}
+                      />
+                      <span className="text-xs font-mono uppercase text-gray-500">{selectedBanner.text_color}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+                  <span className="text-sm font-bold text-gray-700 uppercase">Visible on site</span>
+                  <button
+                    onClick={() => setSelectedBanner({ ...selectedBanner, active: !selectedBanner.active })}
+                    className={`w-12 h-6 rounded-full transition-colors relative ${selectedBanner.active ? 'bg-orange-600' : 'bg-gray-300'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${selectedBanner.active ? 'left-7' : 'left-1'}`} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 bg-gray-50 flex gap-3">
               <button
-                className="px-4 py-2 bg-gray-400 text-white rounded"
-                onClick={() => setShowDeleteModal(false)}
+                onClick={saveBanner}
+                disabled={loading}
+                className="flex-1 py-4 bg-orange-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-orange-700 shadow-lg shadow-orange-100 transition disabled:opacity-50"
+              >
+                {loading ? "Saving..." : "Save Banner"}
+              </button>
+              <button
+                onClick={() => setSelectedBanner(null)}
+                className="px-8 py-4 bg-white text-gray-500 border border-gray-200 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-gray-50 transition"
               >
                 Cancel
               </button>
-              <button
-                className="px-4 py-2 bg-red-600 text-white rounded"
-                onClick={deleteBanner}
-              >
-                Delete
-              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Form */}
-      {selectedBanner && (
-        <div className="space-y-4 p-4 border rounded-lg bg-white shadow-md mt-4">
-          <h3 className="text-xl font-semibold">{selectedBanner.id ? "Edit Banner" : "Create New Banner"}</h3>
-
-          <input
-            type="text"
-            placeholder="Banner Title"
-            className="border p-2 rounded w-full"
-            value={selectedBanner.title}
-            onChange={(e) => setSelectedBanner({ ...selectedBanner, title: e.target.value })}
-          />
-
-          <div className="flex gap-4 items-center">
-            <div>
-              <label className="block text-sm">Background Color</label>
-              <input
-                type="color"
-                value={selectedBanner.bg_color}
-                onChange={(e) => setSelectedBanner({ ...selectedBanner, bg_color: e.target.value })}
-              />
+      {/* Delete Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-sm text-center shadow-2xl animate-in zoom-in-95">
+            <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle size={32} />
             </div>
-            <div>
-              <label className="block text-sm">Text Color</label>
-              <input
-                type="color"
-                value={selectedBanner.text_color}
-                onChange={(e) => setSelectedBanner({ ...selectedBanner, text_color: e.target.value })}
-              />
+            <h2 className="text-xl font-black text-gray-800 uppercase tracking-tight mb-2">Delete Banner?</h2>
+            <p className="text-sm text-gray-500 mb-8 font-medium ">"Once removed, this banner text will no longer be available."</p>
+            <div className="flex gap-3">
+              <button onClick={deleteBanner} className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition">Delete</button>
+              <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition">Keep it</button>
             </div>
           </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={selectedBanner.active}
-              onChange={(e) => setSelectedBanner({ ...selectedBanner, active: e.target.checked })}
-            />
-            <span>Active</span>
-          </div>
-
-          <button
-            onClick={saveBanner}
-            disabled={loading}
-            className="px-4 py-2 bg-orange-600 text-white rounded"
-          >
-            {loading ? "Saving..." : "Save Banner"}
-          </button>
         </div>
       )}
     </div>

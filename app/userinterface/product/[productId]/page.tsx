@@ -1,34 +1,31 @@
 "use client";
 
-
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { createClient } from "@supabase/supabase-js";
 import { useParams } from "next/navigation";
-import dynamic from "next/dynamic";
 import toast, { Toaster } from "react-hot-toast";
-import "swiper/css";
-import "swiper/css/navigation"; // <-- important for navigation buttons
-const SwiperNoSSR = dynamic(() => import("swiper/react").then(mod => mod.Swiper), { ssr: false });
-const SwiperSlideNoSSR = dynamic(() => import("swiper/react").then(mod => mod.SwiperSlide), { ssr: false });
-
-
+import { 
+  Star, 
+  ShoppingBag, 
+  Heart, 
+  Truck, 
+  Award, 
+  ArrowLeft 
+} from "lucide-react";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// Interfaces
 interface ProductVariation {
   id: number;
   unit_type: string | null;
+  unit_value: string | null;
   price: number;
   stock: number;
-}
-
-interface ProductImage {
-  id: number;
-  image_url: string;
 }
 
 interface Product {
@@ -37,612 +34,242 @@ interface Product {
   sku: string;
   description: string;
   ingredients: string | null;
-  taste_id: number | null;
   pack_of: string | null;
   max_shelf_life: string | null;
   has_variation: boolean;
-  shipping_charge: number;
+  brands: { name_en: string; image_url: string } | null;
 }
 
 export default function ProductDetailsPage() {
   const params = useParams();
   const productId = params.productId;
-  const [avgRating, setAvgRating] = useState<number>(0);
-
-  const [reviews, setReviews] = useState<any[]>([]);
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState("");
-  const [user, setUser] = useState<any>(null);
-  const [showReviewForm, setShowReviewForm] = useState(false);
-
-  const [isWishlisted, setIsWishlisted] = useState(false);
 
   const [product, setProduct] = useState<Product | null>(null);
   const [variations, setVariations] = useState<ProductVariation[]>([]);
-  const [images, setImages] = useState<ProductImage[]>([]);
+  const [images, setImages] = useState<any[]>([]);
   const [selectedVariation, setSelectedVariation] = useState<ProductVariation | null>(null);
-  const [tasteName, setTasteName] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"description" | "specs">("description");
-  const prevRef = useRef<HTMLDivElement>(null);
-  const nextRef = useRef<HTMLDivElement>(null);
-
+  const [activeTab, setActiveTab] = useState<"description" | "specifications">("description");
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [mainImage, setMainImage] = useState<string>("");
+  const [mainImage, setMainImage] = useState("");
+  const [isWishlisted, setIsWishlisted] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [reviews, setReviews] = useState<any[]>([]);
 
   const fixUrl = (url?: string) => url || "/default.png";
-
-
-  const [scrollOffset, setScrollOffset] = useState(0);
-  const cardWidth = 286; // 280px + 6px gap
-  const visibleWidth = 3 * cardWidth; // number of visible cards * cardWidth
-  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
-
-
-
-
-
-
-  useEffect(() => {
-    if (reviews.length === 0) return;
-
-    const totalWidth = reviews.length * cardWidth;
-
-    const interval = setInterval(() => {
-      setScrollOffset((prev) => (prev + cardWidth >= totalWidth ? 0 : prev + cardWidth));
-    }, 3000); // scroll every 3 seconds
-
-    return () => clearInterval(interval);
-  }, [reviews]);
-
-
-  const fetchReviews = async () => {
-    const { data: reviewData, error } = await supabase
-      .from("product_reviews")
-      .select("*")
-      .eq("product_id", productId);
-
-    if (error) {
-      console.error("Failed to fetch reviews:", error);
-      return;
-    }
-
-    // Calculate average rating safely
-    const avg =
-      reviewData && reviewData.length > 0
-        ? reviewData.reduce((sum, r) => sum + (r.rating || 0), 0) /
-        reviewData.length
-        : 0;
-
-    setAvgRating(avg);
-  };
-
-
-
-
-  async function addToCart() {
-    if (!user) return alert("Login required to add items to cart");
-
-    const item = {
-      user_id: user.id,
-      product_id: product?.id,
-      variation_id: selectedVariation?.id || null,
-      quantity,
-    };
-
-    // Insert into cart table in Supabase
-    const { error } = await supabase.from("cart").insert([item]);
-
-    if (error) {
-      console.error("Failed to add to cart:", error);
-      toast.error("Failed to add to cart");
-    } else {
-      toast.success("Product added to cart!");
-    }
-  }
-
-
 
   useEffect(() => {
     if (!productId) return;
 
-    async function fetchDetails() {
+    async function fetchFullData() {
       setLoading(true);
+      
+      const { data: prodData } = await supabase
+        .from("products")
+        .select(`*, brands(name_en, image_url)`)
+        .eq("id", productId)
+        .single();
 
-      // --- Fetch product, variations, images in parallel ---
-      const [productRes, variationRes, imageRes] = await Promise.all([
-        supabase.from("products").select("*").eq("id", productId).single(),
+      if (!prodData) return setLoading(false);
+
+      const [varRes, imgRes, revRes] = await Promise.all([
         supabase.from("product_variations").select("*").eq("product_id", productId),
         supabase.from("product_images").select("*").eq("product_id", productId),
+        supabase.from("product_reviews").select("*").eq("product_id", productId)
       ]);
 
-      const productData = productRes.data;
-      const variationData = variationRes.data || [];
-      const imageData = imageRes.data || [];
+      setProduct(prodData);
+      setVariations(varRes.data || []);
+      setImages(imgRes.data || []);
+      setReviews(revRes.data || []);
+      setMainImage(fixUrl(imgRes.data?.[0]?.image_url));
+      setSelectedVariation(varRes.data?.[0] || null);
 
-      if (!productData) {
-        console.error("Product not found");
-        setLoading(false);
-        return;
-      }
-
-      setProduct(productData);
-      setVariations(variationData);
-      setImages(imageData);
-
-      // Set main image
-      setMainImage(imageData[0]?.image_url ? fixUrl(imageData[0].image_url) : "/default.png");
-
-      // Set selected variation
-      setSelectedVariation(
-        variationData[0] || {
-          id: 0,
-          unit_type: productData.unit_type || "1 Unit",
-          price: productData.price || 0,
-          stock: productData.stock || 50,
-        }
-      );
-
-      // Fetch taste name if available
-      if (productData.taste_id) {
-        const { data: taste } = await supabase
-          .from("attributes")
-          .select("name")
-          .eq("id", productData.taste_id)
-          .single();
-        setTasteName(taste?.name || "");
-      }
-
-      // Fetch logged-in user
-      const { data: authUser } = await supabase.auth.getUser();
-      const user = authUser?.user || null;
-      setUser(user);
-
-      // Check wishlist status
-      if (user) {
-        const { data: wishlistData } = await supabase
+      const { data: auth } = await supabase.auth.getUser();
+      if (auth?.user) {
+        setUser(auth.user);
+        const { data: wish } = await supabase
           .from("wishlists")
-          .select("*")
+          .select("id")
           .eq("product_id", productId)
-          .eq("user_id", user.id)
+          .eq("user_id", auth.user.id)
           .single();
-        setIsWishlisted(!!wishlistData);
+        setIsWishlisted(!!wish);
       }
-
-      // Fetch reviews and attach user names
-      const { data: reviewData, error: reviewError } = await supabase
-        .from("product_reviews")
-        .select("*")
-        .eq("product_id", productId);
-
-      if (reviewError) {
-        console.error("Failed to fetch reviews:", reviewError);
-        setReviews([]);
-        setAvgRating(0);
-      } else {
-        const reviewsWithUser = await Promise.all(
-          (reviewData || []).map(async (rev) => {
-            const { data: userData } = await supabase
-              .from("auth.users")
-              .select("id, email, user_metadata")
-              .eq("id", rev.user_id)
-              .single();
-
-            const name = userData?.user_metadata?.name || null;
-            return {
-              ...rev,
-              auth_users: {
-                id: userData?.id,
-                email: userData?.email,
-              },
-            };
-
-          })
-        );
-
-        setReviews(reviewsWithUser);
-
-        // Calculate average rating
-        const avg = reviewsWithUser.length
-          ? reviewsWithUser.reduce((sum, r) => sum + r.rating, 0) / reviewsWithUser.length
-          : 0;
-        setAvgRating(avg);
-      }
-
       setLoading(false);
     }
-
-    fetchDetails();
+    fetchFullData();
   }, [productId]);
 
-
-
   async function toggleWishlist() {
-    if (!user) return toast.error("Login required to add to wishlist");
+    if (!user) return toast.error("Please login to wishlist items");
 
     if (isWishlisted) {
-      // Remove from wishlist
       const { error } = await supabase
         .from("wishlists")
         .delete()
-        .eq("product_id", productId)
-        .eq("user_id", user.id);
-
-      if (error) {
-        toast.error("Failed to remove from wishlist");
-      } else {
+        .eq("user_id", user.id)
+        .eq("product_id", productId);
+      if (!error) {
         setIsWishlisted(false);
         toast.success("Removed from wishlist");
       }
     } else {
-      // Add to wishlist
-      const { error } = await supabase.from("wishlists").insert([
-        { product_id: productId, user_id: user.id }
-      ]);
-
-      if (error) {
-        toast.error("Failed to add to wishlist");
-      } else {
+      const { error } = await supabase
+        .from("wishlists")
+        .insert([{ user_id: user.id, product_id: productId }]);
+      if (!error) {
         setIsWishlisted(true);
         toast.success("Added to wishlist");
       }
     }
   }
 
+  async function handleCart() {
+    if (!user) return toast.error("Please login to continue");
+    if (!selectedVariation) return toast.error("Please select a variation");
 
-  // Check logged-in user
-
-  async function submitReview() {
-    if (!rating || !comment) return toast.error("Give rating & comment");
-
-    if (!user) return toast.error("Login required");
-
-    const { data: authUser } = await supabase.auth.getUser();
-    const profileName = authUser?.user?.user_metadata?.name || "Customer";
-
-    const { error } = await supabase.from("product_reviews").insert([
-      {
-        product_id: productId,
-        user_id: user.id,
-        rating,
-        comment,
-        user_name: profileName
-      }
-    ]);
+    const { error } = await supabase.from("cart").insert([{
+      user_id: user.id,
+      product_id: product?.id,
+      variation_id: selectedVariation?.id,
+      quantity
+    }]);
 
     if (!error) {
-      toast.success("Review added!");
-      setRating(0);
-      setComment("");
-
-      const { data: refreshed } = await supabase
-        .from("product_reviews")
-        .select("*, auth_users:auth.users(name, email, avatar_url)")
-        .eq("product_id", productId);
-
-      setReviews(refreshed || []);
+      toast.success(`${product?.name} added to collection`);
     } else {
-      toast.error("Failed to add review");
+      toast.error("Failed to add to cart");
     }
   }
 
-
-
-  if (loading) return <p className="text-center mt-12">Loading...</p>;
-  if (!product) return <p className="text-center mt-12">Product not found</p>;
-
+  if (loading) return <div className="h-screen flex items-center justify-center font-black uppercase tracking-widest animate-pulse">Designing Experience...</div>;
+  if (!product) return <div className="h-screen flex items-center justify-center">Product Not Found</div>;
 
   return (
-    <div className="min-h-screen bg-white  px-6 lg:px-24 py-12">
-      <Toaster position="top-right" />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-
-        {/* LEFT: Images */}
-        <div>
-          {/* MAIN IMAGE */}
-          <div className="w-[600px] h-[350px] overflow-hidden rounded-xl shadow-lg flex items-center justify-center bg-gray-100">
-            <Image
-              src={mainImage}
-              alt={product.name}
-              width={500}
-              height={350}
-              className="max-w-full max-h-full object-cover"
-            />
+    <div className="min-h-screen bg-white">
+      <Toaster position="bottom-center" />
+      
+      <div className="flex flex-col lg:flex-row min-h-screen">
+        {/* Left Side: Images */}
+        <div className="lg:w-1/2 lg:sticky lg:top-0 h-[60vh] lg:h-screen bg-slate-50 relative">
+          <button onClick={() => window.history.back()} className="absolute top-8 left-8 z-20 flex items-center gap-2 text-[10px] font-black uppercase text-slate-400 hover:text-slate-900">
+            <ArrowLeft size={16} /> Back
+          </button>
+          
+          <div className="absolute inset-0 flex items-center justify-center p-12">
+            <Image src={mainImage} alt="Product" fill className="object-contain p-12" priority />
           </div>
 
-
-          {/* THUMBNAILS */}
-          <div className="flex gap-3 mt-4 overflow-x-auto">
+          <div className="absolute bottom-8 left-8 right-8 flex gap-3 overflow-x-auto no-scrollbar">
             {images.map((img) => (
-              <div
+              <button 
                 key={img.id}
-                className={`border rounded-lg cursor-pointer overflow-hidden w-[120px] h-[80px] hover:scale-105 transition ${fixUrl(img.image_url) === mainImage ? "border-orange-600" : "border-gray-200"
-                  }`}
                 onClick={() => setMainImage(fixUrl(img.image_url))}
+                className={`w-16 h-16 rounded-xl border-2 transition-all ${mainImage === fixUrl(img.image_url) ? "border-slate-900" : "border-transparent opacity-50"}`}
               >
-                <Image
-                  src={fixUrl(img.image_url)}
-                  alt={product.name}
-                  width={120}
-                  height={80}
-                  className="w-full h-full object-contain"
-                />
-              </div>
+                <Image src={fixUrl(img.image_url)} alt="thumb" width={64} height={64} className="w-full h-full object-cover rounded-lg" />
+              </button>
             ))}
           </div>
-
         </div>
 
-        {/* RIGHT: Details */}
-        <div className="space-y-4 gap-15">
-          <h1 className="text-4xl font-extrabold text-orange-900 flex items-center gap-4">
-            {product.name}
-
-            {/* Stock Badge */}
-            {selectedVariation && (
-              selectedVariation.stock === 0 ? (
-                <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-semibold">
-                  Out of Stock
-                </span>
-              ) : selectedVariation.stock <= 10 ? (
-                <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm font-semibold">
-                  Limited Stock
-                </span>
-              ) : null
-            )}
-          </h1>
-
-
-          {/* ⭐ Average Rating */}
-          <div className="flex items-center gap-2 mt-1">
-            <div className="text-yellow-400 text-xl">
-              {"★".repeat(Math.round(avgRating))}
-              <span className="text-gray-300">
-                {"★".repeat(5 - Math.round(avgRating))}
+        {/* Right Side: Content */}
+        <div className="lg:w-1/2 p-8 lg:p-20 flex flex-col justify-center">
+          <div className="max-w-xl space-y-6">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-orange-600 bg-orange-50 px-3 py-1 rounded-full">
+                {product.brands?.name_en || "Artisan Brand"}
               </span>
+              <button onClick={toggleWishlist} className={`p-2 transition-transform active:scale-125 ${isWishlisted ? "text-red-500" : "text-slate-300 hover:text-slate-900"}`}>
+                <Heart size={24} fill={isWishlisted ? "currentColor" : "none"} />
+              </button>
             </div>
 
-            <span className="text-gray-600 text-sm">
-              {avgRating.toFixed(1)} / 5
-            </span>
+            <h1 className="text-5xl lg:text-7xl font-black text-slate-900 leading-[1.1] ">
+              {product.name}
+            </h1>
 
-            <span className="text-gray-400 text-sm">
-              ({reviews.length} reviews)
-            </span>
-          </div>
+            <div className="flex items-center gap-6 py-4 border-y border-slate-100">
+              <div className="flex items-center gap-1 text-slate-900 font-black text-lg">
+                <Star size={16} fill="currentColor" /> {reviews.length > 0 ? (reviews.reduce((a,b) => a+b.rating, 0)/reviews.length).toFixed(1) : "5.0"}
+              </div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{product.sku}</div>
+            </div>
 
+            <div className="space-y-8 pt-4">
+              <div className="flex items-baseline gap-4">
+                <span className="text-5xl font-black text-slate-900">₹{selectedVariation?.price}</span>
+                <span className="text-slate-300 line-through text-lg">₹{Number(selectedVariation?.price || 0) + 120}</span>
+              </div>
 
+              <div className="space-y-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Variation</p>
+                <div className="flex flex-wrap gap-2">
+                  {variations.map((v) => (
+                    <button
+                      key={v.id}
+                      onClick={() => setSelectedVariation(v)}
+                      className={`px-6 py-4 rounded-2xl border-2 transition-all ${selectedVariation?.id === v.id ? "border-slate-900 bg-slate-900 text-white" : "border-slate-100 hover:border-slate-200"}`}
+                    >
+                      <span className="block text-xs font-black">{v.unit_type}</span>
+                      <span className="text-[10px] opacity-60">{v.unit_value}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          <p className="text-gray-700 line-clamp-3">
-            {product.description}
-          </p>
+              <div className="flex gap-4">
+                <div className="flex items-center bg-slate-50 rounded-2xl px-4 border border-slate-100">
+                  <button onClick={() => setQuantity(q => Math.max(1, q-1))} className="p-2 font-bold">−</button>
+                  <span className="w-8 text-center font-black">{quantity}</span>
+                  <button onClick={() => setQuantity(q => q+1)} className="p-2 font-bold">+</button>
+                </div>
+                
+                <button onClick={handleCart} className="flex-1 bg-slate-900 text-white rounded-[2rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-orange-600 transition-all shadow-xl active:scale-95">
+                  <ShoppingBag size={18} /> Add to Collection
+                </button>
+              </div>
+            </div>
 
-          {/* Price + Shipping Display */}
-          {/* Price + Shipping Display */}
-          <div className="flex items-center gap-4">
-            <p className="text-3xl font-bold text-orange-700">₹{selectedVariation?.price}</p>
-
-            {/* Shipping Badge */}
-            {product.shipping_charge === 0 ? (
-              <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-semibold">
-                Free Shipping
-              </span>
-            ) : (
-              <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-semibold">
-                Shipping: ₹{product.shipping_charge}
-              </span>
-            )}
-
-
-          </div>
-
-
-
-          {/* Variations */}
-          {product.has_variation && variations.length > 0 && (
-            <div>
-              <p className="font-semibold">Choose Option:</p>
-              <div className="flex gap-3 mt-2 flex-wrap">
-                {variations.map(v => (
+            {/* Tabs */}
+            <div className="pt-12 space-y-8">
+              <div className="flex gap-8 border-b border-slate-50">
+                {["description", "specifications"].map((tab) => (
                   <button
-                    key={v.id}
-                    onClick={() => setSelectedVariation(v)}
-                    className={`px-5 py-2 rounded-full border font-semibold transition ${selectedVariation?.id === v.id
-                      ? "bg-orange-600 text-white border-orange-600"
-                      : "bg-white text-orange-600 border-orange-400 hover:bg-orange-50"
-                      }`}
+                    key={tab}
+                    onClick={() => setActiveTab(tab as any)}
+                    className={`pb-4 text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? "text-slate-900 border-b-2 border-slate-900" : "text-slate-300"}`}
                   >
-                    {v.unit_type}
+                    {tab}
                   </button>
                 ))}
               </div>
-            </div>
-          )}
-          {/* Show unit type when product has NO variations */}
-          {!product.has_variation && selectedVariation && (
-            <div>
-              <p className="font-semibold text-orange-800">Unit</p>
-              <div className="px-5 py-2 rounded-full bg-orange-100 text-orange-700 font-semibold inline-block mt-2">
-                {selectedVariation.unit_type}
+              <div className="text-slate-500 text-sm leading-relaxed">
+                {activeTab === "description" ? product.description : (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><h4 className="text-[9px] font-black uppercase text-slate-300">Shelf Life</h4><p className="font-bold text-slate-900">{product.max_shelf_life}</p></div>
+                    <div><h4 className="text-[9px] font-black uppercase text-slate-300">Pack Size</h4><p className="font-bold text-slate-900">{product.pack_of}</p></div>
+                    <div className="col-span-2"><h4 className="text-[9px] font-black uppercase text-slate-300">Ingredients</h4><p className="font-bold text-slate-900">{product.ingredients}</p></div>
+                  </div>
+                )}
               </div>
             </div>
-          )}
 
-
-          <div className="flex items-center gap-2">
-            <p className="font-semibold text-orange-800">Qty</p>
-
-            <div className="flex items-center border-2 border-yellow-400 rounded-xl overflow-hidden">
-              {/* Decrement Button */}
-              <button
-                className="w-12 h-12 flex items-center justify-center text-xl font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 transition"
-                onClick={() => quantity > 1 && setQuantity(quantity - 1)}
-              >
-                −
-              </button>
-
-              {/* Quantity Display */}
-              <span className="w-12 h-12 flex items-center justify-center text-lg font-bold text-orange-800 bg-orange-50">
-                {quantity}
-              </span>
-
-              {/* Increment Button */}
-              <button
-                className="w-12 h-12 flex items-center justify-center text-xl font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 transition"
-                onClick={() => quantity < (selectedVariation?.stock ?? 50) && setQuantity(quantity + 1)}
-              >
-                +
-              </button>
+            {/* Perks */}
+            <div className="pt-12 grid gap-4">
+              <div className="flex items-center gap-4 bg-orange-50/50 p-6 rounded-3xl border border-orange-100">
+                <Award size={20} className="text-orange-600" />
+                <div><h4 className="text-xs font-black uppercase text-slate-900">Quality Guaranteed</h4><p className="text-[10px] text-slate-400">Directly from certified vendors.</p></div>
+              </div>
+              <div className="flex items-center gap-4 bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                <Truck size={20} className="text-slate-900" />
+                <div><h4 className="text-xs font-black uppercase text-slate-900">Express Delivery</h4><p className="text-[10px] text-slate-400">Dispatched within 24 hours.</p></div>
+              </div>
             </div>
-          </div>
 
-
-
-
-
-          <div className="flex gap-4 mt-4">
-            {/* Add To Cart */}
-            <button
-              onClick={addToCart}
-              disabled={selectedVariation?.stock === 0}
-              className={`flex-1 text-white py-3 rounded-xl text-lg font-semibold transition duration-300 shadow-md hover:shadow-lg 
-    ${selectedVariation?.stock === 0
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"}
-  `}
-            >
-              Add To Cart
-            </button>
-
-
-
-            {/* Wishlist Button */}
-            <button
-              onClick={toggleWishlist}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-lg font-semibold transition duration-300 shadow-md hover:shadow-lg ${isWishlisted
-                ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-            >
-              <span className="inline-block transition-transform duration-300 hover:scale-110">
-                {isWishlisted ? "♥" : "♡"}
-              </span>
-              {isWishlisted ? "Wishlisted" : "Add to Wishlist"}
-            </button>
-          </div>
-
-
-
-
-
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="border-b mt-6 flex gap-6 text-lg font-semibold">
-        <button
-          onClick={() => setActiveTab("description")}
-          className={`pb-2 ${activeTab === "description"
-            ? "text-orange-600 border-b-2 border-orange-600"
-            : "text-gray-500"
-            }`}
-        >
-          Description
-        </button>
-
-        <button
-          onClick={() => setActiveTab("specs")}
-          className={`pb-2 ${activeTab === "specs"
-            ? "text-orange-600 border-b-2 border-orange-600"
-            : "text-gray-500"
-            }`}
-        >
-          Specifications
-        </button>
-      </div>
-      {/* Tab Content */}
-      <div className="mt-4 text-gray-700">
-        {activeTab === "description" && (
-          <div>
-            <p>{product.description}</p>
-          </div>
-        )}
-
-        {activeTab === "specs" && (
-          <div>
-            <table className="w-full bg-white border rounded-lg overflow-hidden shadow-sm">
-              <tbody>
-                {product.max_shelf_life && (
-                  <tr className="border-b hover:bg-orange-50 transition">
-                    <td className="p-3 font-semibold w-1/3">Max Shelf Life</td>
-                    <td className="p-3">{product.max_shelf_life}</td>
-                  </tr>
-                )}
-
-                {tasteName && (
-                  <tr className="border-b hover:bg-orange-50 transition">
-                    <td className="p-3 font-semibold">Taste</td>
-                    <td className="p-3">{tasteName}</td>
-                  </tr>
-                )}
-
-                {product.pack_of && (
-                  <tr className="border-b hover:bg-orange-50 transition">
-                    <td className="p-3 font-semibold">Pack Of</td>
-                    <td className="p-3">{product.pack_of}</td>
-                  </tr>
-                )}
-
-                {product.ingredients && (
-                  <tr className="hover:bg-orange-50 transition">
-                    <td className="p-3 font-semibold">Ingredients</td>
-                    <td className="p-3">{product.ingredients}</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-
-        {/* ⭐ CUSTOMER REVIEW SECTION */}
-
-        <div className="mt-20 text-center  py-8">
-          <h2 className="text-3xl font-extrabold text-orange-900 mb-2">
-            Customer Review
-          </h2>
-          <p className="text-gray-600 mb-10 max-w-xl mx-auto">
-            What our customers say about this product
-          </p>
-
-          <div className="overflow-hidden w-full relative">
-            <div
-              className="flex gap-6"
-              style={{ transform: `translateX(-${scrollOffset}px)`, transition: "transform 0.5s linear" }}
-            >
-              {reviews.map((rev) => (
-                <div
-                  key={rev.id}
-                  className="bg-white p-6 rounded-xl shadow-md text-center min-w-[280px] flex-shrink-0 border-2 border-orange-200"
-                >
-                  <h3 className="font-bold text-orange-800">
-                    {rev.auth_users?.email || "Customer"}
-                  </h3>
-
-
-
-                  <p className="text-gray-600 mt-2">{rev.comment}</p>
-                  <p className="text-yellow-400 text-xl mt-4">
-                    {"★".repeat(rev.rating)}
-                    <span className="text-gray-300">{"★".repeat(5 - rev.rating)}</span>
-                  </p>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
-
-
       </div>
     </div>
   );

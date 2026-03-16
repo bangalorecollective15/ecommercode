@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import toast,{Toaster} from "react-hot-toast";
+import toast, { Toaster } from "react-hot-toast";
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -12,22 +13,28 @@ export default function RestockPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "stock" | "price">("name");
-  const [stockFilter, setStockFilter] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [newStock, setNewStock] = useState<number>(0);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
-
-  // Fetch products
+  // Fetch products with unit_value included
   const loadProducts = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, sku, product_variations(id, unit_type, price, stock)");
-    if (error) console.error(error);
-    else setProducts(data || []);
+      .select(`
+        id, 
+        name, 
+        sku, 
+        product_variations(id, unit_type, unit_value, price, stock)
+      `);
+    
+    if (error) {
+      toast.error("Failed to load products");
+      console.error(error);
+    } else {
+      setProducts(data || []);
+    }
     setLoading(false);
   };
 
@@ -35,33 +42,26 @@ export default function RestockPage() {
     loadProducts();
   }, []);
 
-  // Handle stock update
   const updateStock = async () => {
-  if (!editingProduct) return;
+    if (!editingProduct) return;
 
-  try {
-    const { error } = await supabase
-      .from("product_variations")
-      .update({ stock: newStock })
-      .eq("id", editingProduct.variationId);
+    try {
+      const { error } = await supabase
+        .from("product_variations")
+        .update({ stock: newStock })
+        .eq("id", editingProduct.variationId);
 
-    if (error) {
-      toast.error("Failed to update stock");
-      setTimeout(() => setError(null), 3000); // clear error after 3 sec
-      return;
+      if (error) throw error;
+
+      toast.success("Stock updated successfully!");
+      setEditingProduct(null);
+      await loadProducts();
+    } catch (err: any) {
+      toast.error(err.message || "Something went wrong");
     }
+  };
 
-    toast.success("Stock updated successfully!");
-
-    setEditingProduct(null);
-    await loadProducts(); // reload products after update
-  } catch (err: any) {
-    toast.error(err.message || "Something went wrong");
-    setTimeout(() => setError(null), 3000);
-  }
-};
-
-  // Filter & search
+  // Flatten and Filter data
   const filteredProducts = products
     .flatMap((p) =>
       p.product_variations.map((v: any) => ({
@@ -70,6 +70,7 @@ export default function RestockPage() {
         sku: p.sku,
         variationId: v.id,
         unit: v.unit_type,
+        unitValue: v.unit_value, // Added unit_value
         price: v.price,
         stock: v.stock,
       }))
@@ -78,142 +79,148 @@ export default function RestockPage() {
       const matchesSearch =
         p.name.toLowerCase().includes(search.toLowerCase()) ||
         p.sku.toLowerCase().includes(search.toLowerCase());
-
-      const matchesStock = stockFilter ? p.stock < 20 : true;
-
-      return matchesSearch && matchesStock;
+      return matchesSearch;
     })
     .sort((a, b) => {
       if (sortBy === "name") return a.name.localeCompare(b.name);
       if (sortBy === "price") return a.price - b.price;
       if (sortBy === "stock") return a.stock - b.stock;
-      if (sortBy === "lowStock") return a.stock - b.stock; // Low stock on top
       return 0;
     });
 
-
-  if (loading) return <p className="p-6">Loading...</p>;
+  if (loading) return (
+    <div className="flex justify-center items-center min-h-screen">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-600"></div>
+    </div>
+  );
 
   return (
-    <div className="p-6 md:p-10 bg-white  min-h-screen">
-            <Toaster position="top-right" />
+    <div className="p-6 md:p-10 bg-gray-50 min-h-screen">
+      <Toaster position="top-right" />
 
+      <header className="mb-8">
+        <h1 className="text-3xl font-extrabold text-orange-600">Inventory Re-stock</h1>
+        <p className="text-gray-500">Manage your product variations and stock levels.</p>
+      </header>
 
+      {/* Controls */}
+      <div className="flex flex-col md:flex-row gap-4 mb-8">
+        <div className="flex-1">
+          <input
+            type="text"
+            placeholder="Search by product name or SKU..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full border border-gray-300 p-3 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 outline-none transition"
+          />
+        </div>
 
-
-      <h1 className="text-3xl font-bold mb-6">Re-stock Products</h1>
-
-      {/* Search + Filters */}
-      {/* Search + Sort Filter */}
-      {/* Search + Sort + Low Stock Filter */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6 items-center">
-        {/* Search Input */}
-        <input
-          type="text"
-          placeholder="Search by product or SKU"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="border p-2 rounded w-[900px] focus:ring-2 focus:ring-blue-400"
-        />
-
-        {/* Sort Dropdown */}
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as any)}
-          className="border p-2 rounded w-full md:w-1/4 focus:ring-2 focus:ring-blue-400"
+          className="border border-gray-300 p-3 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-orange-500 outline-none transition w-full md:w-64"
         >
           <option value="name">Sort by Name</option>
           <option value="price">Sort by Price</option>
-          <option value="stock">Sort by Stock</option>
-          <option value="lowStock">Low Stock (&lt;20)</option>
+          <option value="stock">Sort by Stock Level</option>
         </select>
-
-
       </div>
 
-
-
-      {/* Table */}
-      <div className="overflow-x-auto bg-white rounded-xl shadow p-4">
-        <table className="w-full table-auto border-collapse">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border px-4 py-2 text-left">Product</th>
-              <th className="border px-4 py-2">SKU</th>
-              <th className="border px-4 py-2">Unit</th>
-              <th className="border px-4 py-2">Price</th>
-              <th className="border px-4 py-2">Stock</th>
-              <th className="border px-4 py-2">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredProducts.map((p) => (
-              <tr
-                key={p.variationId}
-                className={`hover:bg-gray-50 transition ${p.stock < 20 ? "bg-red-50" : ""
-                  }`}
-              >
-                <td className="border px-4 py-2 font-medium">{p.name}</td>
-                <td className="border px-4 py-2">{p.sku}</td>
-                <td className="border px-4 py-2">{p.unit}</td>
-                <td className="border px-4 py-2">₹ {p.price}</td>
-                <td
-                  className={`border px-4 py-2 font-semibold ${p.stock < 20 ? "text-red-600" : ""
-                    }`}
-                >
-                  {p.stock}
-                </td>
-                <td className="border px-4 py-2">
-                  <button
-                    onClick={() => {
-                      setEditingProduct(p);
-                      setNewStock(p.stock);
-                    }}
-                    className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                  >
-                    Re-stock
-                  </button>
-                </td>
+      {/* Table Container */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-gray-50 text-gray-600 uppercase text-xs font-semibold">
+                <th className="px-6 py-4">Product Details</th>
+                <th className="px-6 py-4">SKU</th>
+                <th className="px-6 py-4">Unit / Size</th>
+                <th className="px-6 py-4">Price</th>
+                <th className="px-6 py-4">Stock Status</th>
+                <th className="px-6 py-4 text-center">Action</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredProducts.map((p) => (
+                <tr key={p.variationId} className="hover:bg-orange-50/30 transition">
+                  <td className="px-6 py-4 font-semibold text-gray-800">{p.name}</td>
+                  <td className="px-6 py-4 text-gray-500 font-mono text-sm">{p.sku}</td>
+                  <td className="px-6 py-4">
+                    <span className="px-2 py-1 bg-gray-100 rounded text-sm text-gray-700">
+                      {p.unitValue} {p.unit}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 font-medium text-gray-900">₹{p.price}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-lg font-bold ${p.stock < 20 ? "text-red-500" : "text-gray-700"}`}>
+                        {p.stock}
+                      </span>
+                      {p.stock < 20 && (
+                        <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">
+                          Low
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <button
+                      onClick={() => {
+                        setEditingProduct(p);
+                        setNewStock(p.stock);
+                      }}
+                      className="px-5 py-2 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 shadow-sm transition active:scale-95"
+                    >
+                      Re-stock
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Stock update modal */}
+      {/* Stock Update Modal */}
       {editingProduct && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4"
           onClick={() => setEditingProduct(null)}
         >
           <div
-            className="bg-white p-6 rounded-xl w-80 space-y-4 shadow-lg"
+            className="bg-white p-8 rounded-2xl w-full max-w-sm shadow-2xl space-y-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold text-gray-700">
-              Update Stock for {editingProduct.name}
-            </h3>
-            <input
-              type="number"
-              min={0}
-              value={newStock}
-              onChange={(e) =>
-                setNewStock(Math.max(0, Number(e.target.value)))
-              }
-              className="border p-2 w-full rounded focus:ring-2 focus:ring-blue-400"
-            />
-            <div className="flex justify-end space-x-2 mt-4">
+            <div>
+              <h3 className="text-xl font-bold text-gray-800">Update Stock</h3>
+              <p className="text-gray-500 text-sm">
+                {editingProduct.name} ({editingProduct.unitValue} {editingProduct.unit})
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-600">Inventory Count</label>
+              <input
+                type="number"
+                min={0}
+                value={newStock}
+                onChange={(e) => setNewStock(Math.max(0, Number(e.target.value)))}
+                className="border-2 border-gray-200 p-3 w-full rounded-xl focus:border-orange-500 focus:ring-0 outline-none text-xl font-bold text-center transition"
+              />
+            </div>
+
+            <div className="flex gap-3">
               <button
                 onClick={() => setEditingProduct(null)}
-                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition"
+                className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition"
               >
                 Cancel
               </button>
               <button
                 onClick={updateStock}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
+                className="flex-1 px-4 py-3 bg-orange-600 text-white rounded-xl font-semibold hover:bg-orange-700 shadow-md shadow-orange-200 transition active:scale-95"
               >
-                Update
+                Save Changes
               </button>
             </div>
           </div>

@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { ReactNode } from "react";
 
-import Link from "next/link";
 import {
   Home,
   ShoppingCart,
@@ -17,6 +17,8 @@ import {
   Shield,
   Lock,
   UserCircle,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -43,6 +45,7 @@ export default function Sidebar({ role }: SidebarProps) {
     { label: "Dashboard", href: "/dashboard", icon: <Home size={18} /> },
     { label: "POS", href: "/pos", icon: <ClipboardList size={18} /> },
     { label: "Orders", href: "/orderupdate", icon: <ShoppingCart size={18} /> },
+
     {
       label: "Brand",
       icon: <Shield size={18} />,
@@ -51,6 +54,7 @@ export default function Sidebar({ role }: SidebarProps) {
         { label: "List Brands", href: "/brands/listbrands" },
       ],
     },
+
     {
       label: "Category",
       icon: <ListTree size={18} />,
@@ -60,6 +64,7 @@ export default function Sidebar({ role }: SidebarProps) {
         { label: "Sub-Sub Category", href: "/categorysetup/subsubcategory" },
       ],
     },
+
     {
       label: "In-House Products",
       icon: <Package size={18} />,
@@ -67,10 +72,10 @@ export default function Sidebar({ role }: SidebarProps) {
         { label: "Add Product", href: "/products/addproducts" },
         { label: "View Product", href: "/products/listproducts" },
         { label: "Re-stock Product", href: "/products/restock" },
-                { label: "Attribute", href: "/attribute" },
-
+        { label: "Attribute", href: "/attribute" },
       ],
     },
+
     {
       label: "Homepage Setup",
       icon: <Megaphone size={18} />,
@@ -81,7 +86,12 @@ export default function Sidebar({ role }: SidebarProps) {
         { label: "Instagram Feed", href: "/insta" },
       ],
     },
-    { label: "Create Credentials", href: "/createsub", icon: <Lock size={18} /> },
+
+    {
+      label: "Create Credentials",
+      href: "/createsub",
+      icon: <Lock size={18} />,
+    },
 
     {
       label: "Reports",
@@ -91,83 +101,123 @@ export default function Sidebar({ role }: SidebarProps) {
         { label: "Order Report", href: "/orderreport" },
       ],
     },
+
     { label: "Customers", href: "/customer", icon: <Users size={18} /> },
   ];
 
   const filteredMenu =
     role === "subadmin"
       ? menu.filter((item) =>
-          ["Dashboard", "POS", "Orders", "Category", "In-House Products"].includes(item.label)
-        )
+        [
+          "Dashboard",
+          "POS",
+          "Orders",
+          "Category",
+          "In-House Products",
+        ].includes(item.label)
+      )
       : menu;
 
   return (
-    <aside className="w-64 min-h-screen bg-white text-gray-900 border-r border-gray-200">
-      <div className=" flex justify-center ">
-        <Image
-          src="/logo.png"
-          alt="Logo"
-          width={140}
-          height={60}
-          className="object-contain"
-        />
+    <aside className="w-64 h-screen bg-white border-r border-gray-200 flex flex-col justify-between shadow-sm">
+
+      {/* Logo */}
+      <div>
+        <div className="flex justify-center py-6 border-b">
+          <Image
+            src="/logo.png"
+            width={150}
+            height={50}
+            style={{ height: 'auto' }} // Add this to maintain aspect ratio
+            alt="Logo"
+            priority // Adding priority since it's likely above the fold
+          />
+        </div>
+
+        {/* Menu */}
+        <nav className="mt-4 px-2 space-y-1">
+
+          {filteredMenu.map((item) => (
+            <div key={item.label}>
+
+              {/* Parent Menu */}
+              {item.subMenu ? (
+                <>
+                  <button
+                    onClick={() => toggle(item.label)}
+                    className={`flex items-center justify-between w-full px-4 py-2 rounded-lg transition
+                    ${openMenu === item.label
+                        ? "bg-orange-100 text-orange-600"
+                        : "hover:bg-gray-100"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {item.icon}
+                      <span className="text-sm font-medium">
+                        {item.label}
+                      </span>
+                    </div>
+
+                    {openMenu === item.label ? (
+                      <ChevronDown size={16} />
+                    ) : (
+                      <ChevronRight size={16} />
+                    )}
+                  </button>
+
+                  {/* Sub Menu */}
+                  {openMenu === item.label && (
+                    <div className="ml-7 mt-1 space-y-1 border-l pl-3">
+
+                      {item.subMenu.map((sub) => (
+                        <Link
+                          key={sub.label}
+                          href={sub.href!}
+                          onClick={() => handleClick(sub.label)}
+                          className={`block text-sm px-3 py-2 rounded-md transition
+                          ${active === sub.label
+                              ? "bg-orange-100 text-orange-600 font-medium"
+                              : "text-gray-600 hover:bg-gray-100"
+                            }`}
+                        >
+                          {sub.label}
+                        </Link>
+                      ))}
+
+                    </div>
+                  )}
+                </>
+              ) : (
+                <Link
+                  href={item.href!}
+                  onClick={() => handleClick(item.label)}
+                  className={`flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition
+                  ${active === item.label
+                      ? "bg-orange-100 text-orange-600"
+                      : "hover:bg-gray-100"
+                    }`}
+                >
+                  {item.icon}
+                  {item.label}
+                </Link>
+              )}
+            </div>
+          ))}
+
+        </nav>
       </div>
 
-      <nav className="mt-6 space-y-1">
-        {filteredMenu.map((item) => (
-          <div key={item.label}>
-            {item.subMenu ? (
-              <>
-                <button
-                  onClick={() => toggle(item.label)}
-                  className={`flex items-center justify-between w-full px-4 py-2 hover:bg-orange-100 ${
-                    openMenu === item.label ? "bg-orange-100 text-orange-600" : ""
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    {item.icon}
-                    {item.label}
-                  </div>
-                  <span>{openMenu === item.label ? "▾" : "▸"}</span>
-                </button>
-
-                {openMenu === item.label &&
-                  item.subMenu.map((sub) => (
-                    <Link
-                      key={sub.label}
-                      href={sub.href!}
-                      onClick={() => handleClick(sub.label)}
-                      className={`block pl-12 pr-4 py-2 hover:bg-orange-50 ${
-                        active === sub.label ? "text-orange-600 bg-orange-100" : ""
-                      }`}
-                    >
-                      {sub.label}
-                    </Link>
-                  ))}
-              </>
-            ) : (
-              <Link
-                href={item.href!}
-                onClick={() => handleClick(item.label)}
-                className={`flex items-center gap-3 px-4 py-2 hover:bg-orange-100 ${
-                  active === item.label ? "bg-orange-100 text-orange-600 font-semibold" : ""
-                }`}
-              >
-                {item.icon}
-                {item.label}
-              </Link>
-            )}
-          </div>
-        ))}
-
+      {/* Logout */}
+      <div className="p-4 border-t">
         <button
           onClick={() => (window.location.href = "/login")}
-          className="flex items-center gap-3 px-4 py-2 hover:bg-orange-600 text-orange-500 mt-6"
+          className="flex items-center justify-center gap-2 w-full py-2 rounded-lg
+          text-red-500 hover:bg-red-50 transition font-medium"
         >
           <UserCircle size={18} />
           Logout
         </button>
-      </nav>
+      </div>
     </aside>
   );
 }

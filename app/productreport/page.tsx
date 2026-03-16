@@ -3,6 +3,18 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
+import { 
+  Search, 
+  Download, 
+  RotateCcw, 
+  ChevronLeft, 
+  ChevronRight, 
+  Package, 
+  CheckCircle2, 
+  XCircle,
+  TrendingUp,
+  Filter
+} from "lucide-react";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -37,304 +49,263 @@ export default function ProductReport() {
     fetchProducts();
   }, []);
 
-  /* -------------------------------------------
-     FETCH PRODUCTS + ORDER ITEMS
-  -------------------------------------------- */
   const fetchProducts = async () => {
-  setLoading(true);
+    setLoading(true);
+    try {
+      const { data: productsData, error: productsError } = await supabase
+        .from("products")
+        .select(`
+          id, name, sku, active, shipping_charge, created_at,
+          product_variations!inner(price, stock)
+        `)
+        .order("created_at", { ascending: false });
 
-  try {
-    // 1️⃣ Fetch products with variations
-    const { data: productsData, error: productsError } = await supabase
-      .from("products")
-      .select(`
-        id,
-        name,
-        sku,
-        active,
-        shipping_charge,
-        created_at,
-        has_variation,
-        product_variations!inner(price, stock)
-      `)
-      .order("created_at", { ascending: false });
+      if (productsError) throw productsError;
 
-    if (productsError) throw productsError;
+      const { data: orderItems, error: orderItemsError } = await supabase
+        .from("order_items")
+        .select("order_id, product_id, quantity, price");
 
-    // 2️⃣ Fetch order items with order_id
-    const { data: orderItems, error: orderItemsError } = await supabase
-      .from("order_items")
-      .select("order_id, product_id, quantity, price");
+      if (orderItemsError) throw orderItemsError;
 
-    if (orderItemsError) throw orderItemsError;
+      const orderCountMap: Record<number, Set<number>> = {};
+      const revenueMap: Record<number, number> = {};
 
-    // 3️⃣ Compute totals
-    const orderCountMap: Record<number, Set<number>> = {}; // product_id -> set of unique order_ids
-    const revenueMap: Record<number, number> = {}; // product_id -> total revenue
+      orderItems?.forEach((item: any) => {
+        const pid = Number(item.product_id);
+        if (!orderCountMap[pid]) orderCountMap[pid] = new Set();
+        orderCountMap[pid].add(Number(item.order_id));
+        revenueMap[pid] = (revenueMap[pid] || 0) + (Number(item.price) * Number(item.quantity));
+      });
 
-    orderItems?.forEach((item: any) => {
-      const pid = Number(item.product_id);
-      const orderId = Number(item.order_id);
-      const qty = Number(item.quantity);
-      const price = Number(item.price);
+      const mapped: Product[] = (productsData as any[]).map((p) => {
+        const variation = p.product_variations?.[0];
+        return {
+          id: p.id,
+          name: p.name,
+          sku: p.sku,
+          active: p.active,
+          price: variation?.price ?? null,
+          stock: variation?.stock ?? null,
+          shipping_charge: p.shipping_charge ?? 0,
+          total_orders: orderCountMap[p.id]?.size ?? 0,
+          total_revenue: revenueMap[p.id] ?? 0,
+          created_at: p.created_at,
+        };
+      });
 
-      // Track unique orders
-      if (!orderCountMap[pid]) orderCountMap[pid] = new Set();
-      orderCountMap[pid].add(orderId);
-
-      // Track revenue
-      revenueMap[pid] = (revenueMap[pid] || 0) + price * qty;
-    });
-
-    // 4️⃣ Map products with variations, totals, revenue
-    const mapped: Product[] = (productsData as any[]).map((p) => {
-      const variation = p.product_variations?.[0]; // use first variation if exists
-      return {
-        id: p.id,
-        name: p.name,
-        sku: p.sku,
-        price: variation?.price ?? null,
-        stock: variation?.stock ?? null,
-        active: p.active,
-        shipping_charge: p.shipping_charge ?? 0,
-        total_orders: orderCountMap[p.id]?.size ?? 0, // number of unique orders
-        total_revenue: revenueMap[p.id] ?? 0, // total revenue
-        created_at: p.created_at,
-      };
-    });
-
-    setProducts(mapped);
-    applyFilters(mapped);
-  } catch (error) {
-    console.error("Fetch error:", error);
-    setProducts([]);
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-  /* -------------------------------------------
-     FILTER + SORT
-  -------------------------------------------- */
-  const applyFilters = (sourceProducts?: Product[]) => {
-    let temp = sourceProducts ? [...sourceProducts] : [...products];
-
-    if (search.trim() !== "") {
-      const s = search.toLowerCase();
-      temp = temp.filter(
-        (p) =>
-          p.name.toLowerCase().includes(s) || p.sku.toLowerCase().includes(s)
-      );
+      setProducts(mapped);
+      setFilteredProducts(mapped);
+    } catch (error) {
+      console.error("Fetch error:", error);
+    } finally {
+      setLoading(false);
     }
+  };
 
+  const handleSearchAndSort = () => {
+    let temp = [...products];
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      temp = temp.filter(p => p.name.toLowerCase().includes(s) || p.sku.toLowerCase().includes(s));
+    }
     temp.sort((a, b) => {
-      if (sortBy === "created_at")
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      if (sortBy === "price") return (b.price || 0) - (a.price || 0);
-      if (sortBy === "stock") return (b.stock || 0) - (a.stock || 0);
-      if (sortBy === "total_orders") return b.total_orders - a.total_orders;
-      if (sortBy === "total_revenue") return b.total_revenue - a.total_revenue;
-      return 0;
+      if (sortBy === "created_at") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return (b[sortBy] as number || 0) - (a[sortBy] as number || 0);
     });
-
     setFilteredProducts(temp);
     setCurrentPage(1);
   };
 
-  const clearFilters = () => {
-    setSearch("");
-    setSortBy("created_at");
-    applyFilters(products);
-  };
+  useEffect(() => { handleSearchAndSort(); }, [search, sortBy, products]);
 
-  /* -------------------------------------------
-     PAGINATION
-  -------------------------------------------- */
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-  const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  /* -------------------------------------------
-     EXPORT TO EXCEL
-  -------------------------------------------- */
   const exportToExcel = () => {
     const worksheet = XLSX.utils.json_to_sheet(filteredProducts);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
-    XLSX.writeFile(workbook, "products.xlsx");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "ProductReport");
+    XLSX.writeFile(workbook, "product_report.xlsx");
   };
 
-  if (loading)
-    return (
-      <p className="text-center mt-10 text-gray-600 font-medium">
-        Loading products...
-      </p>
-    );
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const paginatedItems = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
+      <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-100 border-t-orange-600"></div>
+      <p className="text-orange-600 font-bold uppercase tracking-widest text-xs">Analyzing Inventory...</p>
+    </div>
+  );
 
   return (
-    <div className="p-6 bg-white min-h-screen">
-      <h1 className="text-3xl font-bold mb-3">Product Report</h1>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card title="Total Products" value={products.length} color="blue" />
-        <Card title="Active Products" value={products.filter((p) => p.active).length} color="green" />
-        <Card title="Inactive Products" value={products.filter((p) => !p.active).length} color="red" />
-      </div>
-
-      {/* Search, Sort, Export */}
-      <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-4">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name or SKU"
-          className="border rounded px-3 py-2 w-[800px] focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as any)}
-          className="border rounded px-3 py-2"
-        >
-          <option value="created_at">Sort by Created Date</option>
-          <option value="price">Sort by Price</option>
-          <option value="stock">Sort by Stock</option>
-          <option value="total_orders">Sort by Orders</option>
-          <option value="total_revenue">Sort by Revenue</option>
-        </select>
-
-        <button
-          onClick={clearFilters}
-          className="bg-gray-200 text-black px-3 py-2 rounded border "
-        >
-          Clear Filter
-        </button>
-
-        <button
-          onClick={exportToExcel}
-          className="bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600"
-        >
-          Export to Excel
-        </button>
-      </div>
-
-      {/* TABLE */}
-      <div className="overflow-x-auto bg-white shadow rounded-lg">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-100">
-            <tr>
-              <Th>ID</Th>
-              <Th>Name</Th>
-              <Th>SKU</Th>
-              <Th>Price</Th>
-              <Th>Stock</Th>
-              <Th>Shipping</Th>
-              <Th>Status</Th>
-              <Th>Created At</Th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {paginatedProducts.map((p) => (
-              <tr key={p.id}>
-                <Td>{p.id}</Td>
-                <Td>{p.name}</Td>
-                <Td>{p.sku}</Td>
-                <Td>{p.price ?? "-"}</Td>
-                <Td>{p.stock ?? "-"}</Td>
-                
-                <Td>{p.shipping_charge === 0 ? "Free" : `₹${p.shipping_charge}`}</Td>
-                <Td className={p.active ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
-                  {p.active ? "Active" : "Inactive"}
-                </Td>
-                <Td>{new Date(p.created_at).toLocaleString()}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      <div className="flex justify-center items-center mt-4 gap-2">
-        <button
-          onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-          disabled={currentPage === 1}
-          className="px-3 py-1 bg-gray-200  rounded disabled:opacity-50"
-        >
-          Prev
-        </button>
-
-        {Array.from({ length: totalPages }).map((_, idx) => (
+    <div className="p-6 md:p-10 bg-gray-50 min-h-screen">
+      <div className="max-w-8xl mx-auto space-y-8">
+        
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
+              <Package className="text-orange-600 w-10 h-10" />
+              Product Insights
+            </h1>
+            <p className="text-gray-500 font-medium mt-1">Real-time performance and inventory tracking.</p>
+          </div>
           <button
-            key={idx + 1}
-            onClick={() => setCurrentPage(idx + 1)}
-            className={`px-3 py-1 rounded ${
-              currentPage === idx + 1
-                ? "bg-gray-200 "
-                : "bg-gray-200 text-gray-700"
-            }`}
+            onClick={exportToExcel}
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-2xl font-bold hover:bg-gray-50 transition-all shadow-sm active:scale-95"
           >
-            {idx + 1}
+            <Download size={18} className="text-orange-600" />
+            Download CSV
           </button>
-        ))}
+        </div>
 
-        <button
-          onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-          disabled={currentPage === totalPages}
-          className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
-        >
-          Next
-        </button>
+        {/* Analytics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <StatCard title="Total Skus" value={products.length} icon={<Package size={20}/>} color="orange" />
+          <StatCard title="Active Items" value={products.filter(p => p.active).length} icon={<CheckCircle2 size={20}/>} color="green" />
+          <StatCard title="Out of Stock" value={products.filter(p => (p.stock || 0) <= 0).length} icon={<XCircle size={20}/>} color="red" />
+          <StatCard title="Total Revenue" value={`₹${products.reduce((acc, curr) => acc + curr.total_revenue, 0).toLocaleString()}`} icon={<TrendingUp size={20}/>} color="orange" />
+        </div>
+
+        {/* Filter Bar */}
+        <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex flex-col lg:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="Search by name or SKU..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-600/20 outline-none transition font-medium"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative">
+              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="pl-10 pr-8 py-3 bg-gray-50 border-none rounded-2xl outline-none font-bold text-sm text-gray-600 appearance-none cursor-pointer hover:bg-gray-100 transition"
+              >
+                <option value="created_at">Sort: Newest</option>
+                <option value="price">Sort: Price</option>
+                <option value="stock">Sort: Stock</option>
+                <option value="total_orders">Sort: Popularity</option>
+                <option value="total_revenue">Sort: Revenue</option>
+              </select>
+            </div>
+            <button
+              onClick={() => { setSearch(""); setSortBy("created_at"); }}
+              className="p-3 bg-gray-100 text-gray-500 rounded-2xl hover:bg-orange-100 hover:text-orange-600 transition-colors"
+            >
+              <RotateCcw size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* Data Table */}
+        <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-gray-50/50 border-b border-gray-100">
+                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400">Product Info</th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400">Inventory</th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400">Performance</th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400">Status</th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400 text-right">Added</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {paginatedItems.map((p) => (
+                  <tr key={p.id} className="group hover:bg-orange-50/20 transition-colors">
+                    <td className="px-8 py-6">
+                      <div className="font-bold text-gray-900 group-hover:text-orange-600 transition-colors">{p.name}</div>
+                      <div className="text-[10px] font-black text-gray-400 uppercase mt-1 tracking-tighter">SKU: {p.sku}</div>
+                    </td>
+                    <td className="px-8 py-6">
+                      <div className="text-sm font-bold text-gray-700">₹{p.price?.toLocaleString() || "-"}</div>
+                      <div className={`text-[10px] font-bold mt-1 ${ (p.stock || 0) < 5 ? 'text-red-500' : 'text-gray-400'}`}>
+                        STOCK: {p.stock ?? "0"}
+                      </div>
+                    </td>
+                    <td className="px-8 py-6">
+                      <div className="text-xs font-bold text-gray-800">{p.total_orders} Orders</div>
+                      <div className="text-[10px] font-bold text-green-600 mt-1 uppercase tracking-tighter">
+                        Rev: ₹{p.total_revenue.toLocaleString()}
+                      </div>
+                    </td>
+                    <td className="px-8 py-6">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border ${
+                        p.active ? "bg-green-50 text-green-700 border-green-100" : "bg-red-50 text-red-700 border-red-100"
+                      }`}>
+                        {p.active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td className="px-8 py-6 text-right">
+                      <div className="text-xs font-bold text-gray-400">{new Date(p.created_at).toLocaleDateString()}</div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-6">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              className="p-3 bg-white border border-gray-200 rounded-xl disabled:opacity-30 hover:bg-orange-50 transition shadow-sm"
+            >
+              <ChevronLeft size={18} className="text-orange-600" />
+            </button>
+            <div className="flex gap-1">
+              {[...Array(totalPages)].map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`w-10 h-10 rounded-xl text-xs font-black transition-all ${
+                    currentPage === i + 1 
+                    ? "bg-orange-600 text-white shadow-lg shadow-orange-100" 
+                    : "bg-white text-gray-500 hover:bg-gray-50 border border-gray-100"
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="p-3 bg-white border border-gray-200 rounded-xl disabled:opacity-30 hover:bg-orange-50 transition shadow-sm"
+            >
+              <ChevronRight size={18} className="text-orange-600" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-/* -------------------------------------------
-   REUSABLE COMPONENTS
--------------------------------------------- */
+function StatCard({ title, value, icon, color }: { title: string; value: string | number; icon: React.ReactNode; color: string }) {
+  const themes: Record<string, string> = {
+    orange: "bg-orange-50 text-orange-600 border-orange-100",
+    green: "bg-green-50 text-green-600 border-green-100",
+    red: "bg-red-50 text-red-600 border-red-100",
+  };
 
-function Th({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
   return (
-    <th
-      className={`px-4 py-2 text-left text-sm font-semibold text-gray-700 ${className}`}
-    >
-      {children}
-    </th>
-  );
-}
-
-
-function Td({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <td className={`px-4 py-2 text-sm text-gray-700 ${className}`}>
-      {children}
-    </td>
-  );
-}
-
-
-function Card({ title, value, color }: { title: string; value: number; color: string }) {
-  const bgClass = `bg-${color}-100`;
-  const textClass = `text-${color}-700`;
-  return (
-    <div className={`${bgClass} p-4 rounded shadow`}>
-      <p className="text-sm font-medium text-gray-600">{title}</p>
-      <p className={`text-2xl font-bold ${textClass}`}>{value.toLocaleString()}</p>
+    <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex items-center gap-5">
+      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${themes[color]}`}>
+        {icon}
+      </div>
+      <div>
+        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{title}</p>
+        <p className="text-xl font-black text-gray-900 tracking-tight">{value}</p>
+      </div>
     </div>
   );
 }

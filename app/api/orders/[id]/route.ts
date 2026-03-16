@@ -1,150 +1,74 @@
-// /app/api/orders/[id]/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import supabase from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
 
-// Define cart item structure
-interface CartItem {
-  productId: string | number;
-  name: string;
-  variationId?: string | number;
-  variationName?: string;
-  quantity: number;
-  price: number;
-  image?: string;
+// Validate environment variables
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error("Missing Supabase environment variables");
 }
 
-// Define POST body
-interface OrderRequestBody {
-  cart: CartItem[];
-  shippingDetails: any;
-  paymentMethod: string;
-  totals: any;
-  orderDate: string;
-  userId?: string;
-}
+// Create Supabase admin client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
-// POST: Create a new order
-export async function POST(req: NextRequest) {
+// Disable caching so payment status / order updates are always fresh
+export const dynamic = "force-dynamic";
+
+export async function GET(
+  req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
-    const data = (await req.json()) as OrderRequestBody;
-    const { cart, shippingDetails, paymentMethod, totals, orderDate, userId } = data;
+    // Next.js 15/16 params fix
+    const { id } = await context.params;
 
-    // 1️⃣ Fetch user email if userId is provided
-    let userEmail = "";
-    if (userId) {
-      const { data: userData, error: userError } = await supabase
-        .from("auth.users")
-        .select("email")
-        .eq("id", userId)
-        .single();
-      if (!userError && userData) userEmail = userData.email;
+    if (!id) {
+      return NextResponse.json(
+        { error: "Order ID is required" },
+        { status: 400 }
+      );
     }
-
-    // 2️⃣ Insert order
-    const { data: orderData, error: orderError } = await supabase
-      .from("orders")
-      .insert([
-        {
-          user_id: userId || null,
-          full_name: shippingDetails.fullName,
-          phone_number: shippingDetails.phoneNumber,
-          alt_phone_number: shippingDetails.altPhoneNumber,
-          house_number: shippingDetails.houseNumber,
-          street: shippingDetails.street,
-          city: shippingDetails.city,
-          state: shippingDetails.state,
-          pincode: shippingDetails.pincode,
-          payment_method: paymentMethod,
-          total_price: totals.totalPrice,
-          shipping_cost: totals.shippingCost,
-          tax_amount: totals.taxAmount,
-          grand_total: totals.grandTotal,
-          order_date: orderDate,
-        },
-      ])
-      .select()
-      .single();
-
-    if (orderError || !orderData) throw orderError || new Error("Failed to create order");
-
-    const orderId = orderData.id; // UUID safe, keep as string
-
-    // 3️⃣ Insert order items
-    const orderItems = cart.map((item: CartItem) => ({
-      order_id: orderId,
-      product_id: item.productId,
-      product_name: item.name,
-      variation_id: item.variationId,
-      variation_name: item.variationName,
-      quantity: item.quantity,
-      price: item.price,
-      image: item.image,
-    }));
-
-    const { error: itemsError } = await supabase.from("order_items").insert(orderItems);
-    if (itemsError) throw itemsError;
-
-    // 4️⃣ Return order with items
-    return NextResponse.json({
-      message: "Order placed successfully",
-      order: {
-        ...orderData,
-        email: userEmail,
-        cart_items: orderItems,
-      },
-    });
-  } catch (err: any) {
-    console.error("POST /orders error:", err);
-    return NextResponse.json({ error: err.message || "Error placing order" }, { status: 500 });
-  }
-}
-
-// GET: Fetch a single order by ID
-export async function GET(req: NextRequest) {
-  try {
-    const orderId = req.nextUrl.pathname.split("/").filter(Boolean).pop();
-    if (!orderId) return NextResponse.json({ error: "Order ID missing" }, { status: 400 });
 
     // Fetch order
-    const { data: orderData, error: orderError } = await supabase
+    const { data, error } = await supabase
       .from("orders")
       .select("*")
-      .eq("id", orderId)
+      .eq("id", id)
       .single();
-    if (orderError || !orderData) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
-    // Fetch user email if exists
-    let email = "";
-    if (orderData.user_id) {
-      const { data: userData } = await supabase
-        .from("auth.users")
-        .select("email")
-        .eq("id", orderData.user_id)
-        .single();
-      if (userData) email = userData.email;
+    if (error) {
+      console.error("Supabase error:", error);
+
+      return NextResponse.json(
+        { error: "Failed to fetch order" },
+        { status: 500 }
+      );
     }
 
-    // Fetch items linked to this order
-    const { data: items } = await supabase
-      .from("order_items")
-      .select("*")
-      .eq("order_id", orderData.id);
+    if (!data) {
+      return NextResponse.json(
+        { error: "Order not found" },
+        { status: 404 }
+      );
+    }
 
-    const cart_items = items?.map((item) => ({
-      id: item.id,
-      productId: item.product_id,
-      name: item.product_name,
-      variation_name: item.variation_name,
-      quantity: item.quantity,
-      price: item.price,
-      image: item.image,
-    })) || [];
+    return NextResponse.json(
+      { order: data },
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store", // prevent stale order data
+        },
+      }
+    );
 
-    return NextResponse.json({
-      order: { ...orderData, email, cart_items },
-    });
   } catch (err: any) {
-    console.error("GET /orders error:", err);
-    return NextResponse.json({ error: err.message || "Unexpected error" }, { status: 500 });
+    console.error("API error:", err);
+
+    return NextResponse.json(
+      { error: err.message || "Unexpected server error" },
+      { status: 500 }
+    );
   }
 }

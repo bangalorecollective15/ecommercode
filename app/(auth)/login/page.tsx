@@ -76,6 +76,7 @@ export default function Login() {
         .eq("email", email)
         .single();
 
+      console.log(data, error);
       if (error || !data) {
         toast.error("Invalid credentials");
         return;
@@ -171,9 +172,8 @@ export default function Login() {
                     {passwordRules.map((rule, index) => (
                       <li
                         key={index}
-                        className={`flex gap-2 ${
-                          rule.valid ? "text-green-600" : "text-red-600"
-                        }`}
+                        className={`flex gap-2 ${rule.valid ? "text-green-600" : "text-red-600"
+                          }`}
                       >
                         {rule.valid ? "✔️" : "❌"} {rule.label}
                       </li>

@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { createClient } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation"; // Next.js 13+ router
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowUpRight, LayoutGrid, Sparkles } from "lucide-react";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,6 +14,7 @@ const supabase = createClient(
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -24,73 +27,114 @@ export default function CategoriesPage() {
 
       if (error) {
         console.error(error);
-        return;
+      } else {
+        setCategories(data || []);
       }
-
-      setCategories(data || []);
+      setLoading(false);
     }
 
     fetchCategories();
   }, []);
 
-  const handleCategoryClick = (categoryId: number) => {
-    // Navigate to products page for this category
-    router.push(`/userinterface/category/${categoryId}`);
-  };
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center bg-[#FAFAFA]">
+      <div className="w-8 h-8 border-2 border-slate-200 border-t-orange-600 rounded-full animate-spin" />
+    </div>
+  );
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      {/* Hero Section */}
-      <section className="relative bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-600 text-white py-28 px-6 text-center">
-        <h1 className="text-5xl md:text-6xl font-bold mb-4">
-          Discover Our Categories
-        </h1>
-        <p className="text-lg md:text-xl mb-6">
-          Browse our wide range of authentic products tailored just for you
-        </p>
+    <div className="bg-[#FAFAFA] min-h-screen text-slate-900 selection:bg-orange-100 pb-32">
+
+      {/* 1. COMPACT HERO SECTION - Reduced padding from pt-32 to pt-10 */}
+      <section className="relative pt-10 pb-10 px-6 lg:px-12 max-w-[1400px] mx-auto">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-slate-200 pb-12">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="h-[1px] w-12 bg-orange-600"></span>
+              <span className="text-[10px] font-black uppercase tracking-[0.5em] text-orange-600">Signature Collections</span>
+            </div>
+            <h1 className="text-[clamp(3rem,10vw,7rem)] font-black leading-[0.8] tracking-tighter">
+              Our Categories
+            </h1>
+          </div>
+
+          <div className="max-w-xs md:pb-2">
+            <p className="text-slate-500 text-[13px] font-medium leading-relaxed mb-4">
+              Explore our curated selection of authentic, homemade treasures.
+            </p>
+            <div className="flex items-center gap-4 text-slate-400">
+              <LayoutGrid size={18} />
+              <span className="text-[9px] font-black uppercase tracking-widest">Grid View Enabled</span>
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* Categories Grid */}
-      <section className="px-6 lg:px-12 py-16">
-        <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">
-          Explore Categories
-        </h2>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-12 justify-items-center">
+      {/* 2. CATEGORIES GRID SECTION - Adjusted mt-20 to mt-12 */}
+      <section className="px-6 lg:px-12 max-w-[1400px] mx-auto mt-12">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-16">
           {categories.map((category: any) => (
+            // Find this line in your CategoriesPage
             <div
               key={category.id}
-              className="flex flex-col items-center group cursor-pointer"
-              onClick={() => handleCategoryClick(category.id)}
+              className="group relative cursor-pointer"
+              // UPDATE THIS LINE:
+              onClick={() => router.push(`/userinterface/Gproducts?category_id=${category.id}`)}
             >
               {/* Circle Card */}
-              <div className="relative w-56 h-56 rounded-full overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300">
+              <div className="relative aspect-square rounded-full overflow-hidden bg-white border border-slate-100 shadow-sm transition-all duration-700 group-hover:shadow-2xl group-hover:shadow-orange-900/10 group-hover:-translate-y-2">
                 {category.image_url ? (
                   <Image
                     src={category.image_url}
                     alt={category.name}
-                    width={224}
-                    height={224}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 rounded-full"
+                    fill
+                    className="object-cover transition-transform duration-1000 group-hover:scale-110 group-hover:rotate-2"
                   />
                 ) : (
-                  <div className="w-full h-full bg-gray-200 rounded-full flex items-center justify-center text-gray-500">
-                    No Image
+                  <div className="w-full h-full flex items-center justify-center bg-slate-50 text-slate-300">
+                    <Sparkles size={32} strokeWidth={1} />
                   </div>
                 )}
 
+                {/* Popular Badge */}
                 {category.is_popular && (
-                  <span className="absolute top-3 right-3 bg-orange-500 text-white text-sm font-semibold px-3 py-1 rounded-full shadow-md">
-                    Popular
-                  </span>
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-slate-900/10 backdrop-blur-[2px]">
+                    <span className="bg-white/90 backdrop-blur-md text-slate-900 text-[9px] font-black uppercase tracking-widest px-4 py-2 rounded-full shadow-xl">
+                      Popular Choice
+                    </span>
+                  </div>
                 )}
               </div>
 
-              <h3 className="mt-4 text-lg font-semibold text-gray-900 text-center">
-                {category.name}
-              </h3>
+              {/* Text Information */}
+              <div className="mt-6 text-center space-y-1">
+                <div className="flex items-center justify-center gap-2">
+                  <h3 className="text-lg font-black tracking-tighter group-hover:text-orange-600 transition-colors">
+                    {category.name}
+                  </h3>
+                  <ArrowUpRight size={14} className="text-slate-300 group-hover:text-orange-600 group-hover:translate-x-1 group-hover:-translate-y-1 transition-all" />
+                </div>
+                <p className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-400">
+                  Browse Collection
+                </p>
+              </div>
+
+              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-[2px] bg-orange-600 group-hover:w-8 transition-all duration-500" />
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* 3. CALL TO ACTION FOOTER */}
+      <section className="mt-24 px-6 text-center">
+        <div className="bg-slate-900 py-16 rounded-[2.5rem] mx-auto max-w-5xl text-white relative overflow-hidden">
+          <div className="relative z-10 px-6">
+            <h2 className="text-3xl font-black tracking-tighter mb-6 leading-tight">Can't find what you're looking for?</h2>
+            <Link href="/userinterface/shop" className="inline-flex items-center gap-4 bg-orange-600 px-8 py-4 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-orange-600 transition-all shadow-2xl active:scale-95">
+              View All Products <ArrowUpRight size={16} />
+            </Link>
+          </div>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-orange-600/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
         </div>
       </section>
     </div>

@@ -1,52 +1,37 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import JsBarcode from "jsbarcode";
 import { useReactToPrint } from "react-to-print";
 import { createClient } from "@supabase/supabase-js";
+import { ArrowLeft, Printer, RotateCcw, LayoutGrid, Tag } from "lucide-react";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-interface Product {
-  id: number;
-  name: string;
-  sku: string;
-  has_variation?: boolean;
-  stock?: number;
-  unit_type?: string;
-}
-
-interface ProductVariation {
-  id: number;
-  product_id: number;
-  unit_type: string;
-  price: number;
-  stock: number;
-  sku?: string;
-}
-
 export default function BarcodePage() {
   const params = useParams();
   const productId = Number(params.id);
   const router = useRouter();
 
-  const [product, setProduct] = useState<Product | null>(null);
-  const [variations, setVariations] = useState<ProductVariation[]>([]);
-  const [selectedVariation, setSelectedVariation] = useState<ProductVariation | null>(null);
+  const [product, setProduct] = useState<any>(null);
+  const [variations, setVariations] = useState<any[]>([]);
+  const [selectedVariation, setSelectedVariation] = useState<any>(null);
   const [qty, setQty] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [generatedItems, setGeneratedItems] = useState<any[]>([]);
 
-  const previewRef = useRef<HTMLDivElement>(null);     // Visible grid
-  const printAreaRef = useRef<HTMLDivElement>(null);   // Hidden print content
+  const printAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchProductAndVariations();
   }, [productId]);
 
   const fetchProductAndVariations = async () => {
+    setLoading(true);
     const { data: productData } = await supabase
       .from("products")
       .select("*")
@@ -55,7 +40,6 @@ export default function BarcodePage() {
 
     if (productData) {
       setProduct(productData);
-
       const { data: variationData } = await supabase
         .from("product_variations")
         .select("*")
@@ -64,190 +48,185 @@ export default function BarcodePage() {
       if (variationData && variationData.length > 0) {
         setVariations(variationData);
         setSelectedVariation(variationData[0]);
-      } else {
-        setVariations([]);
-        setSelectedVariation(null);
       }
     }
+    setLoading(false);
   };
 
-  const generateBarcode = useCallback(() => {
-    if (!previewRef.current || !product) return;
+  // Generate barcodes in the state rather than manual DOM manipulation
+  const generateBarcodeItems = () => {
+    const items = Array.from({ length: qty }).map((_, index) => ({
+      id: `${selectedVariation?.id || product.id}-${index}`,
+      name: product.name,
+      sku: selectedVariation?.sku || product.sku || `PROD-${product.id}`,
+      unit: selectedVariation?.unit_value || product.unit_type || "Unit",
+    }));
+    setGeneratedItems(items);
+  };
 
-    previewRef.current.innerHTML = "";
-    printAreaRef.current!.innerHTML = "";
-
-    const itemName = product.name;
-    const unitType = selectedVariation?.unit_type ?? product.unit_type ?? "";
-    const skuValue = selectedVariation?.sku ?? product.sku ?? String(product.id);
-
-    for (let i = 0; i < qty; i++) {
-      const createLabel = () => {
-        const wrapper = document.createElement("div");
-        wrapper.className =
-          "label-box p-4 border border-gray-300 rounded-lg shadow-sm bg-white text-center flex flex-col justify-center";
-
-        const brand = document.createElement("div");
-        brand.textContent = "Swaadha";
-        brand.className = "font-bold text-base text-gray-800";
-
-        const name = document.createElement("div");
-        name.textContent = itemName;
-        name.className = "text-sm text-gray-700 mt-1";
-
-        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        JsBarcode(svg, skuValue, {
-          format: "CODE128",
-          displayValue: false,
-          width: 2,
-          height: 50,
-          margin: 5,
-        });
-        svg.style.display = "block";
-        svg.style.margin = "0 auto";
-        svg.style.width = "50%";
-        svg.style.height = "50px";
-
-        const codeText = document.createElement("div");
-        codeText.textContent = ` ${skuValue}`;
-        codeText.className = "text-xs mt-2 font-mono text-gray-500";
-
-        const stockInfo = document.createElement("div");
-        stockInfo.textContent = ` ${unitType}`;
-        stockInfo.className = "text-xs mt-2 text-gray-600";
-
-        wrapper.appendChild(brand);
-        wrapper.appendChild(name);
-        wrapper.appendChild(svg);
-        wrapper.appendChild(codeText);
-        wrapper.appendChild(stockInfo);
-
-        return wrapper;
-      };
-
-      previewRef.current.appendChild(createLabel().cloneNode(true));
-      printAreaRef.current!.appendChild(createLabel());
+  // Re-run JsBarcode whenever generatedItems changes
+  useEffect(() => {
+    if (generatedItems.length > 0) {
+      generatedItems.forEach((item) => {
+        const el = document.getElementById(`barcode-${item.id}`);
+        if (el) {
+          JsBarcode(el, item.sku, {
+            format: "CODE128",
+            displayValue: true,
+            fontSize: 12,
+            width: 1.5,
+            height: 40,
+            margin: 0,
+          });
+        }
+      });
     }
-  }, [product, selectedVariation, qty]);
+  }, [generatedItems]);
 
-  // NEW react-to-print API
-const handlePrint = useReactToPrint({
-  contentRef: printAreaRef,
-  documentTitle: `${product?.name}_barcodes`,
-});
+  const handlePrint = useReactToPrint({
+    contentRef: printAreaRef,
+    documentTitle: `${product?.name}_Barcodes`,
+  });
 
-
-const printWithGenerate = async () => {
-  generateBarcode();
-  await new Promise((resolve) => setTimeout(resolve, 300)); // ensure SVG renders
-
-  if (!printAreaRef.current || printAreaRef.current.innerHTML.trim() === "") {
-    console.error("Print area is empty.");
-    return;
-  }
-
-  handlePrint();
-};
- const handleReset = () => {
-    previewRef.current!.innerHTML = "";
-    printAreaRef.current!.innerHTML = "";
+  const handleReset = () => {
+    setGeneratedItems([]);
     setQty(1);
   };
 
-
-
-  const handleQtyChange = (value: number) => {
-    if (!product) return;
-    const maxQty = selectedVariation?.stock ?? product.stock ?? 1;
-    setQty(Math.max(1, Math.min(value, maxQty)));
-  };
-
-  if (!product)
-    return <p className="text-center mt-10 text-gray-500">Loading...</p>;
+  if (loading) return (
+    <div className="flex justify-center items-center h-screen">
+      <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-100 border-t-orange-600"></div>
+    </div>
+  );
 
   return (
-    <div className="p-6 bg-white w-full flex flex-col items-start space-y-6">
-      <h1 className="text-3xl font-bold">Barcode Generator</h1>
-
-      <button
-        onClick={() => router.back()}
-        className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition"
-      >
-        ← Back
-      </button>
-
-      <div className="bg-white p-4 rounded-lg shadow-md w-full flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <p className="text-gray-800 font-semibold">{product.name}</p>
-          <p className="text-gray-500">
-            Stock Quantity: {selectedVariation?.stock ?? product.stock} | Unit:{" "}
-            {selectedVariation?.unit_type ?? product.unit_type}
-          </p>
+    <div className="min-h-screen bg-gray-50/50 p-6 md:p-10">
+      <div className="max-w-8xl mx-auto space-y-6">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-2 text-gray-500 hover:text-orange-600 font-bold transition-all group"
+          >
+            <ArrowLeft size={20} className="group-hover:-translate-x-1" />
+            <span className="uppercase tracking-widest text-xs">Back to Product</span>
+          </button>
+          <h1 className="text-2xl font-black text-gray-900 uppercase tracking-tighter">Barcode Generator</h1>
         </div>
 
-        {variations.length > 0 && (
-          <div>
-            <label className="text-gray-700 font-medium mr-2">Variation:</label>
-            <select
-              value={selectedVariation?.id || ""}
-              onChange={(e) => {
-                const variation = variations.find((v) => v.id === Number(e.target.value)) || null;
-                setSelectedVariation(variation);
-                handleQtyChange(1);
-              }}
-              className="border p-2 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            >
-              {variations.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.unit_type} - Rs {v.price.toFixed(2)}
-                </option>
-              ))}
-            </select>
+        {/* Configuration Card */}
+        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 grid grid-cols-1 lg:grid-cols-3 gap-6 items-end">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest px-1">Product Details</label>
+            <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100">
+              <p className="font-bold text-gray-800">{product.name}</p>
+              <p className="text-xs text-gray-500">Master SKU: {product.sku}</p>
+            </div>
           </div>
-        )}
 
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            min={1}
-            max={selectedVariation?.stock ?? product.stock ?? 1}
-            value={qty}
-            onChange={(e) => handleQtyChange(Number(e.target.value))}
-            className="border p-2 rounded w-24 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          />
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest px-1">Select Variation & Qty</label>
+            <div className="flex gap-2">
+              <select
+                value={selectedVariation?.id || ""}
+                onChange={(e) => setSelectedVariation(variations.find(v => v.id === Number(e.target.value)))}
+                className="flex-1 bg-gray-50 border border-gray-100 p-3 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-orange-500 outline-none"
+              >
+                {variations.map((v) => (
+                  <option key={v.id} value={v.id}>{v.unit_type} ({v.unit_value})</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min={1}
+                value={qty}
+                onChange={(e) => setQty(Number(e.target.value))}
+                className="w-20 bg-gray-50 border border-gray-100 p-3 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-orange-500 outline-none text-center"
+              />
+            </div>
+          </div>
 
-          <button
-            onClick={generateBarcode}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-          >
-            Generate
-          </button>
-
-          <button
-            onClick={handleReset}
-            className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition"
-          >
-            Reset
-          </button>
-
-          <button
-            onClick={printWithGenerate}
-            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
-          >
-            Print
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={generateBarcodeItems}
+              className="flex-1 bg-orange-600 text-white font-bold py-3 rounded-2xl hover:bg-orange-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-100"
+            >
+              <LayoutGrid size={18} /> Generate
+            </button>
+            <button
+              onClick={handleReset}
+              className="p-3 bg-gray-100 text-gray-500 rounded-2xl hover:bg-gray-200 transition-all"
+            >
+              <RotateCcw size={18} />
+            </button>
+            <button
+              disabled={generatedItems.length === 0}
+              onClick={() => handlePrint()}
+              className="flex-1 bg-green-600 disabled:bg-gray-200 text-white font-bold py-3 rounded-2xl hover:bg-green-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-green-100"
+            >
+              <Printer size={18} /> Print
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* --- VISIBLE PREVIEW GRID --- */}
-      <div
-        ref={previewRef}
-        className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 justify-items-center"
-      ></div>
+        {/* Preview Area */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="h-1 flex-1 bg-gray-100 rounded-full"></div>
+            <span className="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em]">Preview Area</span>
+            <div className="h-1 flex-1 bg-gray-100 rounded-full"></div>
+          </div>
 
-      {/* --- HIDDEN PRINT AREA (100% PRINT SAFE) --- */}
-      <div className="hidden">
-        <div ref={printAreaRef}></div>
+          {generatedItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-gray-300 space-y-2">
+              <Tag size={48} strokeWidth={1} />
+              <p className="text-sm font-medium tracking-widest uppercase">No Barcodes Generated</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {generatedItems.map((item) => (
+                <div key={item.id} className="bg-white p-4 rounded-3xl border border-gray-100 flex flex-col items-center shadow-sm">
+                   <p className="text-[10px] font-black text-orange-600 uppercase mb-1">Swaadha</p>
+                   <p className="text-[10px] font-bold text-gray-800 text-center mb-2 truncate w-full">{item.name}</p>
+                   <svg id={`barcode-${item.id}`} className="max-w-full"></svg>
+                   <p className="text-[9px] font-bold text-gray-400 mt-2 uppercase tracking-widest">{item.unit}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Hidden Print Area */}
+        <div className="hidden">
+          <div ref={printAreaRef} className="print-container">
+            <style>{`
+              @media print {
+                .print-container {
+                  display: grid;
+                  grid-template-columns: repeat(3, 1fr);
+                  gap: 10px;
+                  padding: 10px;
+                }
+                .print-card {
+                  border: 1px solid #eee;
+                  padding: 15px;
+                  text-align: center;
+                  page-break-inside: avoid;
+                }
+              }
+            `}</style>
+            {generatedItems.map((item) => (
+              <div key={`print-${item.id}`} className="print-card">
+                <p style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 5px 0' }}>Swaadha</p>
+                <p style={{ fontSize: '10px', margin: '0 0 5px 0' }}>{item.name}</p>
+                <svg id={`barcode-${item.id}`} style={{ width: '100%' }}></svg>
+                <p style={{ fontSize: '9px', marginTop: '5px' }}>{item.unit}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
       </div>
     </div>
   );

@@ -2,18 +2,32 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    domains: ["mbmnsmzllagmbkvlnfwt.supabase.co"],
+    domains: [
+      "znqknsqwgoqrzoefqrwe.supabase.co",
+      "mbmnsmzllagmbkvlnfwt.supabase.co",
+    ],
+
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-        pathname: '/**',
+        protocol: "https",
+        hostname: "znqknsqwgoqrzoefqrwe.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+      {
+        protocol: "https",
+        hostname: "mbmnsmzllagmbkvlnfwt.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        pathname: "/**",
       },
     ],
   },
-  output: "standalone", // required for Netlify
-  trailingSlash: true,  // helps Netlify routing
-  // experimental.appDir removed
+
+  output: "standalone",
+  trailingSlash: true,
 };
 
 export default nextConfig;

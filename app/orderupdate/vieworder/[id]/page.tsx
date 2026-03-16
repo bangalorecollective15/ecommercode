@@ -2,7 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
+import {
+  Printer,
+  MapPin,
+  User,
+  Phone,
+  Mail,
+  CreditCard,
+  Package,
+  Clock,
+  Calendar,
+  ChevronRight,
+  ShieldCheck
+} from "lucide-react";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,7 +25,7 @@ const supabase = createClient(
 
 interface CartItem {
   id: number;
-  productId: number; // add this if not already present
+  productId: number;
   name: string;
   variation_name?: string;
   quantity: number;
@@ -20,9 +34,8 @@ interface CartItem {
   image?: string;
 }
 
-
 interface Order {
-  id: number;
+  id: string;
   full_name: string;
   phone_number: string;
   alt_phone_number?: string;
@@ -45,498 +58,331 @@ interface Order {
 
 export default function OrderUpdatePage() {
   const pathname = usePathname();
-const segments = pathname.split("/").filter(Boolean);
-const orderId = parseInt(segments[segments.length - 1], 10);
-
-
+  const segments = pathname.split("/").filter(Boolean);
+  const orderId = segments[segments.length - 1];
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // For controlling inputs
   const [orderStatus, setOrderStatus] = useState<string>("pending");
   const [paymentPaid, setPaymentPaid] = useState<boolean>(false);
-  const [shippingMethod, setShippingMethod] = useState<string>("");
-
-  // Update status loading & error
   const [statusUpdating, setStatusUpdating] = useState(false);
-  const [statusUpdateError, setStatusUpdateError] = useState<string | null>(null);
 
   useEffect(() => {
-  async function fetchOrder() {
-    setLoading(true);
-    setError(null);
-
-    if (!orderId || isNaN(orderId)) {
-      setError("Invalid order ID");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/orders/${orderId}`);
-      const result = await res.json();
-
-      console.log("API response:", result); // Debug log
-
-      // Make sure order exists in response
-      if (!result.order) {
-        setError(result.error || "Order not found");
-        setOrder(null);
+    async function fetchOrder() {
+      if (!orderId) {
+        setError("Invalid order ID");
         setLoading(false);
         return;
       }
 
-      const orderData: Order = result.order;
+      try {
+        const res = await fetch(`/api/orders/${orderId}`);
+        const result = await res.json();
 
-      // Ensure cart items have shipping charges if needed
-let items: CartItem[] = Array.isArray(orderData.cart_items) ? orderData.cart_items : [];
-      if (items.length > 0) {
-        const productIds = items.map((item) => item.productId);
-        const { data: productsData, error: productsError } = await supabase
-          .from("products")
-          .select("id, shipping_charge")
-          .in("id", productIds);
+        if (!result.order) {
+          setError(result.error || "Order not found");
+          setLoading(false);
+          return;
+        }
 
-        if (productsError) throw productsError;
+        const orderData: Order = result.order;
+        let items: CartItem[] = Array.isArray(orderData.cart_items) ? orderData.cart_items : [];
 
-        items = items.map((item) => {
-          const product = productsData?.find((p) => p.id === item.productId);
-          return {
-            ...item,
-            shipping_charge: product?.shipping_charge ?? 0,
-          };
-        });
+        if (items.length > 0) {
+          const productIds = items.map((item) => item.productId);
+          const { data: productsData } = await supabase
+            .from("products")
+            .select("id, shipping_charge")
+            .in("id", productIds);
+
+          items = items.map((item) => {
+            const product = productsData?.find((p) => p.id === item.productId);
+            return { ...item, shipping_charge: product?.shipping_charge ?? 0 };
+          });
+        }
+
+        setOrder({ ...orderData, cart_items: items });
+        setOrderStatus(orderData.status);
+        setPaymentPaid(orderData.payment_status === "paid");
+        setLoading(false);
+      } catch (err: any) {
+        setError(err.message || "Unknown error");
+        setLoading(false);
       }
-
-      setOrder({ ...orderData, cart_items: items });
-      setOrderStatus(orderData.status);
-      setPaymentPaid(
-        orderData.payment_method === "paid" ||
-        orderData.payment_status === "paid"
-      );
-      setShippingMethod("");
-      setLoading(false);
-    } catch (err: any) {
-      console.error("Fetch order error:", err);
-      setError(err.message || "Unknown error");
-      setLoading(false);
     }
-  }
+    fetchOrder();
+  }, [orderId]);
 
-  fetchOrder();
-}, [orderId]);
+async function handleStatusChange(newStatus: string) {
+  if (!order) return;
 
+  setStatusUpdating(true);
 
+  const { error } = await supabase
+    .from("orders")
+    .update({ status: newStatus })
+    .eq("id", order.id);
 
-
-
-  // Function to update order status in DB
-  async function handleStatusChange(newStatus: string) {
-    if (!order) return;
+  if (error) {
+    console.error("Status update error:", error);
+  } else {
     setOrderStatus(newStatus);
-    setStatusUpdating(true);
-    setStatusUpdateError(null);
 
-    try {
-      const { error } = await supabase
-        .from("orders")
-        .update({ status: newStatus })
-        .eq("id", order.id);
-
-      if (error) {
-        setStatusUpdateError(error.message);
-        // revert UI status back to previous status on failure
-        setOrderStatus(order.status);
-      } else {
-        // update local order state status on success
-        setOrder((prev) => (prev ? { ...prev, status: newStatus } : prev));
-      }
-    } catch (err: any) {
-      setStatusUpdateError(err.message || "Error updating status");
-      setOrderStatus(order.status);
-    } finally {
-      setStatusUpdating(false);
-    }
+    setOrder(prev =>
+      prev ? { ...prev, status: newStatus } : null
+    );
   }
-  const handlePaymentStatusChange = async (paid: boolean) => {
+
+  setStatusUpdating(false);
+}
+
+  const handlePaymentToggle = async () => {
     if (!order) return;
-
-    const newStatus = paid ? "paid" : "pending";
-
-    const { data, error } = await supabase
-      .from("orders")
-      .update({ payment_status: newStatus })
-      .eq("id", order.id);
-
-    if (error) {
-      setError("Failed to update payment status: " + error.message);
-      setTimeout(() => setError(null), 3000); // 
-    } else {
-      setOrder({ ...order, payment_status: newStatus });
-      setPaymentPaid(paid);
-    }
+    const nextPaidState = !paymentPaid;
+    const { error } = await supabase.from("orders").update({ payment_status: nextPaidState ? "paid" : "pending" }).eq("id", order.id);
+    if (!error) setPaymentPaid(nextPaidState);
   };
 
-
-  // Dummy tax and discount data per item (replace with real if you have)
-  function getItemTax(item: CartItem) {
-    return 0; // example fixed 0
-  }
-  function getItemDiscount(item: CartItem) {
-    return 0.5; // example fixed discount of 0.5 Rs
-  }
-
-  if (loading) return <div className="p-6 bg-white">Loading order #{orderId}...</div>;
-  if (error) return <div className="p-6 text-red-600">Error: {error}</div>;
-  if (!order) return <div className="p-6">No order found</div>;
   const printInvoice = () => {
     if (!order) return;
-
-    // Create HTML content for printing
-    const invoiceContent = `
-    <html>
-      <head>
-        <title>Invoice #${order.id}</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          h2 { text-align: center; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-          th { background-color: #f0f0f0; }
-          .text-right { text-align: right; }
-        </style>
-      </head>
-      <body>
-        <h2>Invoice #${order.id}</h2>
-        <p><strong>Date:</strong> ${new Date(order.order_date).toLocaleString()}</p>
-        <p><strong>Customer:</strong> ${order.full_name}</p>
-        <p><strong>Phone:</strong> ${order.phone_number}</p>
-        <p><strong>Address:</strong> ${order.house_number} ${order.street}, ${order.city}, ${order.pincode}</p>
-
-        <table>
-          <thead>
-            <tr>
-              <th>SL</th>
-              <th>Item</th>
-              <th>Qty</th>
-              <th>Price</th>
-              <th>Shipping</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-  {order.cart_items && order.cart_items.length > 0 ? (
-    order.cart_items.map((item, idx) => {
-      const price = item.price ?? 0;
-      const qty = item.quantity ?? 0;
-      const shipping = item.shipping_charge ?? 0;
-      const tax = getItemTax(item);
-      const discount = getItemDiscount(item);
-      const totalPrice = price * qty + shipping + tax - discount;
-
-      return (
-        <tr key={item.id} className="border-b">
-          <td className="py-2 px-3 align-top">{idx + 1}</td>
-          <td className="py-2 px-3 flex items-start gap-3">
-            {item.image ? (
-              <img src={item.image} alt={item.name} className="w-10 h-10 object-cover rounded" />
-            ) : (
-              <div className="w-10 h-10 bg-gray-200 flex items-center justify-center rounded" />
-            )}
-            <div>
-              <p className="font-semibold">
-                {(item.name ?? "Unnamed Product").length > 20
-                  ? (item.name ?? "Unnamed Product").slice(0, 20) + "..."
-                  : item.name ?? "Unnamed Product"}
-              </p>
-              <p className="text-xs text-gray-500">Qty : {qty}</p>
-              <p className="text-xs text-gray-500">Price : ₹{price.toFixed(2)}</p>
-              {item.variation_name && <p className="text-xs text-gray-500">Variation : {item.variation_name}</p>}
-            </div>
-          </td>
-          <td className="py-2 px-3 text-right align-top">₹{price.toFixed(2)}</td>
-          <td className="py-2 px-3 text-right align-top">₹{shipping.toFixed(2)}</td>
-          <td className="py-2 px-3 text-right align-top">₹{totalPrice.toFixed(2)}</td>
-        </tr>
-      );
-    })
-  ) : (
-    <tr>
-      <td colSpan={5} className="text-center text-gray-400 py-4">
-        No items in this order
-      </td>
-    </tr>
-  )}
-</tbody>
-
-        </table>
-
-        <h3 class="text-right">Grand Total: ₹${order.grand_total.toFixed(2)}</h3>
-      </body>
-    </html>
-  `;
-
-    // Open a new window and print
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    const printWindow = window.open('', '_blank');
     if (printWindow) {
-      printWindow.document.open();
-      printWindow.document.write(invoiceContent);
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Invoice #${order.id}</title>
+            <style>
+              body { font-family: sans-serif; padding: 40px; color: #333; }
+              .header { display: flex; justify-content: space-between; border-bottom: 2px solid #eee; padding-bottom: 20px; }
+              .details { margin: 30px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+              table { width: 100%; border-collapse: collapse; }
+              th { background: #f9f9f9; text-align: left; padding: 12px; border-bottom: 2px solid #eee; }
+              td { padding: 12px; border-bottom: 1px solid #eee; }
+              .total-box { margin-left: auto; width: 250px; margin-top: 30px; }
+              .total-row { display: flex; justify-content: space-between; padding: 8px 0; }
+              .grand-total { font-weight: bold; font-size: 1.2rem; color: #ea580c; border-top: 2px solid #eee; margin-top: 10px; padding-top: 10px; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <div><h1>INVOICE</h1><p>#ORD-${order.id}</p></div>
+              <div style="text-align: right font-weight: bold;">SWAADHA STORE</div>
+            </div>
+            <div class="details">
+              <div><strong>Billed To:</strong><br/>${order.full_name}<br/>${order.house_number}, ${order.street}<br/>${order.city}, ${order.pincode}<br/>${order.phone_number}</div>
+              <div style="text-align: right;"><strong>Order Date:</strong><br/>${new Date(order.order_date).toLocaleDateString()}</div>
+            </div>
+            <table>
+              <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+              <tbody>
+                ${order.cart_items?.map(item => `
+                  <tr>
+                    <td>${item.name}</td>
+                    <td>${item.quantity}</td>
+                    <td>₹${item.price}</td>
+                    <td>₹${(item.price * item.quantity).toFixed(2)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            <div class="total-box">
+              <div class="total-row"><span>Subtotal</span><span>₹${order.total_price.toFixed(2)}</span></div>
+              <div class="total-row"><span>Shipping</span><span>₹${order.shipping_cost.toFixed(2)}</span></div>
+              <div class="total-row grand-total"><span>Total</span><span>₹${order.grand_total.toFixed(2)}</span></div>
+            </div>
+          </body>
+        </html>
+      `);
       printWindow.document.close();
-      printWindow.focus();
       printWindow.print();
     }
   };
 
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-orange-600"></div></div>;
 
   return (
-    <div className="p-6 flex gap-8 min-h-screen bg-white">
-      {/* Left side: Order Details */}
-      <div className="flex-1 bg-white rounded shadow p-6">
-        {/* Header */}
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <h2 className="font-bold text-xl">Order ID #{order.id}</h2>
-            <p className="text-gray-600 mt-1">
-              {new Date(order.order_date).toLocaleString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
+    <div className="min-h-screen bg-[#F8F9FA] p-4 md:p-10">
+      <div className="max-w-6xl mx-auto">
 
-            <div className="mt-2 space-y-1 text-sm text-gray-700">
-              <p>
-                Status:{" "}
-                <span
-                  className={`inline-block px-2 py-1 rounded text-white text-xs ${orderStatus === "confirmed"
-                      ? "bg-green-500"
-                      : orderStatus === "pending"
-                        ? "bg-yellow-500"
-                        : orderStatus === "cancelled"
-                          ? "bg-red-500"
-                          : "bg-gray-400"
-                    }`}
+        {/* Top Navigation / Breadcrumb */}
+        <div className="flex items-center gap-2 text-sm text-gray-400 mb-6 font-bold">
+          <Package size={16} />     <Link href="/orderupdate"><span>ORDERS</span></Link> <ChevronRight size={14} /> <span className="text-orange-600 uppercase tracking-widest">Update Order</span>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+          {/* Main Content (Left) */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+              <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                <div>
+                  <h1 className="text-2xl font-black text-slate-900">Order #ORD-{order?.id}</h1>
+                  <span className="flex items-center gap-1 text-xs font-bold text-slate-400">
+                    <Calendar size={14} />
+                    {order?.order_date &&
+                      new Date(order.order_date).toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                  </span>
+
+                  <span className="flex items-center gap-1 text-xs font-bold text-slate-400">
+                    <Clock size={14} />
+                    {order?.order_date &&
+                      new Date(order.order_date).toLocaleTimeString("en-GB", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                  </span>
+                </div>
+                <button
+                  onClick={printInvoice}
+                  className="flex items-center gap-2 bg-white hover:bg-slate-900 hover:text-white text-slate-900 border-2 border-slate-900 px-6 py-3 rounded-2xl font-black transition-all active:scale-95 text-sm"
                 >
-                  {orderStatus.charAt(0).toUpperCase() + orderStatus.slice(1)}
-                </span>
-              </p>
-              <p>Payment Method: {order.payment_method}</p>
-              {order.reference_code && <p>Reference Code: {order.reference_code}</p>}
-              {paymentPaid && <p className="text-green-600">Payment Status: Paid</p>}
+                  <Printer size={18} /> PRINT INVOICE
+                </button>
+              </div>
+
+              <div className="p-0">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-[10px] uppercase tracking-[0.15em] text-slate-400 font-black border-b border-slate-50">
+                      <th className="px-8 py-4 text-left">Item Details</th>
+                      <th className="px-8 py-4 text-center">Qty</th>
+                      <th className="px-8 py-4 text-right">Price</th>
+                      <th className="px-8 py-4 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {order?.cart_items?.map((item, index) => (
+                      <tr key={`${item.productId}-${index}`} className="group hover:bg-slate-50/50 transition-colors">
+                        <td className="px-8 py-6">
+                          <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 bg-slate-100 rounded-2xl overflow-hidden border border-slate-100 flex-shrink-0">
+                              {item.image ? <img src={item.image} className="w-full h-full object-cover" /> : <Package className="m-auto mt-4 text-slate-300" />}
+                            </div>
+                            <div>
+                              <p className="font-black text-slate-800 text-sm leading-tight">{item.name}</p>
+                              <p className="text-[10px] font-bold text-orange-600 mt-1 uppercase tracking-wider">{item.variation_name || "Standard"}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6 text-center font-bold text-slate-600">{item.quantity}</td>
+                        <td className="px-8 py-6 text-right font-bold text-slate-600">₹{item.price.toFixed(2)}</td>
+                        <td className="px-8 py-6 text-right font-black text-slate-900">₹{(item.price * item.quantity).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="p-8 bg-slate-50/30 flex justify-end">
+                <div className="w-64 space-y-3">
+                  <div className="flex justify-between text-sm font-bold text-slate-400">
+                    <span>Subtotal</span> <span className="text-slate-700">₹{order?.total_price.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-bold text-slate-400">
+                    <span>Shipping</span> <span className="text-slate-700">₹{order?.shipping_cost.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-3 border-t border-slate-200">
+                    <span className="font-black text-slate-900">GRAND TOTAL</span>
+                    <span className="text-2xl font-black text-orange-600">₹{order?.grand_total.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-2">
+          {/* Controls (Right Sidebar) */}
+          <div className="space-y-6">
 
-            <button
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm"
-              onClick={printInvoice}
-            >
-              Print Invoice
-            </button>
+            {/* Status Card */}
+            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+              <h3 className="flex items-center gap-2 text-sm font-black text-slate-900 uppercase tracking-widest mb-6">
+                <ShieldCheck size={18} className="text-orange-600" /> Fulfillment
+              </h3>
 
-          </div>
-        </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1 mb-2 block tracking-wider">Order Status</label>
+                  <select
+                    className="w-full bg-slate-50 border-none rounded-2xl px-4 py-4 font-bold text-slate-700 focus:ring-2 focus:ring-orange-500 transition-all outline-none"
+                    value={orderStatus}
+                    onChange={(e) => handleStatusChange(e.target.value)}
+                    disabled={statusUpdating}
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="processing">Processing</option>
+                    <option value="out of delivery">Out of Delivery</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
 
-        {/* Items Table */}
-        <table className="w-full border border-gray-200 text-sm text-gray-800">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="py-2 px-3 border-b text-left">SL</th>
-              <th className="py-2 px-3 border-b text-left">Item Details</th>
-              <th className="py-2 px-3 border-b text-right">Item Price</th>
-              <th className="py-2 px-3 border-b text-right">Shipping charge</th>
-              <th className="py-2 px-3 border-b text-right">Total Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            {order.cart_items?.map((item, idx) => {
-              const productName = item.name ?? "Unnamed Product";
-              const tax = getItemTax(item);
-              const discount = getItemDiscount(item);
-              const totalPrice = item.price * item.quantity + (item.shipping_charge ?? 0) + tax - discount;
-              return (
-                <tr key={item.id} className="border-b">
-                  <td className="py-2 px-3 align-top">{idx + 1}</td>
-                  <td className="py-2 px-3 flex items-start gap-3">
-                    {item.image ? (
-                      <img
-                        src={item.image}
-                        alt={productName}
-                        className="w-10 h-10 object-cover rounded"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 bg-gray-200 flex items-center justify-center rounded">
-                        {/* placeholder icon */}
-                      </div>
-                    )}
-                    <div>
-                      <p className="font-semibold">
-                        {productName.length > 20
-                          ? productName.slice(0, 20) + "..."
-                          : productName}
-                      </p>
-                      <p className="text-xs text-gray-500">Qty : {item.quantity}</p>
-                      <p className="text-xs text-gray-500">price : ₹{item.price.toFixed(2)}</p>
-                      {item.variation_name && (
-                        <p className="text-xs text-gray-500">
-                          Variation : {item.variation_name}
-                        </p>
-                      )}
-                    </div>
-                  </td>
-                  <td className="py-2 px-3 text-right align-top">₹{item.price.toFixed(2)}</td>
-                  <td className="py-2 px-3 text-right align-top">
-                    ₹{(item.shipping_charge ?? 0).toFixed(2)}
-                  </td>
-                  <td className="py-2 px-3 text-right align-top">₹{totalPrice.toFixed(2)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        {/* Price Breakdown */}
-        <div className="mt-6 max-w-xs ml-auto text-right space-y-1 text-sm text-gray-700">
-          <div className="flex justify-between">
-            <span className="font-semibold">Item price</span>
-            <span>₹{order.total_price.toFixed(2)}</span>
-          </div>
-
-          <div className="flex justify-between border-t border-gray-200 pt-1 font-semibold">
-            <span>Sub Total</span>
-            <span>₹{(order.total_price - 0.5).toFixed(2)}</span>
-          </div>
-
-          <div className="flex justify-between">
-            <span>Shipping Fee</span>
-            <span>₹{order.shipping_cost.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between border-t border-gray-300 pt-1 font-bold text-lg">
-            <span>Total</span>
-            <span>₹{order.grand_total.toFixed(2)}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Right side: Controls and customer info */}
-      <div className="w-80 space-y-6">
-        {/* Order & Shipping Info */}
-        <div className="bg-white rounded shadow p-4 space-y-4">
-          <h3 className="font-semibold border-b pb-2">Order & Shipping Info</h3>
-
-          {/* Change Order Status */}
-          <div>
-            <label htmlFor="orderStatus" className="block font-medium mb-1">
-              Change Order Status
-            </label>
-            <select
-              id="orderStatus"
-              className="w-full border border-gray-300 rounded p-2"
-              value={orderStatus}
-              onChange={(e) => handleStatusChange(e.target.value)}
-              disabled={statusUpdating}
-            >
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="processing">Processing</option>
-              <option value="out of delivery">Out of Delivery</option>
-              <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-            {statusUpdateError && (
-              <p className="text-red-600 text-sm mt-1">{statusUpdateError}</p>
-            )}
-          </div>
-
-          {/* Payment Status Toggle */}
-          <div className="flex items-center justify-between">
-            <label className="font-medium">Payment Status</label>
-            <input
-              type="checkbox"
-              checked={paymentPaid}
-              onChange={(e) => handlePaymentStatusChange(e.target.checked)}
-              className="w-12 h-6 rounded-full bg-gray-300 relative cursor-pointer"
-            />
-          </div>
-
-        </div>
-
-        {/* Customer Information */}
-        <div className="bg-white rounded shadow p-4 space-y-3">
-          <h3 className="font-semibold border-b pb-2">Customer Information</h3>
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-xl">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-7 w-7"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M5.121 17.804A13.937 13.937 0 0112 15c2.2 0 4.272.536 6.121 1.46M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Payment Status</p>
+                    <p className={`text-xs font-black mt-0.5 ${paymentPaid ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      {paymentPaid ? 'RECEIVED' : 'AWAITING'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handlePaymentToggle}
+                    className={`w-12 h-6 rounded-full transition-all relative ${paymentPaid ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${paymentPaid ? 'left-7' : 'left-1'}`} />
+                  </button>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="font-semibold">{order.full_name}</p>
-              <p className="text-sm text-gray-600">3 Orders</p> {/* Hardcoded example */}
-              <p className="text-sm text-gray-600">Email: {order.email}</p>
 
-              <p className="text-sm text-gray-600">{order.phone_number}</p>
+            {/* Customer Information Card */}
+            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+              <h3 className="flex items-center gap-2 text-sm font-black text-slate-900 uppercase tracking-widest mb-6">
+                <User size={18} className="text-orange-600" /> Customer Info
+              </h3>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center font-black text-lg">
+                    {order?.full_name[0]}
+                  </div>
+                  <div>
+                    <p className="font-black text-slate-900 leading-none">{order?.full_name}</p>
+                    <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">Customer ID #{order?.id}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center gap-3 text-sm font-bold text-slate-600">
+                    <Phone size={16} className="text-slate-400" /> {order?.phone_number}
+                  </div>
+                  <div className="flex items-center gap-3 text-sm font-bold text-slate-600">
+                    <Mail size={16} className="text-slate-400" /> {order?.email || "No email provided"}
+                  </div>
+                  <div className="flex items-center gap-3 text-sm font-bold text-slate-600">
+                    <CreditCard size={16} className="text-slate-400" /> {order?.payment_method?.toUpperCase()}
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* Shipping Address */}
-        <div className="bg-white rounded shadow p-4 space-y-3 relative">
-          <h3 className="font-semibold border-b pb-2">Shipping Address</h3>
+            {/* Delivery Address Card */}
+            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+              <h3 className="flex items-center gap-2 text-sm font-black text-slate-900 uppercase tracking-widest mb-6">
+                <MapPin size={18} className="text-orange-600" /> Shipping Address
+              </h3>
+              <div className="p-4 bg-orange-50/50 border border-orange-100 rounded-2xl">
+                <p className="text-sm font-bold text-slate-700 leading-relaxed">
+                  {order?.house_number}, {order?.street}<br />
+                  {order?.city}, {order?.state}<br />
+                  <span className="text-orange-600 font-black">PIN: {order?.pincode}</span>
+                </p>
+              </div>
+            </div>
 
-          <div className="text-sm text-gray-700 space-y-1">
-            <p>
-              <strong>Name:</strong> {order.full_name}
-            </p>
-            <p>
-              <strong>Contact:</strong> {order.phone_number}
-            </p>
-            <p>
-              <strong>Country:</strong> India
-            </p>
-            <p>
-              <strong>City:</strong> {order.city}
-            </p>
-            <p>
-              <strong>Zip code:</strong> {order.pincode}
-            </p>
-            <p className="flex items-center gap-1">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 text-gray-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 11c1.104 0 2-.896 2-2s-.896-2-2-2-2 .896-2 2 .896 2 2 2z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 21s-6-4.686-6-10a6 6 0 0112 0c0 5.314-6 10-6 10z"
-                />
-              </svg>
-              {order.house_number} {order.street} {order.city}
-            </p>
           </div>
         </div>
       </div>

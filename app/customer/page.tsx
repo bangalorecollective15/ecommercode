@@ -2,6 +2,17 @@
 
 import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
+import { 
+  Search, 
+  Filter, 
+  Download, 
+  UserX, 
+  UserCheck, 
+  ChevronLeft, 
+  ChevronRight,
+  RotateCcw,
+  Users
+} from "lucide-react";
 
 export default function CustomerListPage() {
   const [users, setUsers] = useState<any[]>([]);
@@ -49,9 +60,6 @@ export default function CustomerListPage() {
     XLSX.writeFile(workbook, "customers.xlsx");
   };
 
-  if (loading)
-    return <p className="p-10 text-lg font-medium text-gray-700">Loading customers...</p>;
-
   // Filter & Search logic
   const filteredUsers = users.filter(u => {
     const matchesSearch =
@@ -66,134 +74,172 @@ export default function CustomerListPage() {
     return matchesSearch && matchesStatus;
   });
 
-  // Pagination logic
   const totalPages = Math.ceil(filteredUsers.length / USERS_PER_PAGE);
   const paginatedUsers = filteredUsers.slice(
     (page - 1) * USERS_PER_PAGE,
     page * USERS_PER_PAGE
   );
 
-  // Clear filters
-  const clearFilters = () => {
-    setSearch("");
-    setStatusFilter("All");
-  };
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-screen">
+       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+    </div>
+  );
 
   return (
-    <div className="p-6 md:p-10 bg-white">
-      <h1 className="text-3xl font-semibold text-gray-800 mb-4">Customer List</h1>
-
-      {/* Search & Filter Section */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-start gap-2 mb-4">
-        <input
-          type="text"
-          placeholder="Search by Email or Phone"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 w-full md:w-68"
-        />
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 w-full md:w-48"
-        >
-          <option value="All">All</option>
-          <option value="Active">Active</option>
-          <option value="Blocked">Blocked</option>
-        </select>
-        <button
-          onClick={clearFilters}
-          className="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition md:w-28"
-        >
-          Clear
-        </button>
-        <button
-          onClick={exportToExcel}
-          className="px-5 py-2 bg-green-500 text-white font-medium rounded-lg shadow hover:bg-green-600 transition"
-        >
-          Excel
-        </button>
-      </div>
-
-      {/* Table */}
-      <div className="overflow-x-auto bg-white shadow-md rounded-lg">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-100 text-black">
-            <tr>
-              <th className="px-4 py-3 text-left text-sm font-semibold">Email</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold">Phone</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold">Created At</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold">Last Login</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold">Status</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {paginatedUsers.map(u => (
-              <tr
-                key={u.id}
-                className="hover:bg-gray-50 transition rounded-lg"
-              >
-                <td className="px-4 py-3 text-sm text-gray-700">{u.email}</td>
-                <td className="px-4 py-3 text-sm text-gray-700">{u.user_metadata?.phone ?? "N/A"}</td>
-                <td className="px-4 py-3 text-sm text-gray-700">{new Date(u.created_at).toLocaleString()}</td>
-                <td className="px-4 py-3 text-sm text-gray-700">
-                  {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString() : "Never"}
-                </td>
-                <td className={`px-4 py-3 text-sm font-semibold ${u.user_metadata?.is_blocked ? 'text-red-600' : 'text-green-600'}`}>
-                  {u.user_metadata?.is_blocked ? "Blocked" : "Active"}
-                </td>
-                <td className="px-4 py-3 flex space-x-2">
-                  {u.user_metadata?.is_blocked ? (
-                    <button
-                      onClick={() => toggleBlockUser(u.id, false)}
-                      className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm"
-                    >
-                      Unblock
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => toggleBlockUser(u.id, true)}
-                      className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm"
-                    >
-                      Block
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center mt-4 space-x-2">
+    <div className="p-6 md:p-10 bg-gray-50 min-h-screen space-y-6">
+      <div className="max-w-7xl mx-auto">
+        
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
+              <Users className="text-orange-600 w-10 h-10" />
+              Customer Database
+            </h1>
+            <p className="text-gray-500 font-medium mt-1">Manage and monitor your user base efficiently.</p>
+          </div>
           <button
-            disabled={page === 1}
-            onClick={() => setPage(page - 1)}
-            className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
+            onClick={exportToExcel}
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl font-bold hover:bg-gray-50 transition-all shadow-sm active:scale-95"
           >
-            Prev
-          </button>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPage(p)}
-              className={`px-3 py-1 rounded ${p === page ? 'bg-orange-600 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
-            >
-              {p}
-            </button>
-          ))}
-          <button
-            disabled={page === totalPages}
-            onClick={() => setPage(page + 1)}
-            className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
-          >
-            Next
+            <Download size={18} className="text-orange-600" />
+            Export Excel
           </button>
         </div>
-      )}
+
+        {/* Search & Filter Bar */}
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 items-center mb-6">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="Search by Email or Phone..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-11 pr-4 py-3 bg-gray-50 border-transparent border-2 rounded-xl focus:bg-white focus:border-orange-500 outline-none transition font-medium"
+            />
+          </div>
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="relative w-full md:w-48">
+              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-gray-50 border-none rounded-xl outline-none font-bold text-sm text-gray-600 appearance-none cursor-pointer"
+              >
+                <option value="All">All Status</option>
+                <option value="Active">Active Only</option>
+                <option value="Blocked">Blocked Only</option>
+              </select>
+            </div>
+            <button
+              onClick={() => { setSearch(""); setStatusFilter("All"); }}
+              className="p-3 bg-gray-100 text-gray-500 rounded-xl hover:bg-orange-100 hover:text-orange-600 transition-colors"
+              title="Reset Filters"
+            >
+              <RotateCcw size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* Table Content */}
+        <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-gray-50/50 border-b border-gray-100">
+                  <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-gray-400">Customer</th>
+                  <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-gray-400">Contact</th>
+                  <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-gray-400">Activity</th>
+                  <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-gray-400">Status</th>
+                  <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-gray-400 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {paginatedUsers.map(u => (
+                  <tr key={u.id} className="group hover:bg-orange-50/20 transition-colors">
+                    <td className="px-8 py-5">
+                      <div className="font-bold text-gray-800">{u.email}</div>
+                      <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">ID: {u.id.slice(0,8)}</div>
+                    </td>
+                    <td className="px-8 py-5 text-sm font-medium text-gray-600">
+                      {u.user_metadata?.phone ?? "—"}
+                    </td>
+                    <td className="px-8 py-5">
+                      <div className="text-xs font-bold text-gray-700">Last: {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString() : "Never"}</div>
+                      <div className="text-[10px] text-gray-400">Joined: {new Date(u.created_at).toLocaleDateString()}</div>
+                    </td>
+                    <td className="px-8 py-5">
+                      {u.user_metadata?.is_blocked ? (
+                        <span className="inline-flex items-center px-3 py-1 bg-red-100 text-red-700 rounded-full text-[10px] font-black uppercase">Blocked</span>
+                      ) : (
+                        <span className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-black uppercase">Active</span>
+                      )}
+                    </td>
+                    <td className="px-8 py-5">
+                      <div className="flex justify-end">
+                        {u.user_metadata?.is_blocked ? (
+                          <button
+                            onClick={() => toggleBlockUser(u.id, false)}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-green-600 transition active:scale-95"
+                          >
+                            <UserCheck size={14} /> Unblock
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => toggleBlockUser(u.id, true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-orange-700 transition active:scale-95 shadow-md shadow-orange-100"
+                          >
+                            <UserX size={14} /> Block
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-8 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+            <p className="text-sm font-bold text-gray-400 uppercase tracking-widest px-4">
+              Page {page} of {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(page - 1)}
+                className="p-2 bg-gray-50 border border-gray-200 rounded-xl disabled:opacity-30 hover:bg-white transition shadow-sm"
+              >
+                <ChevronLeft size={20} className="text-orange-600" />
+              </button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const p = i + 1;
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      className={`w-10 h-10 rounded-xl font-bold text-sm transition-all ${p === page ? 'bg-orange-600 text-white shadow-lg shadow-orange-100' : 'bg-gray-50 text-gray-500 hover:bg-orange-50'}`}
+                    >
+                      {p}
+                    </button>
+                  );
+              })}
+              <button
+                disabled={page === totalPages}
+                onClick={() => setPage(page + 1)}
+                className="p-2 bg-gray-50 border border-gray-200 rounded-xl disabled:opacity-30 hover:bg-white transition shadow-sm"
+              >
+                <ChevronRight size={20} className="text-orange-600" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -3,7 +3,16 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
-import { PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { 
+  PencilIcon, 
+  TrashIcon, 
+  MagnifyingGlassIcon, 
+  ArrowDownTrayIcon,
+  PhotoIcon,
+  PlusIcon,
+  CheckCircleIcon,
+  XMarkIcon
+} from "@heroicons/react/24/outline";
 import toast, { Toaster } from "react-hot-toast";
 
 const supabase = createClient(
@@ -29,19 +38,12 @@ export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
   const [fileKey, setFileKey] = useState(Date.now());
-
-
-
-
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
-  // field-level error state
   const [fieldErrors, setFieldErrors] = useState<{
     name?: string;
     priority?: string;
@@ -60,526 +62,381 @@ export default function CategoriesPage() {
   useEffect(() => {
     loadCategories();
   }, []);
-  useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => setSuccess(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [success]);
-
-
 
   useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setFilteredCategories(categories);
-    } else {
-      setFilteredCategories(
-        categories.filter((cat) =>
-          cat.name.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-      );
-    }
+    const filtered = categories.filter((cat) =>
+      cat.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    setFilteredCategories(filtered);
     setCurrentPage(1);
   }, [searchQuery, categories]);
 
   async function loadCategories() {
     setLoading(true);
-    setError(null);
     try {
       const { data, error } = await supabase
-  .from("categories")  // remove <Category>
-  .select("*")
-  .order("priority", { ascending: true });
-
+        .from("categories")
+        .select("*")
+        .order("priority", { ascending: true });
 
       if (error) throw error;
       setCategories(data || []);
-      setFilteredCategories(data || []);
     } catch (err) {
-      console.error(err);
       toast.error("Failed to load categories.");
     } finally {
       setLoading(false);
     }
   }
 
+  // --- START OF FIXED SECTION ---
+  const handleEdit = (cat: Category) => {
+    setEditingCategory(cat);
+    setName(cat.name);
+    setPriority(cat.priority);
+    setFile(null); // Reset the file input so it uses existing image unless a new one is picked
+    setFieldErrors({}); // Clear any previous validation errors
+    
+    // Smooth scroll to top for better mobile UX
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  // --- END OF FIXED SECTION ---
+
   async function uploadImage(): Promise<string | null> {
-    // If editing and no new file selected, reuse existing image
-    if (editingCategory && !file) {
-      return editingCategory.image_url;
-    }
-
-    // If no file selected (adding new category), return null
+    if (editingCategory && !file) return editingCategory.image_url;
     if (!file) return null;
-
-    try {
-      const base64 = await fileToBase64(file);
-      return base64; // store this string in your DB
-    } catch (err) {
-      console.error("uploadImage failed:", err);
-      return null;
-    }
-  }
-
-  function fileToBase64(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.readAsDataURL(file); // produces "data:image/png;base64,....."
+      reader.readAsDataURL(file);
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = (error) => reject(error);
     });
   }
 
-
-
-
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-
-    const trimmedName = name.trim();
     const errors: typeof fieldErrors = {};
 
-    // Basic validations
-    if (!trimmedName) errors.name = "Category name is required.";
+    if (!name.trim()) errors.name = "Category name is required.";
     if (priority < 1) errors.priority = "Priority must be at least 1.";
+    if (!file && !editingCategory) errors.image = "Image is required.";
 
-    // Image required only if adding a new category
-    if (!file && !editingCategory) {
-      errors.image = "Category image is required.";
-    }
-
-    // Check priority uniqueness
-    const existingWithSamePriority = categories.find(
+    const existingPriority = categories.find(
       (cat) => cat.priority === priority && cat.id !== editingCategory?.id
     );
-    if (existingWithSamePriority) {
-      errors.priority = `Priority ${priority} is already used by "${existingWithSamePriority.name}".`;
-    }
+    if (existingPriority) errors.priority = `Priority already used by "${existingPriority.name}".`;
 
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
     setSubmitting(true);
-    setError(null);
-    toast.success(null); // Clear previous success message
-
     try {
-      // Name uniqueness check (only for new categories)
-      if (!editingCategory) {
-        const { data: existing } = await supabase
-          .from("categories")
-          .select("id")
-          .eq("name", trimmedName)
-          .limit(1)
-          .single();
-
-        if (existing) {
-          setFieldErrors({ name: "Category name already exists." });
-          setSubmitting(false);
-          return;
-        }
-      }
-
       const imageUrl = await uploadImage();
-
-      if (!imageUrl && !editingCategory) {
-        setFieldErrors({ image: "Category image is required." });
-        setSubmitting(false);
-        return;
-      }
+      const payload = { name: name.trim(), priority, image_url: imageUrl };
 
       if (editingCategory) {
-        // Update existing category
-        const { error } = await supabase
-          .from("categories")
-          .update({
-            name: trimmedName,
-            priority,
-            image_url: imageUrl,
-          })
-          .eq("id", editingCategory.id);
+        const { error } = await supabase.from("categories").update(payload).eq("id", editingCategory.id);
         if (error) throw error;
-
-        setEditingCategory(null);
-        toast.success("Category updated successfully!");
+        toast.success("Category updated!");
       } else {
-        // Insert new category
-        const { error } = await supabase.from("categories").insert({
-          name: trimmedName,
-          priority,
-          image_url: imageUrl,
-          home_status: false,
-        });
+        const { error } = await supabase.from("categories").insert({ ...payload, home_status: false });
         if (error) throw error;
-
-        toast.success("Category added successfully!");
+        toast.success("Category added!");
       }
 
-      // Reset form
       setName("");
       setPriority(1);
       setFile(null);
-      setFieldErrors({});
-      setFileKey(Date.now()); // force input to re-render and clear file
-
-      await loadCategories();
+      setEditingCategory(null);
+      setFileKey(Date.now());
+      loadCategories();
     } catch (err) {
-      console.error(err);
-      toast.error("Failed to save category.");
+      toast.error("Process failed.");
     } finally {
       setSubmitting(false);
     }
   }
 
-
-
   async function toggleHome(id: number, currentStatus: boolean) {
     try {
-      await supabase
-        .from("categories")
-        .update({ home_status: !currentStatus })
-        .eq("id", id);
-      loadCategories();
+      await supabase.from("categories").update({ home_status: !currentStatus }).eq("id", id);
+      setCategories(categories.map(c => c.id === id ? { ...c, home_status: !currentStatus } : c));
+      toast.success("Visibility updated");
     } catch {
-      toast.error("Failed to update home status.");
+      toast.error("Toggle failed.");
     }
-  }
-
-  async function deleteCategory(id: number) {
-    if (!confirm("Are you sure you want to delete this category?")) return;
-
-    try {
-      const { error } = await supabase.from("categories").delete().eq("id", id);
-      if (error) throw error;
-
-      // Update state locally instead of reloading from Supabase
-      setCategories((prev) => prev.filter((cat) => cat.id !== id));
-      setFilteredCategories((prev) => prev.filter((cat) => cat.id !== id));
-
-      toast.success("Category deleted successfully!");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to delete category.");
-    }
-  }
-
-
-
-  function handleEdit(cat: Category) {
-    setEditingCategory(cat);
-    setName(cat.name);
-    setPriority(cat.priority);
-    setFile(null);
-    setFieldErrors({});
   }
 
   function exportToExcel() {
-    const worksheet = XLSX.utils.json_to_sheet(
-      filteredCategories.map(({ id, name, priority, home_status }) => ({
-        ID: id,
-        Name: name,
-        Priority: priority,
-        Home: home_status ? "Yes" : "No",
-      }))
-    );
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Categories");
-    XLSX.writeFile(workbook, "categories.xlsx");
+    const ws = XLSX.utils.json_to_sheet(filteredCategories.map(c => ({ 
+      ID: c.id, Name: c.name, Priority: c.priority, OnHome: c.home_status ? "Yes" : "No" 
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Categories");
+    XLSX.writeFile(wb, "categories_report.xlsx");
   }
 
   return (
-    <div className="min-h-screen w-full bg-white  flex flex-col p-8">
-      <Toaster position="top-right" />
+    <div className="min-h-screen bg-[#FDFDFD] p-4 md:p-10 font-sans text-slate-900">
+      <Toaster position="top-center" reverseOrder={false} />
 
-      <h1 className="text-3xl font-bold mb-8 ">
-        Category Setup
-      </h1>
-
-      {error && (
-        <div className="mb-6 p-4 bg-red-100 text-red-700 rounded shadow-sm max-w-6xl">
-          {error}
+      {/* Header Section */}
+      <div className="max-w-7xl mx-auto mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900">
+            Category <span className="text-orange-600">Center</span>
+          </h1>
+          <p className="text-slate-500 mt-2 font-medium">Create and organize your business taxonomies.</p>
         </div>
-      )}
-
-      <div className="flex flex-col lg:flex-row gap-8 max-w-full flex-grow">
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white rounded shadow p-6 w-full max-w-md"
-        >
-          <h2 className="text-2xl font-semibold mb-4 text-gray-800">
-            {editingCategory ? "Edit Category" : "Add Category"}
-          </h2>
-
-          {/* Name */}
-          <label className="flex flex-col mb-4">
-            <span className="mb-1 font-medium text-gray-700">
-              Category Name
-            </span>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Enter category name"
-              className={`border rounded px-3 py-2 focus:outline-none focus:ring-2 ${fieldErrors.name
-                ? "border-red-500 focus:ring-red-500"
-                : "border-gray-300 focus:ring-blue-500"
-                }`}
-            />
-            {fieldErrors.name && (
-              <span className="text-red-600 text-sm mt-1">
-                {fieldErrors.name}
-              </span>
-            )}
-          </label>
-
-          {/* Priority */}
-          <label className="flex flex-col mb-4">
-            <span className="mb-1 font-medium text-gray-700">
-              Priority
-            </span>
-            <input
-              type="number"
-              min={1}
-              value={priority}
-              onChange={(e) => setPriority(Number(e.target.value))}
-              className={`border rounded px-3 py-2 focus:outline-none focus:ring-2 ${fieldErrors.priority
-                ? "border-red-500 focus:ring-red-500"
-                : "border-gray-300 focus:ring-blue-500"
-                }`}
-            />
-            {fieldErrors.priority && (
-              <span className="text-red-600 text-sm mt-1">
-                {fieldErrors.priority}
-              </span>
-            )}
-          </label>
-
-          {/* Image */}
-          <label className="flex flex-col mb-6">
-            <span className="mb-1 font-medium text-gray-700">
-              Category Image
-            </span>
-            <input
-              key={fileKey}
-              type="file"
-              accept="image/*"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-              className={`border rounded px-3 py-2 ${fieldErrors.image ? "border-red-500" : "border-gray-300"}`}
-            />
-
-
-
-          </label>
-
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="
-  bg-[#FAD6C0]
-  text-white
-  py-2
-  rounded
-  hover:bg-orange-400
-  disabled:opacity-50
-  disabled:cursor-not-allowed
-  transition
-  flex-1
-  font-semibold
-  text-center
-"
+        <div className="flex gap-3">
+            <button 
+                onClick={exportToExcel}
+                className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 transition-all shadow-sm"
             >
-
-              {submitting
-                ? "Saving..."
-                : editingCategory
-                  ? "Update"
-                  : "Submit"}
+                <ArrowDownTrayIcon className="h-5 w-5" /> Export
             </button>
-            {editingCategory && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingCategory(null);
-                  setName("");
-                  setPriority(1);
-                  setFile(null);
-                  setFieldErrors({});
-                }}
-                className="bg-gray-400 text-white py-2 rounded hover:bg-gray-500 transition flex-1"
-              >
-                Cancel
-              </button>
-            )}
-          </div>
-        </form>
+        </div>
+      </div>
 
-        <section className="bg-white rounded shadow p-6 flex-grow">
-          <div className="flex flex-col md:flex-row justify-between mb-4 gap-2">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        {/* FORM SIDEBAR */}
+        <div className="lg:col-span-4 sticky top-10">
+          <form 
+            onSubmit={handleSubmit}
+            className="bg-white rounded-3xl p-8 border border-slate-100 shadow-xl shadow-slate-200/50 relative overflow-hidden"
+          >
+            <div className="absolute top-0 left-0 w-full h-1 bg-orange-600"></div>
+            <h2 className="text-2xl font-black mb-6 flex items-center gap-2">
+              {editingCategory ? <PencilIcon className="h-6 w-6 text-orange-600" /> : <PlusIcon className="h-6 w-6 text-orange-600" />}
+              {editingCategory ? "Update Entry" : "New Category"}
+            </h2>
+
+            <div className="space-y-5">
+              <div>
+                <label className="text-xs uppercase tracking-widest font-black text-slate-400 mb-2 block">Category Label</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+          //        placeholder="e.g. Living Room Furniture"
+                  className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-4 ${fieldErrors.name ? 'border-red-500 focus:ring-red-100' : 'border-slate-200 focus:border-orange-500 focus:ring-orange-100'} outline-none font-semibold text-slate-700`}
+                />
+                {fieldErrors.name && <p className="text-red-500 text-xs mt-1.5 font-bold">{fieldErrors.name}</p>}
+              </div>
+
+              <div>
+                <label className="text-xs uppercase tracking-widest font-black text-slate-400 mb-2 block">Sorting Priority</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={priority}
+                  onChange={(e) => setPriority(Number(e.target.value))}
+                  className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-4 ${fieldErrors.priority ? 'border-red-500 focus:ring-red-100' : 'border-slate-200 focus:border-orange-500 focus:ring-orange-100'} outline-none font-semibold text-slate-700`}
+                />
+                {fieldErrors.priority && <p className="text-red-500 text-xs mt-1.5 font-bold">{fieldErrors.priority}</p>}
+              </div>
+
+              <div>
+                <label className="text-xs uppercase tracking-widest font-black text-slate-400 mb-2 block">Visual Asset</label>
+                <div className="relative group">
+                    <input
+                        key={fileKey}
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setFile(e.target.files?.[0] || null)}
+                        className="hidden"
+                        id="file-upload"
+                    />
+                    <label 
+                        htmlFor="file-upload" 
+                        className={`cursor-pointer w-full flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-2xl transition-all ${fieldErrors.image ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-slate-50 hover:bg-orange-50 hover:border-orange-300'}`}
+                    >
+                        {file ? (
+                             <img src={URL.createObjectURL(file)} className="h-20 w-20 object-cover rounded-xl shadow-md" />
+                        ) : editingCategory?.image_url ? (
+                             <img src={editingCategory.image_url} className="h-20 w-20 object-cover rounded-xl shadow-md opacity-60" />
+                        ) : (
+                            <>
+                                <PhotoIcon className="h-8 w-8 text-slate-300 mb-2 group-hover:text-orange-400" />
+                                <span className="text-xs font-bold text-slate-400 group-hover:text-orange-500">Click to upload</span>
+                            </>
+                        )}
+                    </label>
+                </div>
+                {fieldErrors.image && <p className="text-red-500 text-xs mt-1.5 font-bold">{fieldErrors.image}</p>}
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 bg-orange-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-orange-700 transition-all shadow-lg shadow-orange-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {submitting && <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                  {editingCategory ? "Sync Changes" : "Create Now"}
+                </button>
+                {editingCategory && (
+                    <button
+                        type="button"
+                        onClick={() => { setEditingCategory(null); setName(""); setPriority(1); setFile(null); }}
+                        className="px-6 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-slate-200 transition-all"
+                    >
+                        <XMarkIcon className="h-5 w-5" />
+                    </button>
+                )}
+              </div>
+            </div>
+          </form>
+        </div>
+
+        {/* LIST SECTION */}
+        <div className="lg:col-span-8 space-y-6">
+          <div className="bg-white rounded-3xl border border-slate-100 p-4 shadow-sm flex items-center gap-3">
+            <MagnifyingGlassIcon className="h-6 w-6 text-slate-400 ml-2" />
             <input
               type="text"
-              placeholder="Search categories..."
+              placeholder="Search by category name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1"
+              className="flex-1 bg-transparent border-none focus:ring-0 text-slate-700 font-bold placeholder:text-slate-300"
             />
-            <button
-              onClick={exportToExcel}
-              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
-            >
-              Export Excel
-            </button>
           </div>
 
-          {loading ? (
-            <p className="text-gray-500">Loading categories...</p>
-          ) : paginatedCategories.length === 0 ? (
-            <p className="text-gray-500">No categories found.</p>
-          ) : (
-            <table className="w-full table-fixed border-collapse border border-gray-200">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="p-2 border border-gray-300 w-20">Image</th>
-                  <th className="p-2 border border-gray-300">Name</th>
-                  <th className="p-2 border border-gray-300 w-24">Priority</th>
-                  <th className="p-2 border border-gray-300 w-20">Home</th>
-                  <th className="p-2 border border-gray-300 w-32">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedCategories.map((cat) => (
-                  <tr key={cat.id} className="border-b">
-                    <td className="p-2 border border-gray-300">
-                      {cat.image_url ? (
-                        <img
-                          src={cat.image_url}
-                          alt={`${cat.name} category`}
-                          className="w-12 h-12 rounded object-cover"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 bg-gray-200 rounded" />
-                      )}
-                    </td>
-                    <td className="p-2 border border-gray-300">{cat.name}</td>
-                    <td className="p-2 border border-gray-300 text-center">
-                      {cat.priority}
-                    </td>
-                    <td className="p-2 border border-gray-300 text-center">
-                      <input
-                        type="checkbox"
-                        checked={cat.home_status}
-                        onChange={() =>
-                          toggleHome(cat.id, cat.home_status)
-                        }
-                        className="cursor-pointer"
-                      />
-                    </td>
-                    <td className="p-2 border border-gray-300 text-center flex gap-3 justify-center">
-                      <button
-                        onClick={() => handleEdit(cat)}
-                        className="text-blue-600 hover:text-blue-800 transition p-1 rounded"
-                        title="Edit"
-                      >
-                        <PencilIcon className="h-5 w-5" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setCategoryToDelete(cat);
-                          setShowDeleteModal(true);
-                        }}
-                        className="text-red-600 hover:text-red-800 transition p-1 rounded"
-                        title="Delete"
-                      >
-                        <TrashIcon className="h-5 w-5" />
-                      </button>
-
-                    </td>
+          <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-xl shadow-slate-200/40">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/50 border-b border-slate-100">
+                    <th className="px-6 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Setup</th>
+                    <th className="px-6 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Home</th>
+                    <th className="px-6 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {loading ? (
+                    <tr><td colSpan={3} className="p-20 text-center font-bold text-slate-300 animate-pulse">Loading Database...</td></tr>
+                  ) : paginatedCategories.length === 0 ? (
+                    <tr><td colSpan={3} className="p-20 text-center font-bold text-slate-300">No entries found.</td></tr>
+                  ) : (
+                    paginatedCategories.map((cat) => (
+                      <tr key={cat.id} className="hover:bg-slate-50/50 transition-colors group">
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-4">
+                            <div className="h-14 w-14 rounded-2xl bg-slate-100 border border-slate-200 p-1 flex-shrink-0">
+                                {cat.image_url ? (
+                                    <img src={cat.image_url} className="h-full w-full object-cover rounded-xl" />
+                                ) : (
+                                    <div className="h-full w-full flex items-center justify-center text-slate-300"><PhotoIcon className="h-6 w-6" /></div>
+                                )}
+                            </div>
+                            <div>
+                                <p className="font-black text-slate-800 text-lg leading-tight">{cat.name}</p>
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-tighter mt-1">Priority: <span className="text-orange-600">{cat.priority}</span></p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5">
+                            <button 
+                                onClick={() => toggleHome(cat.id, cat.home_status)}
+                                className={`h-6 w-12 rounded-full transition-all relative ${cat.home_status ? 'bg-orange-600 shadow-lg shadow-orange-100' : 'bg-slate-200'}`}
+                            >
+                                <div className={`absolute top-1 h-4 w-4 bg-white rounded-full transition-all ${cat.home_status ? 'right-1' : 'left-1'}`} />
+                            </button>
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="flex justify-end gap-2">
+                            <button
+                                onClick={() => handleEdit(cat)}
+                                className="p-2.5 bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                            >
+                                <PencilIcon className="h-5 w-5" />
+                            </button>
+                            <button
+                                onClick={() => { setCategoryToDelete(cat); setShowDeleteModal(true); }}
+                                className="p-2.5 bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                            >
+                                <TrashIcon className="h-5 w-5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-
-            </table>
-          )}
-
-          {paginatedCategories.length > 0 && (
-            <div className="flex justify-center items-center gap-4 mt-4">
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-2 py-4">
               <button
                 disabled={currentPage === 1}
-                onClick={() => setCurrentPage((prev) => prev - 1)}
-                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+                onClick={() => setCurrentPage(p => p - 1)}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-40"
               >
-                Previous
+                Prev
               </button>
-              <span>
-                Page {currentPage} of {totalPages || 1}
-              </span>
+              <div className="flex gap-1">
+                  {[...Array(totalPages)].map((_, i) => (
+                      <button 
+                        key={i}
+                        onClick={() => setCurrentPage(i + 1)}
+                        className={`w-10 h-10 rounded-xl font-black text-xs transition-all ${currentPage === i + 1 ? 'bg-orange-600 text-white shadow-lg shadow-orange-100' : 'bg-white border border-slate-200 text-slate-400 hover:border-orange-300'}`}
+                      >
+                          {i + 1}
+                      </button>
+                  ))}
+              </div>
               <button
                 disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage((prev) => prev + 1)}
-                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+                onClick={() => setCurrentPage(p => p + 1)}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-40"
               >
                 Next
               </button>
             </div>
           )}
-        </section>
+        </div>
       </div>
+
+      {/* Glass Delete Modal */}
       {showDeleteModal && categoryToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded p-6 shadow-lg max-w-sm w-full">
-            <h2 className="text-xl font-semibold mb-4">Confirm Delete</h2>
-            <p className="mb-6">
-              Are you sure you want to delete category <strong>{categoryToDelete.name}</strong>?
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-[2rem] p-10 shadow-2xl max-w-sm w-full text-center">
+            <div className="h-20 w-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <TrashIcon className="h-10 w-10" />
+            </div>
+            <h2 className="text-2xl font-black text-slate-800 mb-2">Are you sure?</h2>
+            <p className="text-slate-500 font-medium mb-8">
+              Deleting <b>{categoryToDelete.name}</b> cannot be undone. All linked items may lose their category reference.
             </p>
-            <div className="flex justify-end gap-2">
+            <div className="grid grid-cols-2 gap-4">
               <button
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setCategoryToDelete(null);
-                }}
-                className="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400"
+                onClick={() => setShowDeleteModal(false)}
+                className="py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-slate-200 transition-all"
               >
-                Cancel
+                No, Keep it
               </button>
               <button
                 onClick={async () => {
                   if (!categoryToDelete) return;
-                  try {
-                    const { error } = await supabase
-                      .from("categories")
-                      .delete()
-                      .eq("id", categoryToDelete.id);
-                    if (error) throw error;
-
-                    // Update state
-                    setCategories((prev) =>
-                      prev.filter((cat) => cat.id !== categoryToDelete.id)
-                    );
-                    setFilteredCategories((prev) =>
-                      prev.filter((cat) => cat.id !== categoryToDelete.id)
-                    );
-
-                    toast.success("Category deleted successfully!");
-                  } catch (err) {
-                    console.error(err);
-                    toast.error("Failed to delete category.");
-                  } finally {
+                  const { error } = await supabase.from("categories").delete().eq("id", categoryToDelete.id);
+                  if (error) toast.error("Delete failed");
+                  else {
+                    setCategories(categories.filter(c => c.id !== categoryToDelete.id));
+                    toast.success("Category permanently deleted");
                     setShowDeleteModal(false);
-                    setCategoryToDelete(null);
                   }
                 }}
-                className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+                className="py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-red-700 transition-all shadow-lg shadow-red-200"
               >
-                Delete
+                Yes, Delete
               </button>
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 }
