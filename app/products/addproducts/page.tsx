@@ -8,10 +8,10 @@ import {
   ChevronRight, ShoppingCart, Image as ImageIcon, X,
   Beaker, ClipboardList, Truck, Tag
 } from "lucide-react";
-type Brand = {
-  id: string;
+interface Brand {
+  id: number;
   name: string;
-};
+}
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
