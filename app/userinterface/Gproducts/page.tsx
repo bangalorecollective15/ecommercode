@@ -155,7 +155,7 @@ function ProductsContent() {
               {filteredItems.length > 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-10">
                   {filteredItems.map(item => (
-                    <ProductCard key={item.id} product={item} userId={userId} />
+                   <ProductCard key={item.id} product={item} userId={userId} />
                   ))}
                 </div>
               ) : (
