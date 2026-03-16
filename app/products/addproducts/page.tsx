@@ -8,7 +8,10 @@ import {
   ChevronRight, ShoppingCart, Image as ImageIcon, X,
   Beaker, ClipboardList, Truck, Tag
 } from "lucide-react";
-
+type Brand = {
+  id: string;
+  name: string;
+};
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -138,65 +141,65 @@ export default function AddProduct() {
     if (!validateForm()) return;
     setLoading(true);
 
-   try {
-      // 1. Insert Main Product
-      const { data: productData, error: productError } = await supabase
-        .from("products")
-        .insert([{
-          name: form.name,
-          sku: form.sku,
-          description: form.description,
-          category_id: form.category_id,
-          subcategory_id: form.subcategory_id || null,
-          sub_subcategory_id: form.sub_subcategory_id || null,
-          brand_id: form.brand_id,
-          ingredients: form.ingredients,
-          taste_id: form.taste_id || null,
-          pack_of: form.pack_of,
-          max_shelf_life: form.max_shelf_life,
-          has_variation: form.has_variation,
-          shipping_type: form.shipping_type,
-          shipping_charge: form.shipping_type === "free" ? 0 : Number(form.shipping_charge),
-          youtube_url: form.youtube_url,
-        }]).select().single();
+    try {
+      // 1. Insert Main Product
+      const { data: productData, error: productError } = await supabase
+        .from("products")
+        .insert([{
+          name: form.name,
+          sku: form.sku,
+          description: form.description,
+          category_id: form.category_id,
+          subcategory_id: form.subcategory_id || null,
+          sub_subcategory_id: form.sub_subcategory_id || null,
+          brand_id: form.brand_id,
+          ingredients: form.ingredients,
+          taste_id: form.taste_id || null,
+          pack_of: form.pack_of,
+          max_shelf_life: form.max_shelf_life,
+          has_variation: form.has_variation,
+          shipping_type: form.shipping_type,
+          shipping_charge: form.shipping_type === "free" ? 0 : Number(form.shipping_charge),
+          youtube_url: form.youtube_url,
+        }]).select().single();
 
-      if (productError) throw productError;
+      if (productError) throw productError;
 
-      // 2. Handle Images (Upload to Storage AND Insert to product_images table)
-      if (form.images.length > 0) {
-        const imageUrls = await uploadImages(productData.id);
-        
-        const imageRows = imageUrls.map(url => ({
-          product_id: productData.id,
-          image_url: url
-        }));
+      // 2. Handle Images (Upload to Storage AND Insert to product_images table)
+      if (form.images.length > 0) {
+        const imageUrls = await uploadImages(productData.id);
 
-        const { error: imgError } = await supabase.from("product_images").insert(imageRows);
-        if (imgError) throw imgError;
-      }
+        const imageRows = imageUrls.map(url => ({
+          product_id: productData.id,
+          image_url: url
+        }));
 
-      // 3. Handle Variations
-      if (form.has_variation && form.variations.length > 0) {
-        const variationsToInsert = form.variations.map((v) => ({
-          product_id: productData.id,
-          unit_type: v.unit_type,
-          unit_value: v.unit_value,
-          price: Number(v.price),
-          stock: Number(v.stock)
-        }));
+        const { error: imgError } = await supabase.from("product_images").insert(imageRows);
+        if (imgError) throw imgError;
+      }
 
-        const { error: varError } = await supabase.from("product_variations").insert(variationsToInsert);
-        if (varError) throw varError;
-      }
+      // 3. Handle Variations
+      if (form.has_variation && form.variations.length > 0) {
+        const variationsToInsert = form.variations.map((v) => ({
+          product_id: productData.id,
+          unit_type: v.unit_type,
+          unit_value: v.unit_value,
+          price: Number(v.price),
+          stock: Number(v.stock)
+        }));
 
-      toast.success("Product Published Successfully!");
+        const { error: varError } = await supabase.from("product_variations").insert(variationsToInsert);
+        if (varError) throw varError;
+      }
+
+      toast.success("Product Published Successfully!");
       // Optional: Reset form or redirect here
-    } catch (err: any) {
-      console.error("Full Error Object:", err);
-      toast.error(err.message || "An unexpected error occurred");
-    } finally {
-      setLoading(false);
-    } 
+    } catch (err: any) {
+      console.error("Full Error Object:", err);
+      toast.error(err.message || "An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -318,9 +321,10 @@ export default function AddProduct() {
                     {/* Change b.name to b.name_en */}
                     {brands.map(b => (
                       <option key={b.id} value={b.id}>
-                        {b.name_en}
+                        {b.name}
                       </option>
-                    ))}                 </select>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Category</label>
