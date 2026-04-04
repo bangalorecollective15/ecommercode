@@ -248,6 +248,7 @@ function ChartBox({ title, sub, children }: any) {
 }
 
 // -------------------- CHART OPTIONS --------------------
+// -------------------- CHART OPTIONS --------------------
 
 const commonChartOptions = {
   responsive: true,
@@ -255,7 +256,16 @@ const commonChartOptions = {
   plugins: { legend: { display: false } },
   scales: {
     y: { display: false },
-    x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 9, weight: '900' as const } } }
+    x: { 
+      grid: { display: false }, 
+      border: { display: false }, 
+      ticks: { 
+        font: { 
+          size: 9, 
+          weight: 900 // Changed from '900' to 900
+        } 
+      } 
+    }
   }
 };
 
@@ -265,7 +275,10 @@ const pieOptions = {
     legend: { 
       position: 'bottom' as const, 
       labels: { 
-        font: { size: 10, weight: '900' as const }, 
+        font: { 
+          size: 10, 
+          weight: 900 // Changed from '900' to 900
+        }, 
         usePointStyle: true 
       } 
     } 
