@@ -226,14 +226,30 @@ return (
                     {product.active ? 'Active' : 'Hidden'}
                   </span>
                 </td>
-                <td className="px-10 py-6">
-                  <div className="flex justify-end gap-1.5 opacity-40 group-hover:opacity-100 transition-opacity duration-300">
-                    <ActionButton icon={<QrCode size={16}/>} onClick={() => router.push(`/products/listproducts/barcode/${product.id}`)} />
-                    <ActionButton icon={<Eye size={16}/>} onClick={() => router.push(`/products/listproducts/view/${product.id}`)} />
-                    <ActionButton icon={<Pencil size={16}/>} onClick={() => router.push(`/products/listproducts/edit/${product.id}`)} />
-                    <ActionButton icon={<Trash2 size={16}/>} onClick={() => { setDeleteId(product.id); setShowDeleteModal(true); }} isDelete />
-                  </div>
-                </td>
+               <td className="px-10 py-6">
+  <div className="flex justify-end gap-1.5 opacity-40 group-hover:opacity-100 transition-opacity duration-300">
+    <ActionButton 
+      icon={<QrCode size={16}/>} 
+      color="gray" 
+      onClick={() => router.push(`/products/listproducts/barcode/${product.id}`)} 
+    />
+    <ActionButton 
+      icon={<Eye size={16}/>} 
+      color="gray" 
+      onClick={() => router.push(`/products/listproducts/view/${product.id}`)} 
+    />
+    <ActionButton 
+      icon={<Pencil size={16}/>} 
+      color="gray" 
+      onClick={() => router.push(`/products/listproducts/edit/${product.id}`)} 
+    />
+    <ActionButton 
+      icon={<Trash2 size={16}/>} 
+      color="red" 
+      onClick={() => { setDeleteId(product.id); setShowDeleteModal(true); }} 
+    />
+  </div>
+</td>
               </tr>
             ))}
           </tbody>
