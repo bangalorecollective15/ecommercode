@@ -69,7 +69,7 @@ const fetchCartData = useCallback(async (uid: string | null) => {
     const buyNowVarId = searchParams.get("variationId");
     const buyNowQty = parseInt(searchParams.get("qty") || "1");
 
-    if (buyNowVarId) {
+   if (buyNowVarId) {
       // 1. BUY NOW LOGIC
       const { data: item, error } = await supabase
         .from("product_variations")
@@ -83,25 +83,27 @@ const fetchCartData = useCallback(async (uid: string | null) => {
         .single();
 
       if (item && !error) {
-        // Handle the case where color or size might be returned as an array
+        // Fix: Ensure we access the single product object even if returned as array
+        const product = Array.isArray(item.products) ? item.products[0] : (item.products as any);
+        
         const colorName = Array.isArray(item.color) ? item.color[0]?.name : (item.color as any)?.name;
         const sizeName = Array.isArray(item.size) ? item.size[0]?.name : (item.size as any)?.name;
 
         setCart([{
-          productId: item.products.id,
-          name: item.products.name,
+          productId: product.id,
+          name: product.name,
           variationId: item.id,
           variationName: `${colorName || ''} ${sizeName || ''}`.trim() || "Standard",
           price: item.price,
           quantity: buyNowQty,
           stock: item.stock,
-          image: item.products.product_images?.[0]?.image_url || "/placeholder.png",
-          shippingCharge: item.products.shipping_charge || 0,
+          image: product.product_images?.[0]?.image_url || "/placeholder.png",
+          shippingCharge: product.shipping_charge || 0,
         }]);
       } else {
         toast.error("Could not retrieve product details.");
       }
-    } else if (uid) {
+    }else if (uid) {
       // 2. STANDARD CART LOGIC
       const { data, error } = await supabase
         .from("cart")
