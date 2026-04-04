@@ -17,34 +17,37 @@ export default function RestockPage() {
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [newStock, setNewStock] = useState<number>(0);
 
-  // Fetch products with unit_value included
-  const loadProducts = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("products")
-      .select(`
+const loadProducts = async () => {
+  setLoading(true);
+  const { data, error } = await supabase
+    .from("products")
+    .select(`
+      id, 
+      name, 
+      sku, 
+      product_variations (
         id, 
-        name, 
-        sku, 
-        product_variations(id, unit_type, unit_value, price, stock)
-      `);
-    
-    if (error) {
-      toast.error("Failed to load products");
-      console.error(error);
-    } else {
-      setProducts(data || []);
-    }
-    setLoading(false);
-  };
+        price, 
+        stock,
+        color:attributes!product_variations_color_id_fkey ( name ),
+        size:attributes!product_variations_size_id_fkey ( name )
+      )
+    `);
 
+  if (error) {
+    console.error("Supabase Error:", error);
+    toast.error("Failed to load inventory");
+  } else {
+    setProducts(data || []);
+  }
+  setLoading(false);
+};
   useEffect(() => {
     loadProducts();
   }, []);
 
   const updateStock = async () => {
     if (!editingProduct) return;
-
     try {
       const { error } = await supabase
         .from("product_variations")
@@ -52,176 +55,120 @@ export default function RestockPage() {
         .eq("id", editingProduct.variationId);
 
       if (error) throw error;
-
-      toast.success("Stock updated successfully!");
+      toast.success("Stock updated!");
       setEditingProduct(null);
       await loadProducts();
     } catch (err: any) {
-      toast.error(err.message || "Something went wrong");
+      toast.error("Update failed");
     }
   };
 
-  // Flatten and Filter data
-  const filteredProducts = products
-    .flatMap((p) =>
-      p.product_variations.map((v: any) => ({
-        productId: p.id,
-        name: p.name,
-        sku: p.sku,
-        variationId: v.id,
-        unit: v.unit_type,
-        unitValue: v.unit_value, // Added unit_value
-        price: v.price,
-        stock: v.stock,
-      }))
-    )
-    .filter((p) => {
-      const matchesSearch =
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.sku.toLowerCase().includes(search.toLowerCase());
-      return matchesSearch;
-    })
-    .sort((a, b) => {
-      if (sortBy === "name") return a.name.localeCompare(b.name);
-      if (sortBy === "price") return a.price - b.price;
-      if (sortBy === "stock") return a.stock - b.stock;
-      return 0;
-    });
+const filteredProducts = products.flatMap((p) => {
+  if (!p.product_variations) return [];
 
-  if (loading) return (
-    <div className="flex justify-center items-center min-h-screen">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-600"></div>
-    </div>
-  );
+  return p.product_variations.map((v) => {
+    // Helper to extract name regardless of if Supabase returns an array or object
+    const getName = (val: any) => {
+      if (!val) return null;
+      return Array.isArray(val) ? val[0]?.name : val.name;
+    };
+
+    return {
+      productId: p.id,
+      name: p.name,
+      sku: p.sku || "N/A",
+      variationId: v.id,
+      colorName: getName(v.color) || "Standard", 
+      sizeName: getName(v.size) || "OS",
+      price: v.price || 0,
+      stock: v.stock || 0,
+    };
+  });
+});
+  if (loading) return <div className="h-screen flex items-center justify-center">Loading...</div>;
 
   return (
-    <div className="p-6 md:p-10 bg-gray-50 min-h-screen">
+    <div className="p-8 bg-[#F8FAFC] min-h-screen font-sans">
       <Toaster position="top-right" />
 
-      <header className="mb-8">
-        <h1 className="text-3xl font-extrabold text-orange-600">Inventory Re-stock</h1>
-        <p className="text-gray-500">Manage your product variations and stock levels.</p>
+      <header className="mb-10">
+        <h1 className="text-3xl font-black uppercase tracking-tighter">Inventory Control</h1>
+        <p className="text-slate-500 font-medium italic">Update stock levels for all product variations.</p>
       </header>
 
-      {/* Controls */}
-      <div className="flex flex-col md:flex-row gap-4 mb-8">
-        <div className="flex-1">
-          <input
-            type="text"
-            placeholder="Search by product name or SKU..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full border border-gray-300 p-3 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 outline-none transition"
-          />
-        </div>
-
+      <div className="flex gap-4 mb-8">
+        <input
+          type="text"
+          placeholder="Search by name or SKU..."
+          className="flex-1 p-4 rounded-2xl border border-slate-200 bg-white shadow-sm outline-none focus:ring-2 focus:ring-black"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
         <select
+          className="p-4 rounded-2xl border border-slate-200 bg-white font-bold text-xs uppercase"
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as any)}
-          className="border border-gray-300 p-3 rounded-lg bg-white shadow-sm focus:ring-2 focus:ring-orange-500 outline-none transition w-full md:w-64"
         >
           <option value="name">Sort by Name</option>
+          <option value="stock">Sort by Stock</option>
           <option value="price">Sort by Price</option>
-          <option value="stock">Sort by Stock Level</option>
         </select>
       </div>
 
-      {/* Table Container */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 text-gray-600 uppercase text-xs font-semibold">
-                <th className="px-6 py-4">Product Details</th>
-                <th className="px-6 py-4">SKU</th>
-                <th className="px-6 py-4">Unit / Size</th>
-                <th className="px-6 py-4">Price</th>
-                <th className="px-6 py-4">Stock Status</th>
-                <th className="px-6 py-4 text-center">Action</th>
+      <div className="bg-white rounded-[32px] border border-slate-100 shadow-xl overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-100">
+            <tr>
+              <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Product</th>
+              <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Variant</th>
+              <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Price</th>
+              <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Current Stock</th>
+              <th className="px-8 py-5 text-center text-[10px] font-black uppercase tracking-widest text-slate-400">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {filteredProducts.map((p) => (
+              <tr key={p.variationId} className="hover:bg-slate-50/50 transition-colors">
+                <td className="px-8 py-5 font-bold text-slate-900">{p.name} <span className="block text-[10px] text-slate-400 font-mono">{p.sku}</span></td>
+                <td className="px-8 py-5">
+                  <span className="text-[11px] font-black uppercase text-blue-600 block">{p.colorName}</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Size {p.sizeName}</span>
+                </td>
+                <td className="px-8 py-5 font-black">₹{p.price}</td>
+                <td className="px-8 py-5">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${p.stock < 10 ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                    <span className="font-black">{p.stock}</span>
+                  </div>
+                </td>
+                <td className="px-8 py-5 text-center">
+                  <button
+                    onClick={() => { setEditingProduct(p); setNewStock(p.stock); }}
+                    className="bg-black text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase hover:scale-105 transition"
+                  >
+                    Update
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredProducts.map((p) => (
-                <tr key={p.variationId} className="hover:bg-orange-50/30 transition">
-                  <td className="px-6 py-4 font-semibold text-gray-800">{p.name}</td>
-                  <td className="px-6 py-4 text-gray-500 font-mono text-sm">{p.sku}</td>
-                  <td className="px-6 py-4">
-                    <span className="px-2 py-1 bg-gray-100 rounded text-sm text-gray-700">
-                      {p.unitValue} {p.unit}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 font-medium text-gray-900">₹{p.price}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-lg font-bold ${p.stock < 20 ? "text-red-500" : "text-gray-700"}`}>
-                        {p.stock}
-                      </span>
-                      {p.stock < 20 && (
-                        <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">
-                          Low
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <button
-                      onClick={() => {
-                        setEditingProduct(p);
-                        setNewStock(p.stock);
-                      }}
-                      className="px-5 py-2 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 shadow-sm transition active:scale-95"
-                    >
-                      Re-stock
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* Stock Update Modal */}
       {editingProduct && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4"
-          onClick={() => setEditingProduct(null)}
-        >
-          <div
-            className="bg-white p-8 rounded-2xl w-full max-w-sm shadow-2xl space-y-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div>
-              <h3 className="text-xl font-bold text-gray-800">Update Stock</h3>
-              <p className="text-gray-500 text-sm">
-                {editingProduct.name} ({editingProduct.unitValue} {editingProduct.unit})
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-600">Inventory Count</label>
-              <input
-                type="number"
-                min={0}
-                value={newStock}
-                onChange={(e) => setNewStock(Math.max(0, Number(e.target.value)))}
-                className="border-2 border-gray-200 p-3 w-full rounded-xl focus:border-orange-500 focus:ring-0 outline-none text-xl font-bold text-center transition"
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setEditingProduct(null)}
-                className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={updateStock}
-                className="flex-1 px-4 py-3 bg-orange-600 text-white rounded-xl font-semibold hover:bg-orange-700 shadow-md shadow-orange-200 transition active:scale-95"
-              >
-                Save Changes
-              </button>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white p-8 rounded-[40px] shadow-2xl w-full max-w-sm text-center">
+            <h2 className="text-xl font-black uppercase">Edit Stock</h2>
+            <p className="text-slate-400 text-[10px] font-bold uppercase mb-6">{editingProduct.name} - {editingProduct.colorName}</p>
+            <input
+              type="number"
+              className="w-full text-5xl font-black text-center mb-8 focus:outline-none"
+              value={newStock}
+              onChange={(e) => setNewStock(Number(e.target.value))}
+            />
+            <div className="flex gap-4">
+              <button onClick={() => setEditingProduct(null)} className="flex-1 py-4 bg-slate-100 rounded-2xl font-black text-[10px] uppercase">Cancel</button>
+              <button onClick={updateStock} className="flex-1 py-4 bg-black text-white rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-black/20">Save Changes</button>
             </div>
           </div>
         </div>

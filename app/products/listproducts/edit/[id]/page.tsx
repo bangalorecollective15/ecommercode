@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState, ChangeEvent, FormEvent } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import {
-  ArrowLeft, Save, Plus, Trash2, Image as ImageIcon,
-  Youtube, Info, Layers, Tag, Beaker, Truck, Clock, Package, Hash
+  Plus, Save, Sparkles,Layers, Image as ImageIcon, X, Loader2, Hash, ArrowLeft
 } from "lucide-react";
 
 const supabase = createClient(
@@ -14,438 +13,370 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// Types matching your SQL Schema
-interface Brand {
-  id: number;
-  name_en: string;
-}
-interface Category { id: number; name: string; }
-interface SubCategory { id: number; name: string; }
-interface SubSubCategory { id: number; name: string; }
-interface Taste { id: number; name: string; }
-
-interface Product {
-  id: number;
-  name: string;
-  sku: string;
-  description?: string;
-  ingredients?: string;
-  category_id?: number;
-  subcategory_id?: number;
-  sub_subcategory_id?: number;
-  brand_id?: number;
-  pack_of?: string;
-  max_shelf_life?: string;
-  taste_id?: number;
-  has_variation?: boolean;
-  shipping_charge?: number;
-  shipping_type: string;
-  youtube_url?: string;
-}
-
-interface ProductVariation {
-  id?: number;
-  product_id?: number;
-  unit_type: string;
-  unit_value: string;
-  price: number;
-  stock: number;
-}
-
-export default function ProductEditPage() {
-  const params = useParams();
+export default function EditLifestyleProduct({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params);
+  const productId = resolvedParams.id;
   const router = useRouter();
-  const productId = Number(params.id);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [product, setProduct] = useState<Product | null>(null);
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
-  const [subSubCategories, setSubSubCategories] = useState<SubSubCategory[]>([]);
-  const [tastes, setTastes] = useState<Taste[]>([]);
-  const [variations, setVariations] = useState<ProductVariation[]>([]);
-  const [images, setImages] = useState<{ id: number, image_url: string }[]>([]);
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  // Loading States
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Metadata Lists
+  const [categories, setCategories] = useState<any[]>([]);
+  const [subcategories, setSubcategories] = useState<any[]>([]);
+  const [subSubcategories, setSubSubcategories] = useState<any[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
+  const [dbSizes, setDbSizes] = useState<any[]>([]);
+  const [dbColors, setDbColors] = useState<any[]>([]);
+  const [lifestyleTags, setLifestyleTags] = useState<any[]>([]);
+
+  const [form, setForm] = useState({
+    name: "",
+    sku: "",
+    description: "",
+    category_id: "",
+    subcategory_id: "",
+    sub_subcategory_id: "",
+    brand_id: "",
+    lifestyle_tag_id: "",
+    variations: [] as any[],
+    existingImages: [] as any[], // Current images in Supabase
+    newImageFiles: [] as File[], // Files to be uploaded
+    newImagePreviews: [] as string[],
+  });
 
   useEffect(() => {
-    const initFetch = async () => {
-      await Promise.all([
-        fetchProduct(),
-        fetchBrands(),
-        fetchCategories(),
-        fetchTastes(),
-        fetchVariations(),
-        fetchImages()
-      ]);
-      setLoading(false);
-    };
-    initFetch();
+    fetchData();
   }, [productId]);
 
-  const fetchProduct = async () => {
-    const { data, error } = await supabase.from("products").select("*").eq("id", productId).single();
-    if (!error && data) setProduct(data);
-  };
+  const fetchData = async () => {
+    try {
+      setLoading(true);
 
-  const fetchBrands = async () => {
-    const { data, error } = await supabase
-      .from("brands")
-      .select("id, name_en")
-      .order("name_en", { ascending: true });
+      // 1. Fetch Global Metadata
+      const [catRes, brandRes, attrRes] = await Promise.all([
+        supabase.from("categories").select("*"),
+        supabase.from("brands").select("id, name_en").eq('status', true),
+        supabase.from("attributes").select("*")
+      ]);
 
-    if (error) {
-      console.error("Brand fetch error:", error);
-      return;
+      setCategories(catRes.data || []);
+      setBrands(brandRes.data || []);
+      setDbColors(attrRes.data?.filter(a => a.type === "color") || []);
+      setDbSizes(attrRes.data?.filter(a => a.type === "size") || []);
+      setLifestyleTags(attrRes.data?.filter(a => a.type === "lifestyle_tag") || []);
+
+      // 2. Fetch Specific Product Data
+      const { data: p, error: pErr } = await supabase
+        .from("products")
+        .select(`*, product_images(*), product_variations(*)`)
+        .eq("id", productId)
+        .single();
+
+      if (pErr) throw pErr;
+
+      // 3. Fetch Category Chain Dependencies
+      if (p.category_id) {
+        const { data: sub } = await supabase.from("subcategories").select("*").eq("category_id", p.category_id);
+        setSubcategories(sub || []);
+      }
+      if (p.subcategory_id) {
+        const { data: subSub } = await supabase.from("sub_subcategories").select("*").eq("subcategory_id", p.subcategory_id);
+        setSubSubcategories(subSub || []);
+      }
+
+      setForm({
+        name: p.name || "",
+        sku: p.sku || "",
+        description: p.description || "",
+        category_id: p.category_id?.toString() || "",
+        subcategory_id: p.subcategory_id?.toString() || "",
+        sub_subcategory_id: p.sub_subcategory_id?.toString() || "",
+        brand_id: p.brand_id?.toString() || "",
+        lifestyle_tag_id: p.lifestyle_tag_id?.toString() || "",
+        variations: p.product_variations || [],
+        existingImages: p.product_images || [],
+        newImageFiles: [],
+        newImagePreviews: [],
+      });
+
+    } catch (err) {
+      toast.error("Failed to load product details");
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-
-    if (data) setBrands(data);
   };
 
-  const fetchCategories = async () => {
-    const { data } = await supabase.from("categories").select("*");
-    if (data) setCategories(data);
+  const handleCategoryChange = async (categoryId: string) => {
+    setForm(f => ({ ...f, category_id: categoryId, subcategory_id: "", sub_subcategory_id: "" }));
+    if (!categoryId) { setSubcategories([]); return; }
+    const { data } = await supabase.from("subcategories").select("*").eq("category_id", categoryId);
+    setSubcategories(data || []);
   };
 
-  const fetchTastes = async () => {
-    const { data } = await supabase.from("attributes").select("*");
-    if (data) setTastes(data);
+  const handleSubcategoryChange = async (subId: string) => {
+    setForm(f => ({ ...f, subcategory_id: subId, sub_subcategory_id: "" }));
+    if (!subId) { setSubSubcategories([]); return; }
+    const { data } = await supabase.from("sub_subcategories").select("*").eq("subcategory_id", subId);
+    setSubSubcategories(data || []);
   };
 
-  const fetchVariations = async () => {
-    const { data } = await supabase.from("product_variations").select("*").eq("product_id", productId);
-    if (data) setVariations(data);
-  };
-
-  const fetchImages = async () => {
-    const { data } = await supabase.from("product_images").select("*").eq("product_id", productId);
-    if (data) setImages(data || []);
-  };
-
-  useEffect(() => {
-    if (!product?.category_id) {
-      setSubCategories([]);
-      return;
-    }
-    supabase.from("subcategories").select("*").eq("category_id", product.category_id)
-      .then(({ data }) => setSubCategories(data || []));
-  }, [product?.category_id]);
-
-  useEffect(() => {
-    if (!product?.subcategory_id) {
-      setSubSubCategories([]);
-      return;
-    }
-    supabase.from("sub_subcategories").select("*").eq("subcategory_id", product.subcategory_id)
-      .then(({ data }) => setSubSubCategories(data || []));
-  }, [product?.subcategory_id]);
-
-  // UPDATED HANDLER: Auto-sets charge to 0 if shipping_type is 'free'
-  const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value, type } = e.target;
-
-    if (!product) return;
-
-    let updates: any = {
-      ...product,
-      [name]: name.includes("_id") ? Number(value) : type === "number" ? Number(value) : value
-    };
-
-    if (name === "shipping_type" && value === "free") {
-      updates.shipping_charge = 0;
-    }
-
-    setProduct(updates);
-  };
-
-  const handleVariationChange = (index: number, field: keyof ProductVariation, value: any) => {
-    const updated = [...variations];
-    (updated[index] as any)[field] = (field === "price" || field === "stock") ? Number(value) : value;
-    setVariations(updated);
-  };
-
-  const addVariation = () => {
-    setVariations([...variations, { unit_type: "Grams", unit_value: "", price: 0, stock: 0 }]);
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!product) return;
-    const loadId = toast.loading("Updating product...");
+  const handleUpdate = async () => {
+    if (!form.name) return toast.error("Name is required");
+    setSaving(true);
 
     try {
-      const { id, ...productData } = product;
-      const { error: prodError } = await supabase.from("products").update(productData).eq("id", productId);
-      if (prodError) throw prodError;
+      // 1. Update Core Product
+      const { error: pErr } = await supabase.from("products").update({
+        name: form.name,
+        description: form.description,
+        brand_id: form.brand_id ? parseInt(form.brand_id) : null,
+        category_id: form.category_id ? parseInt(form.category_id) : null,
+        subcategory_id: form.subcategory_id ? parseInt(form.subcategory_id) : null,
+        sub_subcategory_id: form.sub_subcategory_id ? parseInt(form.sub_subcategory_id) : null,
+        lifestyle_tag_id: form.lifestyle_tag_id ? parseInt(form.lifestyle_tag_id) : null,
+      }).eq("id", productId);
 
-      await supabase.from("product_variations").delete().eq("product_id", productId);
-      const variationsToInsert = variations.map(v => ({
-        product_id: productId,
-        unit_type: v.unit_type,
-        unit_value: v.unit_value,
-        price: v.price,
-        stock: v.stock
-      }));
-      await supabase.from("product_variations").insert(variationsToInsert);
+      if (pErr) throw pErr;
 
-      for (let file of imageFiles) {
+      // 2. Upload New Images
+      for (const file of form.newImageFiles) {
         const fileName = `${Date.now()}-${file.name}`;
-        const { data, error: upError } = await supabase.storage.from("product-images").upload(fileName, file);
-        if (upError) throw upError;
-        const { publicUrl } = supabase.storage.from("product-images").getPublicUrl(fileName).data;
+        const { data: upData, error: upErr } = await supabase.storage.from('product-images').upload(`products/${fileName}`, file);
+        if (upErr) throw upErr;
+
+        const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(`products/${fileName}`);
         await supabase.from("product_images").insert({ product_id: productId, image_url: publicUrl });
       }
 
-      toast.success("Product updated successfully!", { id: loadId });
-      router.push("/products/listproducts");
+      // 3. Sync Variations (Delete old ones and re-insert for simplicity)
+      await supabase.from("product_variations").delete().eq("product_id", productId);
+      const varRows = form.variations.map(v => ({
+        product_id: productId,
+        color_id: v.color_id ? parseInt(v.color_id) : null,
+        size_id: v.size_id ? parseInt(v.size_id) : null,
+        price: Number(v.price),
+        stock: Number(v.stock)
+      }));
+      await supabase.from("product_variations").insert(varRows);
+
+      toast.success("Product updated successfully!");
+      router.refresh();
     } catch (err: any) {
-      toast.error(err.message, { id: loadId });
+      toast.error(err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
-  if (loading || !product) return (
-    <div className="flex flex-col items-center justify-center min-h-screen">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-orange-600"></div>
-      <p className="mt-4 text-orange-600 font-bold animate-pulse">LOADING PRODUCT...</p>
+  const removeExistingImage = async (imgId: number) => {
+    const { error } = await supabase.from("product_images").delete().eq("id", imgId);
+    if (error) return toast.error("Failed to delete image");
+    setForm(f => ({ ...f, existingImages: f.existingImages.filter(img => img.id !== imgId) }));
+    toast.success("Image removed");
+  };
+
+  if (loading) return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+      <Loader2 className="animate-spin text-slate-400" size={40} />
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Retrieving Collection Data...</p>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-20">
-      <Toaster position="top-right" />
+    <div className="min-h-screen bg-white p-6 md:p-12 text-black">
+      <Toaster position="bottom-center" />
+      <div className="max-w-7xl mx-auto">
 
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100 p-4 mb-8">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-              <ArrowLeft size={20} className="text-gray-600" />
+        {/* Header */}
+        <header className="flex justify-between items-center mb-12 border-b pb-8">
+          <div>
+            <button onClick={() => router.back()} className="flex items-center gap-2 text-slate-400 text-[10px] font-black uppercase mb-2 hover:text-black transition-colors">
+              <ArrowLeft size={14} /> Back to Inventory
             </button>
-            <h1 className="text-xl font-black text-gray-900 uppercase tracking-tight">Edit Product</h1>
+            <h1 className="text-3xl font-black uppercase tracking-tighter">EDIT <span className="text-slate-400">PRODUCT</span></h1>
           </div>
-          <button
-            form="product-form"
-            type="submit"
-            className="flex items-center gap-2 bg-orange-600 text-white px-10 py-3 rounded-2xl font-bold shadow-lg shadow-orange-100 hover:bg-orange-700 hover:scale-105 transition-all active:scale-95"
-          >
-            <Save size={18} /> SAVE CHANGES
+          <button onClick={handleUpdate} disabled={saving} className="bg-black text-white px-10 py-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 hover:bg-slate-800 transition-all">
+            {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />} UPDATE LISTING
           </button>
-        </div>
-      </div>
+        </header>
 
-      <form id="product-form" onSubmit={handleSubmit} className="max-w-7xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
+          <div className="lg:col-span-3 space-y-12">
 
-        {/* Left Column */}
-        <div className="lg:col-span-8 space-y-8">
-
-          {/* Section 1: Basic Info */}
-          <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm space-y-6">
-            <div className="flex items-center gap-2 text-orange-600 mb-2">
-              <Info size={18} /> <span className="text-xs font-black uppercase tracking-widest">Core Details</span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Product Name</label>
-                <input type="text" name="name" value={product.name || ""} onChange={handleChange} className="w-full p-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 font-bold" required />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-gray-400 uppercase ml-1 flex items-center gap-1">
-                  <Hash size={12} /> SKU Code
-                </label>
+            {/* Core Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-500">Product Name</label>
                 <input
-                  type="text"
-                  name="sku"
-                  value={product.sku || ""}
-                  readOnly // This prevents typing
-                  className="w-full p-4 bg-gray-100 border-none rounded-2xl font-bold text-gray-500 cursor-not-allowed outline-none"
-                  placeholder="No SKU Assigned"
+                  className="w-full py-3 bg-transparent border-b border-slate-200 outline-none focus:border-black font-bold text-lg"
+                  value={form.name}
+                  onChange={e => setForm({ ...form, name: e.target.value })}
                 />
-                <p className="text-[9px] text-gray-400 ml-2 ">* SKU is unique and cannot be changed.</p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-500">SKU (Immutable)</label>
+                <input className="w-full py-3 bg-transparent border-b border-slate-200 font-mono text-sm text-slate-400" value={form.sku} readOnly />
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Description</label>
-              <textarea name="description" value={product.description || ""} onChange={handleChange} className="w-full p-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 min-h-[120px]" />
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-slate-500">Description</label>
+              <textarea
+                className="w-full p-4 bg-slate-50 rounded-2xl min-h-[150px] outline-none border border-transparent focus:border-slate-200 text-sm font-medium"
+                value={form.description}
+                onChange={e => setForm({ ...form, description: e.target.value })}
+              />
             </div>
-          </div>
 
-          {/* Section 2: Variations */}
-          <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-orange-600">
-                <Layers size={18} /> <span className="text-xs font-black uppercase tracking-widest">Variations</span>
+            {/* Variations */}
+            <div className="bg-black rounded-[2.5rem] p-10 text-white shadow-2xl">
+              <div className="flex items-center gap-4 mb-10 border-b border-white/10 pb-6">
+                <Layers size={24} />
+                <h2 className="text-lg font-black uppercase tracking-widest">STOCK VARIANTS</h2>
               </div>
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <input type="checkbox" checked={product.has_variation} onChange={e => setProduct({ ...product, has_variation: e.target.checked })} className="hidden" />
-                <div className={`w-10 h-5 rounded-full transition-colors relative ${product.has_variation ? 'bg-orange-600' : 'bg-gray-200'}`}>
-                  <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${product.has_variation ? 'left-6' : 'left-1'}`} />
-                </div>
-              </label>
-            </div>
 
-            {product.has_variation && (
-              <div className="space-y-4">
-                {variations.map((v, idx) => (
-                  <div key={idx} className="grid grid-cols-12 gap-3 bg-gray-50 p-3 rounded-2xl items-center">
-                    <div className="col-span-3">
-                      <select value={v.unit_type} onChange={e => handleVariationChange(idx, "unit_type", e.target.value)} className="w-full bg-transparent border-none font-bold text-sm">
-                        <option>Grams</option><option>Kg</option><option>Liter</option><option>Ml</option><option>Pcs</option>
+              <div className="space-y-6">
+                {form.variations.map((v, i) => (
+                  <div key={i} className="grid grid-cols-2 md:grid-cols-12 gap-6 items-end border-b border-white/5 pb-6">
+                    <div className="md:col-span-3 space-y-2">
+                      <p className="text-[8px] font-bold text-slate-500 uppercase">Color</p>
+                      <select className="w-full bg-transparent border-b border-white/20 py-2 text-xs font-bold outline-none" value={v.color_id || ""} onChange={e => {
+                        const newV = [...form.variations]; newV[i].color_id = e.target.value; setForm({ ...form, variations: newV });
+                      }}>
+                        <option className="bg-black text-white" value="">NONE</option>
+                        {dbColors.map(c => <option className="bg-black text-white" key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
                     </div>
-                    <div className="col-span-3">
-                      <input type="text" placeholder="Value" value={v.unit_value || ""} onChange={e => handleVariationChange(idx, "unit_value", e.target.value)} className="w-full bg-white border-none rounded-xl text-sm font-bold py-2 px-3 shadow-sm" />
+                    <div className="md:col-span-3 space-y-2">
+                      <p className="text-[8px] font-bold text-slate-500 uppercase">Size</p>
+                      <select className="w-full bg-transparent border-b border-white/20 py-2 text-xs font-bold outline-none" value={v.size_id || ""} onChange={e => {
+                        const newV = [...form.variations]; newV[i].size_id = e.target.value; setForm({ ...form, variations: newV });
+                      }}>
+                        <option className="bg-black text-white" value="">NONE</option>
+                        {dbSizes.map(s => <option className="bg-black text-white" key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
                     </div>
-                    <div className="col-span-2">
-                      <input type="number" value={v.price} onChange={e => handleVariationChange(idx, "price", e.target.value)} className="w-full bg-white border-none rounded-xl text-sm font-bold py-2 px-3 shadow-sm" />
+                    <div className="md:col-span-3 space-y-2">
+                      <p className="text-[8px] font-bold text-slate-500 uppercase">Price (₹)</p>
+                      <input className="w-full bg-transparent border-b border-white/20 py-2 text-xs font-bold outline-none" value={v.price} onChange={e => {
+                        const newV = [...form.variations]; newV[i].price = e.target.value; setForm({ ...form, variations: newV });
+                      }} />
                     </div>
-                    <div className="col-span-2">
-                      <input type="number" value={v.stock} onChange={e => handleVariationChange(idx, "stock", e.target.value)} className="w-full bg-white border-none rounded-xl text-sm font-bold py-2 px-3 shadow-sm" />
+                    <div className="md:col-span-2 space-y-2">
+                      <p className="text-[8px] font-bold text-slate-500 uppercase">Stock</p>
+                      <input className="w-full bg-transparent border-b border-white/20 py-2 text-xs font-bold outline-none" value={v.stock} onChange={e => {
+                        const newV = [...form.variations]; newV[i].stock = e.target.value; setForm({ ...form, variations: newV });
+                      }} />
                     </div>
-                    <div className="col-span-2 flex justify-center">
-                      <button type="button" onClick={() => setVariations(variations.filter((_, i) => i !== idx))} className="text-red-400 p-2"><Trash2 size={16} /></button>
-                    </div>
+                    <button type="button" onClick={() => setForm({ ...form, variations: form.variations.filter((_, idx) => idx !== i) })} className="p-2 text-slate-600 hover:text-white"><X size={16} /></button>
                   </div>
                 ))}
-                <button type="button" onClick={addVariation} className="w-full py-4 border-2 border-dashed border-gray-100 rounded-2xl text-gray-400 font-bold text-xs hover:bg-orange-50 transition-all flex items-center justify-center gap-2">
-                  <Plus size={14} /> ADD NEW VARIATION
+                <button type="button" onClick={() => setForm({ ...form, variations: [...form.variations, { color_id: "", size_id: "", price: "0", stock: "0" }] })} className="w-full py-4 border border-dashed border-white/20 rounded-xl text-[10px] font-black uppercase hover:bg-white/5 transition-colors">+ ADD VARIATION</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Sidebar */}
+          <div className="space-y-10">
+            <div className="space-y-6">
+              <h3 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border-b pb-2">
+                <Hash size={14} /> CATEGORIZATION
+              </h3>
+              <div className="space-y-4">
+                {/* --- LIFESTYLE TAG (NEW) --- */}
+                <div>
+                  <label className="text-[9px] font-bold text-orange-600 uppercase block mb-1 flex items-center gap-1">
+                    <Sparkles size={10} /> Lifestyle Section
+                  </label>
+                  <select
+                    className="w-full p-3 bg-white border border-orange-100 rounded-lg text-xs font-bold focus:ring-2 focus:ring-orange-500 outline-none"
+                    value={form.lifestyle_tag_id}
+                    onChange={e => setForm({ ...form, lifestyle_tag_id: e.target.value })}
+                  >
+                    <option value="">No Lifestyle Tag (Standard)</option>
+                    {/* Use the attributes you fetched with type 'lifestyle_tag' */}
+                    {lifestyleTags.map(tag => (
+                      <option key={tag.id} value={tag.id}>{tag.name}</option>
+                    ))}
+                  </select>
+                  <p className="text-[8px] text-slate-400 mt-1 italic">Determines which "Atmosphere" section this appears in on the Home Page.</p>
+                </div>
+
+                {/* --- BRAND --- */}
+                <div>
+                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Brand</label>
+                  <select className="w-full p-3 bg-white border border-slate-200 rounded-lg text-xs font-bold" value={form.brand_id} onChange={e => setForm({ ...form, brand_id: e.target.value })}>
+                    <option value="">Select Brand</option>
+                    {brands.map(b => <option key={b.id} value={b.id}>{b.name_en}</option>)}
+                  </select>
+                </div>
+
+                {/* --- CATEGORY HIERARCHY --- */}
+                <div>
+                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Category</label>
+                  <select className="w-full p-3 bg-white border border-slate-200 rounded-lg text-xs font-bold" value={form.category_id} onChange={e => handleCategoryChange(e.target.value)}>
+                    <option value="">None</option>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Sub Category</label>
+                  <select className="w-full p-3 bg-white border border-slate-200 rounded-lg text-xs font-bold" value={form.subcategory_id} onChange={e => handleSubcategoryChange(e.target.value)}>
+                    <option value="">None</option>
+                    {subcategories.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Deep Sub</label>
+                  <select className="w-full p-3 bg-white border border-slate-200 rounded-lg text-xs font-bold" value={form.sub_subcategory_id} onChange={e => setForm({ ...form, sub_subcategory_id: e.target.value })}>
+                    <option value="">None</option>
+                    {subSubcategories.map(ss => <option key={ss.id} value={ss.id}>{ss.name}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-6">
+              <h3 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border-b pb-2"><ImageIcon size={14} /> ASSET GALLERY</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {/* Existing Images */}
+                {form.existingImages.map((img) => (
+                  <div key={img.id} className="relative aspect-square rounded-lg overflow-hidden border group">
+                    <img src={img.image_url} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                    <button type="button" onClick={() => removeExistingImage(img.id)} className="absolute top-1 right-1 bg-black text-white p-1 rounded-full"><X size={10} /></button>
+                  </div>
+                ))}
+                {/* New Upload Previews */}
+                {form.newImagePreviews.map((src, i) => (
+                  <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-slate-900 border-dashed">
+                    <img src={src} className="w-full h-full object-cover" />
+                    <div className="absolute top-1 left-1 bg-black text-[6px] text-white px-1 font-bold">NEW</div>
+                    <button type="button" onClick={() => {
+                      const nF = [...form.newImageFiles]; const nP = [...form.newImagePreviews];
+                      nF.splice(i, 1); nP.splice(i, 1);
+                      setForm({ ...form, newImageFiles: nF, newImagePreviews: nP });
+                    }} className="absolute top-1 right-1 bg-black text-white p-1 rounded-full"><X size={10} /></button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="aspect-square border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center text-slate-400 hover:text-black hover:border-black transition-colors">
+                  <Plus size={20} />
+                  <span className="text-[8px] font-black mt-1">UPLOAD</span>
                 </button>
               </div>
-            )}
-          </div>
-
-          {/* Section 3: Ingredients & Shipping */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
-              <div className="flex items-center gap-2 text-orange-600">
-                <Beaker size={18} /> <span className="text-xs font-black uppercase tracking-widest">Ingredients</span>
-              </div>
-              <textarea name="ingredients" value={product.ingredients || ""} onChange={handleChange} className="w-full p-4 bg-gray-50 border-none rounded-2xl min-h-[100px] text-sm font-medium" />
-            </div>
-
-            <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
-              <div className="flex items-center gap-2 text-orange-600">
-                <Truck size={18} /> <span className="text-xs font-black uppercase tracking-widest">Shipping</span>
-              </div>
-              <div className="space-y-4">
-                <select name="shipping_type" value={product.shipping_type} onChange={handleChange} className="w-full p-4 bg-gray-50 border-none rounded-2xl font-bold text-sm">
-                  <option value="free">Free Delivery</option>
-                  <option value="paid">Paid Delivery</option>
-                </select>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">₹</span>
-                  <input
-                    type="number"
-                    name="shipping_charge"
-                    value={product.shipping_charge || 0}
-                    onChange={handleChange}
-                    disabled={product.shipping_type === "free"} // Disables if free
-                    className={`w-full p-4 pl-8 border-none rounded-2xl font-bold text-sm ${product.shipping_type === "free" ? 'bg-gray-100 text-gray-400' : 'bg-gray-50'}`}
-                  />
-                </div>
-              </div>
+              <input type="file" ref={fileInputRef} className="hidden" multiple onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                const previews = files.map(f => URL.createObjectURL(f));
+                setForm(f => ({ ...f, newImageFiles: [...f.newImageFiles, ...files], newImagePreviews: [...f.newImagePreviews, ...previews] }));
+              }} />
             </div>
           </div>
         </div>
-
-        {/* Right Column: Taxonomy & Media */}
-        <div className="lg:col-span-4 space-y-8">
-          <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-6">
-            <div className="flex items-center gap-2 text-orange-600 mb-2">
-              <Tag size={18} /> <span className="text-xs font-black uppercase tracking-widest">Product Taxonomy</span>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-1 p-3 bg-gray-50 rounded-2xl">
-                <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Brand</label>
-                <select name="brand_id" value={product.brand_id || ""} onChange={handleChange} className="w-full bg-transparent border-none font-bold text-sm outline-none">
-                  <option value="">Select Brand</option>
-                  {brands.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name_en}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1 p-3 bg-gray-50 rounded-2xl border border-orange-100">
-                <label className="text-[10px] font-black text-orange-400 uppercase ml-1">Main Category</label>
-                <select name="category_id" value={product.category_id || ""} onChange={handleChange} className="w-full bg-transparent border-none font-bold text-sm outline-none">
-                  <option value="">Select Category</option>
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-
-              <div className="space-y-1 p-3 bg-gray-50 rounded-2xl">
-                <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Sub Category</label>
-                <select name="subcategory_id" value={product.subcategory_id || ""} onChange={handleChange} className="w-full bg-transparent border-none font-bold text-sm outline-none">
-                  <option value="">Select Sub</option>
-                  {subCategories.map(sc => <option key={sc.id} value={sc.id}>{sc.name}</option>)}
-                </select>
-              </div>
-
-              <div className="space-y-1 p-3 bg-gray-50 rounded-2xl">
-                <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Sub-Sub Category</label>
-                <select name="sub_subcategory_id" value={product.sub_subcategory_id || ""} onChange={handleChange} className="w-full bg-transparent border-none font-bold text-sm outline-none">
-                  <option value="">Select Sub-Sub</option>
-                  {subSubCategories.map(ssc => <option key={ssc.id} value={ssc.id}>{ssc.name}</option>)}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 bg-gray-50 rounded-2xl space-y-1">
-                <label className="text-[9px] font-black text-gray-400 uppercase flex items-center gap-1"><Package size={10} /> Pack</label>
-                <input type="text" name="pack_of" value={product.pack_of || ""} onChange={handleChange} className="w-full bg-transparent border-none font-bold text-xs" />
-              </div>
-              <div className="p-3 bg-gray-50 rounded-2xl space-y-1">
-                <label className="text-[9px] font-black text-gray-400 uppercase flex items-center gap-1"><Clock size={10} /> Shelf Life</label>
-                <input type="text" name="max_shelf_life" value={product.max_shelf_life || ""} onChange={handleChange} className="w-full bg-transparent border-none font-bold text-xs" />
-              </div>
-            </div>
-            <div className="p-3 bg-gray-50 rounded-2xl space-y-1">
-              <label className="text-[9px] font-black text-gray-400 uppercase">Taste Profile</label>
-              <select name="taste_id" value={product.taste_id || ""} onChange={handleChange} className="w-full bg-transparent border-none font-bold text-xs">
-                <option value="">Select Taste</option>
-                {tastes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm space-y-6">
-            <div className="flex items-center gap-2 text-orange-600">
-              <ImageIcon size={18} /> <span className="text-xs font-black uppercase tracking-widest">Media</span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              {images.map(img => (
-                <div key={img.id} className="relative aspect-square overflow-hidden rounded-2xl border border-gray-100">
-                  <img src={img.image_url} className="w-full h-full object-cover" />
-                  <button type="button" onClick={() => {
-                    supabase.from("product_images").delete().eq("id", img.id).then(() => fetchImages());
-                  }} className="absolute top-1 right-1 bg-white text-red-600 p-1 rounded-lg">
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              ))}
-              <label className="aspect-square flex items-center justify-center border-2 border-dashed border-gray-100 rounded-2xl cursor-pointer hover:bg-orange-50">
-                <Plus size={24} className="text-gray-300" />
-                <input type="file" multiple className="hidden" onChange={(e) => e.target.files && setImageFiles([...imageFiles, ...Array.from(e.target.files)])} />
-              </label>
-            </div>
-
-            <div className="pt-4 border-t border-gray-50">
-              <Youtube size={16} className="text-red-600 mb-2" />
-              <input type="text" name="youtube_url" value={product.youtube_url || ""} onChange={handleChange} placeholder="YouTube link" className="w-full p-4 bg-red-50/50 border-none rounded-2xl text-xs font-bold" />
-            </div>
-          </div>
-        </div>
-      </form>
+      </div>
     </div>
   );
 }

@@ -131,8 +131,8 @@ export default function ProductReport() {
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
-      <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-100 border-t-orange-600"></div>
-      <p className="text-orange-600 font-bold uppercase tracking-widest text-xs">Analyzing Inventory...</p>
+      <div className="animate-spin rounded-full h-12 w-12 border-4 border-orange-100 border-t-black"></div>
+      <p className="text-black font-bold uppercase tracking-widest text-xs">Analyzing Inventory...</p>
     </div>
   );
 
@@ -144,7 +144,7 @@ export default function ProductReport() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-              <Package className="text-orange-600 w-10 h-10" />
+              <Package className="text-black w-10 h-10" />
               Product Insights
             </h1>
             <p className="text-gray-500 font-medium mt-1">Real-time performance and inventory tracking.</p>
@@ -153,7 +153,7 @@ export default function ProductReport() {
             onClick={exportToExcel}
             className="flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-2xl font-bold hover:bg-gray-50 transition-all shadow-sm active:scale-95"
           >
-            <Download size={18} className="text-orange-600" />
+            <Download size={18} className="text-black" />
             Download CSV
           </button>
         </div>
@@ -175,7 +175,7 @@ export default function ProductReport() {
               placeholder="Search by name or SKU..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-600/20 outline-none transition font-medium"
+              className="w-full pl-12 pr-4 py-3 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-black/20 outline-none transition font-medium"
             />
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -195,7 +195,7 @@ export default function ProductReport() {
             </div>
             <button
               onClick={() => { setSearch(""); setSortBy("created_at"); }}
-              className="p-3 bg-gray-100 text-gray-500 rounded-2xl hover:bg-orange-100 hover:text-orange-600 transition-colors"
+              className="p-3 bg-gray-100 text-gray-500 rounded-2xl hover:bg-orange-100 hover:text-black transition-colors"
             >
               <RotateCcw size={20} />
             </button>
@@ -219,7 +219,7 @@ export default function ProductReport() {
                 {paginatedItems.map((p) => (
                   <tr key={p.id} className="group hover:bg-orange-50/20 transition-colors">
                     <td className="px-8 py-6">
-                      <div className="font-bold text-gray-900 group-hover:text-orange-600 transition-colors">{p.name}</div>
+                      <div className="font-bold text-gray-900 group-hover:text-black transition-colors">{p.name}</div>
                       <div className="text-[10px] font-black text-gray-400 uppercase mt-1 tracking-tighter">SKU: {p.sku}</div>
                     </td>
                     <td className="px-8 py-6">
@@ -259,7 +259,7 @@ export default function ProductReport() {
               disabled={currentPage === 1}
               className="p-3 bg-white border border-gray-200 rounded-xl disabled:opacity-30 hover:bg-orange-50 transition shadow-sm"
             >
-              <ChevronLeft size={18} className="text-orange-600" />
+              <ChevronLeft size={18} className="text-black" />
             </button>
             <div className="flex gap-1">
               {[...Array(totalPages)].map((_, i) => (
@@ -268,7 +268,7 @@ export default function ProductReport() {
                   onClick={() => setCurrentPage(i + 1)}
                   className={`w-10 h-10 rounded-xl text-xs font-black transition-all ${
                     currentPage === i + 1 
-                    ? "bg-orange-600 text-white shadow-lg shadow-orange-100" 
+                    ? "bg-black text-white shadow-lg shadow-orange-100" 
                     : "bg-white text-gray-500 hover:bg-gray-50 border border-gray-100"
                   }`}
                 >
@@ -281,7 +281,7 @@ export default function ProductReport() {
               disabled={currentPage === totalPages}
               className="p-3 bg-white border border-gray-200 rounded-xl disabled:opacity-30 hover:bg-orange-50 transition shadow-sm"
             >
-              <ChevronRight size={18} className="text-orange-600" />
+              <ChevronRight size={18} className="text-black" />
             </button>
           </div>
         )}
@@ -292,7 +292,7 @@ export default function ProductReport() {
 
 function StatCard({ title, value, icon, color }: { title: string; value: string | number; icon: React.ReactNode; color: string }) {
   const themes: Record<string, string> = {
-    orange: "bg-orange-50 text-orange-600 border-orange-100",
+    orange: "bg-orange-50 text-black border-orange-100",
     green: "bg-green-50 text-green-600 border-green-100",
     red: "bg-red-50 text-red-600 border-red-100",
   };

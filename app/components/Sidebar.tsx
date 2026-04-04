@@ -1,12 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ReactNode } from "react";
-
+import { usePathname } from "next/navigation";
 import {
-  Home,
   ShoppingCart,
   ClipboardList,
   ListTree,
@@ -16,207 +13,183 @@ import {
   Users,
   Shield,
   Lock,
-  UserCircle,
-  ChevronDown,
+  LogOut,
   ChevronRight,
+  LayoutDashboard,
+  Circle
 } from "lucide-react";
 
 interface SidebarProps {
   role: "admin" | "subadmin";
 }
 
-interface MenuItem {
-  label: string;
-  icon?: ReactNode;
-  href?: string;
-  subMenu?: MenuItem[];
-}
-
 export default function Sidebar({ role }: SidebarProps) {
+  const pathname = usePathname();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
-  const [active, setActive] = useState<string>("Dashboard");
 
-  const toggle = (menu: string) =>
-    setOpenMenu(openMenu === menu ? null : menu);
-
-  const handleClick = (label: string) => setActive(label);
-
-  const menu: MenuItem[] = [
-    { label: "Dashboard", href: "/dashboard", icon: <Home size={18} /> },
-    { label: "POS", href: "/pos", icon: <ClipboardList size={18} /> },
-    { label: "Orders", href: "/orderupdate", icon: <ShoppingCart size={18} /> },
-
+  const menu = [
+    { label: "Overview", href: "/dashboard", icon: <LayoutDashboard size={16} /> },
+    { label: "Terminal POS", href: "/pos", icon: <ClipboardList size={16} /> },
+    { label: "Orders", href: "/orderupdate", icon: <ShoppingCart size={16} /> },
     {
       label: "Brand",
-      icon: <Shield size={18} />,
+      icon: <Shield size={16} />,
       subMenu: [
-        { label: "Add Brands", href: "/brands/newbrands" },
-        { label: "List Brands", href: "/brands/listbrands" },
+        { label: "New Entry", href: "/brands/newbrands" },
+        { label: "Inventory", href: "/brands/listbrands" },
       ],
     },
-
     {
       label: "Category",
-      icon: <ListTree size={18} />,
+      icon: <ListTree size={16} />,
       subMenu: [
-        { label: "Category", href: "/categorysetup/category" },
-        { label: "Sub Category", href: "/categorysetup/subcategory" },
-        { label: "Sub-Sub Category", href: "/categorysetup/subsubcategory" },
+        { label: "Primary", href: "/categorysetup/category" },
+        { label: "Secondary", href: "/categorysetup/subcategory" },
+        { label: "Tertiary", href: "/categorysetup/subsubcategory" },
       ],
     },
-
     {
-      label: "In-House Products",
-      icon: <Package size={18} />,
+      label: "Products",
+      icon: <Package size={16} />,
       subMenu: [
-        { label: "Add Product", href: "/products/addproducts" },
-        { label: "View Product", href: "/products/listproducts" },
-        { label: "Re-stock Product", href: "/products/restock" },
-        { label: "Attribute", href: "/attribute" },
+        { label: "Add New", href: "/products/addproducts" },
+        { label: "All Products", href: "/products/listproducts" },
+        { label: "Stock", href: "/products/restock" },
+        { label: "Attributes", href: "/attribute" },
       ],
     },
-
     {
-      label: "Homepage Setup",
-      icon: <Megaphone size={18} />,
+      label: "Marketing",
+      icon: <Megaphone size={16} />,
       subMenu: [
-        { label: "Banner", href: "/hero" },
-        { label: "Top Section", href: "/banner" },
+        { label: "Hero Banner", href: "/hero" },
+        { label: "Showcase", href: "/banner" },
         { label: "Notification", href: "/notification" },
-        { label: "Instagram Feed", href: "/insta" },
+        { label: "Instagram", href: "/insta" },
       ],
     },
-
-    {
-      label: "Create Credentials",
-      href: "/createsub",
-      icon: <Lock size={18} />,
-    },
-
+    { label: "Admin Creations", href: "/createsub", icon: <Lock size={16} /> },
     {
       label: "Reports",
-      icon: <FileText size={18} />,
+      icon: <FileText size={16} />,
       subMenu: [
-        { label: "Product Report", href: "/productreport" },
-        { label: "Order Report", href: "/orderreport" },
+        { label: "Product Stats", href: "/productreport" },
+        { label: "Order Stats", href: "/orderreport" },
       ],
     },
-
-    { label: "Customers", href: "/customer", icon: <Users size={18} /> },
+    { label: "User", href: "/customer", icon: <Users size={16} /> },
   ];
 
-  const filteredMenu =
-    role === "subadmin"
-      ? menu.filter((item) =>
-        [
-          "Dashboard",
-          "POS",
-          "Orders",
-          "Category",
-          "In-House Products",
-        ].includes(item.label)
-      )
-      : menu;
+  // This Effect automatically opens the correct menu based on the URL on page load
+  useEffect(() => {
+    filteredMenu.forEach((item) => {
+      if (item.subMenu) {
+        const isSubItemActive = item.subMenu.some((sub) => pathname === sub.href);
+        if (isSubItemActive) {
+          setOpenMenu(item.label);
+        }
+      }
+    });
+  }, [pathname]);
+
+  const filteredMenu = role === "subadmin" 
+    ? menu.filter(m => ["Overview", "Terminal POS", "Orders", "Products"].includes(m.label)) 
+    : menu;
 
   return (
-    <aside className="w-64 h-screen bg-white border-r border-gray-200 flex flex-col justify-between shadow-sm">
-
-      {/* Logo */}
-      <div>
-        <div className="flex justify-center py-6 border-b">
-          <Image
-            src="/logo.png"
-            width={150}
-            height={50}
-            style={{ height: 'auto' }} // Add this to maintain aspect ratio
-            alt="Logo"
-            priority // Adding priority since it's likely above the fold
+    <aside className="w-64 h-screen bg-white border-r border-gray-100 flex flex-col sticky top-0 z-50 selection:bg-black selection:text-white">
+      
+      {/* 1. BRANDING */}
+      <div className="pt-10 pb-8 px-6 flex flex-col items-center">
+        <div className="w-full flex justify-center mb-5">
+          <img 
+            src="/banglorecollectivelogo.jpg" 
+            alt="Logo" 
+            className="h-14 w-auto object-contain brightness-0" 
           />
         </div>
+        <div className="h-[1.5px] w-8 bg-black mb-3" />
+        <span className="text-[9px] font-black uppercase tracking-[0.4em] text-gray-300">Admin Panel</span>
+      </div>
 
-        {/* Menu */}
-        <nav className="mt-4 px-2 space-y-1">
-
-          {filteredMenu.map((item) => (
-            <div key={item.label}>
-
-              {/* Parent Menu */}
+      {/* 2. NAVIGATION */}
+      <nav className="flex-1 px-5 space-y-1.5 overflow-y-auto no-scrollbar">
+        {filteredMenu.map((item) => {
+          // Check if current page is the main link OR inside the subMenu
+          const isCurrentPath = pathname === item.href;
+          const isSubMenuChildActive = item.subMenu?.some((sub) => pathname === sub.href);
+          const isParentActive = isCurrentPath || isSubMenuChildActive;
+          
+          return (
+            <div key={item.label} className="group">
               {item.subMenu ? (
-                <>
+                <div className="mb-1">
                   <button
-                    onClick={() => toggle(item.label)}
-                    className={`flex items-center justify-between w-full px-4 py-2 rounded-lg transition
-                    ${openMenu === item.label
-                        ? "bg-orange-100 text-orange-600"
-                        : "hover:bg-gray-100"
-                      }`}
+                    onClick={() => setOpenMenu(openMenu === item.label ? null : item.label)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300
+                    ${isParentActive ? "bg-black text-white shadow-xl shadow-black/10" : "text-gray-400 hover:text-black hover:bg-gray-50"}`}
                   >
                     <div className="flex items-center gap-3">
                       {item.icon}
-                      <span className="text-sm font-medium">
-                        {item.label}
-                      </span>
+                      <span className="text-[10px] font-black uppercase tracking-[0.15em]">{item.label}</span>
                     </div>
-
-                    {openMenu === item.label ? (
-                      <ChevronDown size={16} />
-                    ) : (
-                      <ChevronRight size={16} />
-                    )}
+                    <ChevronRight size={12} className={`transition-transform duration-500 ${openMenu === item.label ? "rotate-90" : "opacity-30"}`} />
                   </button>
-
-                  {/* Sub Menu */}
-                  {openMenu === item.label && (
-                    <div className="ml-7 mt-1 space-y-1 border-l pl-3">
-
-                      {item.subMenu.map((sub) => (
-                        <Link
-                          key={sub.label}
-                          href={sub.href!}
-                          onClick={() => handleClick(sub.label)}
-                          className={`block text-sm px-3 py-2 rounded-md transition
-                          ${active === sub.label
-                              ? "bg-orange-100 text-orange-600 font-medium"
-                              : "text-gray-600 hover:bg-gray-100"
-                            }`}
-                        >
-                          {sub.label}
-                        </Link>
-                      ))}
-
-                    </div>
-                  )}
-                </>
+                  
+              {openMenu === item.label && (
+  <div className="mt-1 ml-9 flex flex-col gap-1 border-l-2 border-gray-100/50">
+    {item.subMenu.map((sub) => {
+      const isSubActive = pathname === sub.href;
+      return (
+        <Link
+          key={sub.label}
+          href={sub.href}
+          className={`
+            relative block px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all
+            ${isSubActive 
+              ? "text-black bg-gray-50 rounded-r-lg" 
+              : "text-slate-500 hover:text-black hover:bg-gray-50/50 rounded-r-lg"
+            }
+          `}
+        >
+          {/* Active Indicator Dot */}
+          {isSubActive && (
+            <span className="absolute left-[-2px] top-1/2 -translate-y-1/2 w-0.5 h-4 bg-black rounded-full" />
+          )}
+          {sub.label}
+        </Link>
+      );
+    })}
+  </div>
+)}
+                </div>
               ) : (
                 <Link
                   href={item.href!}
-                  onClick={() => handleClick(item.label)}
-                  className={`flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition
-                  ${active === item.label
-                      ? "bg-orange-100 text-orange-600"
-                      : "hover:bg-gray-100"
-                    }`}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl mb-1 transition-all duration-300
+                  ${pathname === item.href ? "bg-black text-white shadow-xl shadow-black/10" : "text-gray-400 hover:text-black hover:bg-gray-50"}`}
                 >
                   {item.icon}
-                  {item.label}
+                  <span className="text-[10px] font-black uppercase tracking-[0.15em]">{item.label}</span>
                 </Link>
               )}
             </div>
-          ))}
+          );
+        })}
+      </nav>
 
-        </nav>
-      </div>
+      {/* 3. FOOTER */}
+      <div className="p-6">
+        <div className="bg-gray-50/50 rounded-[1.5rem] p-5 flex flex-col items-center border border-gray-100/50">
+      
 
-      {/* Logout */}
-      <div className="p-4 border-t">
-        <button
-          onClick={() => (window.location.href = "/login")}
-          className="flex items-center justify-center gap-2 w-full py-2 rounded-lg
-          text-red-500 hover:bg-red-50 transition font-medium"
-        >
-          <UserCircle size={18} />
-          Logout
-        </button>
+          <button
+            onClick={() => window.location.href = "/login"}
+            className="w-full py-3 bg-white border border-black text-black text-[9px] font-black uppercase tracking-[0.2em] rounded-xl hover:bg-black hover:text-white transition-all active:scale-[0.97] shadow-sm"
+          >
+            Sign Out
+          </button>
+        </div>
       </div>
     </aside>
   );

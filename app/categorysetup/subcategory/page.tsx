@@ -177,7 +177,7 @@ export default function SubcategoriesPage() {
       <div className="max-w-7xl mx-auto mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-4xl font-black tracking-tight text-slate-900">
-            Subcategory <span className="text-orange-600">Hub</span>
+            Subcategory <span className="text-black">Hub</span>
           </h1>
           <p className="text-slate-500 mt-2 font-medium">Define granular segments for your catalog.</p>
         </div>
@@ -197,9 +197,9 @@ export default function SubcategoriesPage() {
             onSubmit={handleSubmit}
             className="bg-white rounded-3xl p-8 border border-slate-100 shadow-xl shadow-slate-200/50 relative overflow-hidden"
           >
-            <div className="absolute top-0 left-0 w-full h-1 bg-orange-600"></div>
+            <div className="absolute top-0 left-0 w-full h-1 bg-black"></div>
             <h2 className="text-2xl font-black mb-6 flex items-center gap-2">
-              {editingSub ? <PencilIcon className="h-6 w-6 text-orange-600" /> : <PlusIcon className="h-6 w-6 text-orange-600" />}
+              {editingSub ? <PencilIcon className="h-6 w-6 text-black" /> : <PlusIcon className="h-6 w-6 text-black" />}
               {editingSub ? "Update Sub" : "New Subcategory"}
             </h2>
 
@@ -212,9 +212,9 @@ export default function SubcategoriesPage() {
                   value={subName}
                   onChange={(e) => setSubName(e.target.value)}
                  //  placeholder="e.g. Sofa Sets"
-                  className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-4 ${fieldErrors.name ? 'border-red-500 focus:ring-red-100' : 'border-slate-200 focus:border-orange-500 focus:ring-orange-100'} outline-none font-semibold text-slate-700`}
+                  className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-4 ${fieldErrors.name ? 'border-black focus:ring-red-100' : 'border-slate-200 focus:border-black focus:ring-orange-100'} outline-none font-semibold text-slate-700`}
                 />
-                {fieldErrors.name && <p className="text-red-500 text-xs mt-1.5 font-bold">{fieldErrors.name}</p>}
+                {fieldErrors.name && <p className="text-black text-xs mt-1.5 font-bold">{fieldErrors.name}</p>}
               </div>
 
               {/* Category Select */}
@@ -224,7 +224,7 @@ export default function SubcategoriesPage() {
                     <select
                         value={categoryId || ""}
                         onChange={(e) => setCategoryId(Number(e.target.value))}
-                        className={`w-full appearance-none px-4 py-3 rounded-xl border transition-all focus:ring-4 ${fieldErrors.category ? 'border-red-500 focus:ring-red-100' : 'border-slate-200 focus:border-orange-500 focus:ring-orange-100'} outline-none font-semibold text-slate-700 bg-transparent relative z-10`}
+                        className={`w-full appearance-none px-4 py-3 rounded-xl border transition-all focus:ring-4 ${fieldErrors.category ? 'border-black focus:ring-red-100' : 'border-slate-200 focus:border-black focus:ring-orange-100'} outline-none font-semibold text-slate-700 bg-transparent relative z-10`}
                     >
                         <option value="">Select Category</option>
                         {categories.map((cat) => (
@@ -233,7 +233,7 @@ export default function SubcategoriesPage() {
                     </select>
                     <ChevronDownIcon className="h-5 w-5 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 z-0" />
                 </div>
-                {fieldErrors.category && <p className="text-red-500 text-xs mt-1.5 font-bold">{fieldErrors.category}</p>}
+                {fieldErrors.category && <p className="text-black text-xs mt-1.5 font-bold">{fieldErrors.category}</p>}
               </div>
 
               {/* Priority Input */}
@@ -244,16 +244,16 @@ export default function SubcategoriesPage() {
                   min={1}
                   value={priority}
                   onChange={(e) => setPriority(Number(e.target.value))}
-                  className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-4 ${fieldErrors.priority ? 'border-red-500 focus:ring-red-100' : 'border-slate-200 focus:border-orange-500 focus:ring-orange-100'} outline-none font-semibold text-slate-700`}
+                  className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-4 ${fieldErrors.priority ? 'border-black focus:ring-red-100' : 'border-slate-200 focus:border-black focus:ring-orange-100'} outline-none font-semibold text-slate-700`}
                 />
-                {fieldErrors.priority && <p className="text-red-500 text-xs mt-1.5 font-bold">{fieldErrors.priority}</p>}
+                {fieldErrors.priority && <p className="text-black text-xs mt-1.5 font-bold">{fieldErrors.priority}</p>}
               </div>
 
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 bg-orange-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-orange-700 transition-all shadow-lg shadow-orange-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 bg-black text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-orange-700 transition-all shadow-lg shadow-orange-200 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {submitting && <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                   {editingSub ? "Save Changes" : "Add Subcategory"}
@@ -304,13 +304,13 @@ export default function SubcategoriesPage() {
                       <tr key={sub.id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-6 py-5">
                           <div className="flex items-center gap-4">
-                            <div className="h-12 w-12 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600 flex-shrink-0">
+                            <div className="h-12 w-12 rounded-xl bg-orange-50 flex items-center justify-center text-black flex-shrink-0">
                                 <TagIcon className="h-6 w-6" />
                             </div>
                             <div>
                                 <p className="font-black text-slate-800 text-lg leading-tight">{sub.name}</p>
                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-tight mt-1">
-                                    Parent: <span className="text-slate-600">{sub.category_name}</span> • Priority: <span className="text-orange-600">{sub.priority}</span>
+                                    Parent: <span className="text-slate-600">{sub.category_name}</span> • Priority: <span className="text-black">{sub.priority}</span>
                                 </p>
                             </div>
                           </div>
@@ -354,7 +354,7 @@ export default function SubcategoriesPage() {
                       <button 
                         key={i}
                         onClick={() => setCurrentPage(i + 1)}
-                        className={`w-10 h-10 rounded-xl font-black text-xs transition-all ${currentPage === i + 1 ? 'bg-orange-600 text-white shadow-lg shadow-orange-100' : 'bg-white border border-slate-200 text-slate-400 hover:border-orange-300'}`}
+                        className={`w-10 h-10 rounded-xl font-black text-xs transition-all ${currentPage === i + 1 ? 'bg-black text-white shadow-lg shadow-orange-100' : 'bg-white border border-slate-200 text-slate-400 hover:border-orange-300'}`}
                       >
                           {i + 1}
                       </button>
@@ -376,7 +376,7 @@ export default function SubcategoriesPage() {
       {showDeleteModal && subToDelete && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-[2rem] p-10 shadow-2xl max-w-sm w-full text-center border border-white/20">
-            <div className="h-20 w-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+            <div className="h-20 w-20 bg-red-50 text-black rounded-full flex items-center justify-center mx-auto mb-6">
                 <TrashIcon className="h-10 w-10" />
             </div>
             <h2 className="text-2xl font-black text-slate-800 mb-2">Remove Item?</h2>

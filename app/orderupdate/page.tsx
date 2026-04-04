@@ -113,7 +113,7 @@ export default function OrdersDashboard() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-2 text-orange-600 mb-1">
+            <div className="flex items-center gap-2 text-black mb-1">
               <LayoutDashboard size={20} />
               <span className="text-xs font-black uppercase tracking-widest">Management</span>
             </div>
@@ -221,7 +221,7 @@ export default function OrdersDashboard() {
                       <span className="text-sm font-black text-slate-800">{order.full_name}</span>
                     </td>
                     <td className="px-8 py-5">
-                      <span className="text-sm font-black text-orange-600">₹{order.grand_total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      <span className="text-sm font-black text-black">₹{order.grand_total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                     </td>
                     <td className="px-8 py-5 text-center">
                       <StatusBadge status={order.status} />
@@ -229,7 +229,7 @@ export default function OrdersDashboard() {
                     <td className="px-8 py-5 text-right">
                       <button
                        onClick={() => router.push(`/orderupdate/vieworder/${order.id}`)}
-                        className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-lg shadow-orange-100 transition-all active:scale-95"
+                        className="inline-flex items-center gap-2 bg-black  text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-lg shadow-orange-100 transition-all active:scale-95"
                       >
                         <Eye size={14} /> UPDATE
                       </button>

@@ -7,6 +7,10 @@
   width: 4px;
 }
 
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
 ::-webkit-scrollbar-thumb {
   background: #1e3a8a; /* blue-900 */
   border-radius: 10px;

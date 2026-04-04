@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, UserCircle, ShieldCheck } from "lucide-react";
+import { LogOut, User, ShieldCheck } from "lucide-react";
 
 export default function Header() {
   const [userInfo, setUserInfo] = useState<{ email: string; role: string } | null>(null);
@@ -10,71 +10,84 @@ export default function Header() {
 
   useEffect(() => {
     const isLoggedIn = localStorage.getItem("isLoggedIn");
-    const email = localStorage.getItem("email");
-    const role = localStorage.getItem("role");
+    const role = localStorage.getItem("userRole");
+    const email = localStorage.getItem("userEmail");
 
-    if (isLoggedIn !== "true" || !email || !role) {
-      router.push("/login");
+    if (isLoggedIn !== "true") {
+      router.replace("/login");
       return;
     }
 
-    setUserInfo({ email, role });
+    setUserInfo({
+      email: email || "admin@panel.com",
+      role: role || "Admin",
+    });
   }, [router]);
 
   const handleLogout = () => {
-    localStorage.clear();
-    router.push("/login");
+    localStorage.removeItem("isLoggedIn");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("userEmail");
+    router.replace("/login");
   };
 
   return (
-    <header className="w-full bg-white border-b border-slate-100 px-8 py-3 flex justify-between items-center sticky top-0 z-50 shadow-sm">
-      {/* Brand Identity / Breadcrumb Placeholder */}
-      <div className="hidden md:flex items-center gap-2">
-        <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center">
-          <ShieldCheck className="text-white" size={18} />
+    /* FIX: Changed w-full to w-auto + min-w-0 to let the flex-parent control it.
+       Added 'max-w-full' to prevent horizontal bleed.
+    */
+    <header className="min-w-0 max-w-full bg-white/90 backdrop-blur-xl border-b border-gray-100 px-4 md:px-10 py-3 md:py-4 flex justify-between items-center sticky top-0 z-50 overflow-hidden">
+      
+      {/* LEFT */}
+      <div className="flex items-center gap-6 min-w-0">
+        <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-100 flex-shrink-0">
+          <ShieldCheck size={12} className="text-black" />
+          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 whitespace-nowrap">
+            Secure Session
+          </span>
         </div>
-        <span className="text-sm font-black text-slate-800 tracking-tighter uppercase">
-          Admin <span className="text-orange-600">Panel</span>
-        </span>
       </div>
 
-      {!userInfo ? (
-        <div className="flex items-center gap-3 ml-auto">
-          <div className="animate-pulse bg-slate-100 w-24 h-4 rounded-full"></div>
-          <div className="animate-pulse bg-slate-200 w-10 h-10 rounded-xl"></div>
-        </div>
-      ) : (
-        <div className="flex items-center gap-6 ml-auto">
-          {/* User Details */}
+      {/* RIGHT */}
+      <div className="flex items-center gap-3 md:gap-8 flex-shrink-0">
+        {!userInfo ? (
           <div className="flex items-center gap-3">
-            <div className="text-right">
-              <p className="text-xs font-black text-slate-900 uppercase tracking-widest leading-none">
-                {userInfo.role}
-              </p>
-              <p className="text-[10px] font-bold text-slate-400 mt-1">
-                {userInfo.email}
-              </p>
-            </div>
-            
-            {/* Avatar Decoration */}
-            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 group hover:border-orange-200 hover:bg-orange-50 transition-colors">
-              <UserCircle size={24} className="group-hover:text-orange-600 transition-colors" />
-            </div>
+            <div className="animate-pulse bg-gray-100 w-24 h-2 rounded-full hidden md:block"></div>
+            <div className="animate-pulse bg-gray-200 w-8 h-8 rounded-full"></div>
           </div>
+        ) : (
+          <div className="flex items-center gap-4 md:gap-6">
+            
+            {/* USER INFO */}
+            <div className="hidden sm:flex flex-col text-right">
+              <span className="text-[10px] font-black uppercase tracking-[0.15em] text-black leading-none">
+                {userInfo.role}
+              </span>
+              <span className="text-[9px] font-bold text-gray-400 mt-1 uppercase tracking-tighter">
+                {userInfo.email.split("@")[0]}
+              </span>
+            </div>
 
-          {/* Vertical Separator */}
-          <div className="h-8 w-[1px] bg-slate-100 hidden sm:block"></div>
+            <div className="h-8 w-[1px] bg-gray-100 hidden md:block"></div>
 
-          {/* Logout Button */}
-          <button
-            onClick={handleLogout}
-            className="group flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 rounded-xl font-black text-xs transition-all active:scale-95 shadow-lg shadow-orange-100"
-          >
-            <LogOut size={16} className="group-hover:-translate-x-0.5 transition-transform" />
-            <span className="hidden sm:inline">LOGOUT</span>
-          </button>
-        </div>
-      )}
+            {/* AVATAR */}
+            <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-black flex items-center justify-center text-white shadow-lg flex-shrink-0">
+              <User size={16} strokeWidth={2.5} />
+            </div>
+
+            {/* LOGOUT */}
+            <button
+              onClick={handleLogout}
+              className="group flex items-center gap-2 bg-white border-2 border-black hover:bg-black text-black hover:text-white px-3 md:px-5 py-1.5 md:py-2 rounded-xl transition-all active:scale-95 flex-shrink-0"
+            >
+              <LogOut size={14} />
+              <span className="text-[10px] font-black uppercase hidden md:inline">
+                Sign Out
+              </span>
+            </button>
+
+          </div>
+        )}
+      </div>
     </header>
   );
 }

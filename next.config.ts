@@ -2,12 +2,13 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    domains: [
-      "znqknsqwgoqrzoefqrwe.supabase.co",
-      "mbmnsmzllagmbkvlnfwt.supabase.co",
-    ],
-
+    // remotePatterns is the modern, secure way to handle external images
     remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "wneonnqavtbwziybbxaq.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
       {
         protocol: "https",
         hostname: "znqknsqwgoqrzoefqrwe.supabase.co",
@@ -26,6 +27,7 @@ const nextConfig: NextConfig = {
     ],
   },
 
+  // Optimized for production & Docker deployments
   output: "standalone",
   trailingSlash: true,
 };

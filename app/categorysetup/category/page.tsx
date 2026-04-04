@@ -183,7 +183,7 @@ export default function CategoriesPage() {
       <div className="max-w-7xl mx-auto mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-4xl font-black tracking-tight text-slate-900">
-            Category <span className="text-orange-600">Center</span>
+            Category <span className="text-black">Center</span>
           </h1>
           <p className="text-slate-500 mt-2 font-medium">Create and organize your business taxonomies.</p>
         </div>
@@ -205,9 +205,9 @@ export default function CategoriesPage() {
             onSubmit={handleSubmit}
             className="bg-white rounded-3xl p-8 border border-slate-100 shadow-xl shadow-slate-200/50 relative overflow-hidden"
           >
-            <div className="absolute top-0 left-0 w-full h-1 bg-orange-600"></div>
+            <div className="absolute top-0 left-0 w-full h-1 bg-black"></div>
             <h2 className="text-2xl font-black mb-6 flex items-center gap-2">
-              {editingCategory ? <PencilIcon className="h-6 w-6 text-orange-600" /> : <PlusIcon className="h-6 w-6 text-orange-600" />}
+              {editingCategory ? <PencilIcon className="h-6 w-6 text-black" /> : <PlusIcon className="h-6 w-6 text-black" />}
               {editingCategory ? "Update Entry" : "New Category"}
             </h2>
 
@@ -219,7 +219,7 @@ export default function CategoriesPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
           //        placeholder="e.g. Living Room Furniture"
-                  className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-4 ${fieldErrors.name ? 'border-red-500 focus:ring-red-100' : 'border-slate-200 focus:border-orange-500 focus:ring-orange-100'} outline-none font-semibold text-slate-700`}
+                  className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-4 ${fieldErrors.name ? 'border-red-500 focus:ring-red-100' : 'border-slate-200 focus:border-black focus:ring-orange-100'} outline-none font-semibold text-slate-700`}
                 />
                 {fieldErrors.name && <p className="text-red-500 text-xs mt-1.5 font-bold">{fieldErrors.name}</p>}
               </div>
@@ -231,9 +231,9 @@ export default function CategoriesPage() {
                   min={1}
                   value={priority}
                   onChange={(e) => setPriority(Number(e.target.value))}
-                  className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-4 ${fieldErrors.priority ? 'border-red-500 focus:ring-red-100' : 'border-slate-200 focus:border-orange-500 focus:ring-orange-100'} outline-none font-semibold text-slate-700`}
+                  className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-4 ${fieldErrors.priority ? 'border-red-500 focus:ring-red-100' : 'border-slate-200 focus:border-black focus:ring-orange-100'} outline-none font-semibold text-slate-700`}
                 />
-                {fieldErrors.priority && <p className="text-red-500 text-xs mt-1.5 font-bold">{fieldErrors.priority}</p>}
+                {fieldErrors.priority && <p className="text-black text-xs mt-1.5 font-bold">{fieldErrors.priority}</p>}
               </div>
 
               <div>
@@ -257,8 +257,8 @@ export default function CategoriesPage() {
                              <img src={editingCategory.image_url} className="h-20 w-20 object-cover rounded-xl shadow-md opacity-60" />
                         ) : (
                             <>
-                                <PhotoIcon className="h-8 w-8 text-slate-300 mb-2 group-hover:text-orange-400" />
-                                <span className="text-xs font-bold text-slate-400 group-hover:text-orange-500">Click to upload</span>
+                                <PhotoIcon className="h-8 w-8 text-slate-300 mb-2 group-hover:text-black" />
+                                <span className="text-xs font-bold text-slate-400 group-hover:text-black">Click to upload</span>
                             </>
                         )}
                     </label>
@@ -270,7 +270,7 @@ export default function CategoriesPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 bg-orange-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-orange-700 transition-all shadow-lg shadow-orange-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 bg-black text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-orange-700 transition-all shadow-lg shadow-orange-200 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {submitting && <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                   {editingCategory ? "Sync Changes" : "Create Now"}
@@ -331,14 +331,14 @@ export default function CategoriesPage() {
                             </div>
                             <div>
                                 <p className="font-black text-slate-800 text-lg leading-tight">{cat.name}</p>
-                                <p className="text-xs font-bold text-slate-400 uppercase tracking-tighter mt-1">Priority: <span className="text-orange-600">{cat.priority}</span></p>
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-tighter mt-1">Priority: <span className="text-black">{cat.priority}</span></p>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-5">
                             <button 
                                 onClick={() => toggleHome(cat.id, cat.home_status)}
-                                className={`h-6 w-12 rounded-full transition-all relative ${cat.home_status ? 'bg-orange-600 shadow-lg shadow-orange-100' : 'bg-slate-200'}`}
+                                className={`h-6 w-12 rounded-full transition-all relative ${cat.home_status ? 'bg-black shadow-lg shadow-orange-100' : 'bg-slate-200'}`}
                             >
                                 <div className={`absolute top-1 h-4 w-4 bg-white rounded-full transition-all ${cat.home_status ? 'right-1' : 'left-1'}`} />
                             </button>
@@ -382,7 +382,7 @@ export default function CategoriesPage() {
                       <button 
                         key={i}
                         onClick={() => setCurrentPage(i + 1)}
-                        className={`w-10 h-10 rounded-xl font-black text-xs transition-all ${currentPage === i + 1 ? 'bg-orange-600 text-white shadow-lg shadow-orange-100' : 'bg-white border border-slate-200 text-slate-400 hover:border-orange-300'}`}
+                        className={`w-10 h-10 rounded-xl font-black text-xs transition-all ${currentPage === i + 1 ? 'bg-black text-white shadow-lg shadow-orange-100' : 'bg-white border border-slate-200 text-slate-400 hover:border-orange-300'}`}
                       >
                           {i + 1}
                       </button>

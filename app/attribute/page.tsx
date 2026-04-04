@@ -3,7 +3,15 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import toast, { Toaster } from "react-hot-toast";
-import { Trash2, Plus, ListChecks } from "lucide-react"; // Optional: npm install lucide-react
+import { 
+  Trash2, 
+  Plus, 
+  Settings2, 
+  Palette, 
+  Maximize, 
+  Loader2,
+  X
+} from "lucide-react";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,181 +24,164 @@ interface Attribute {
   type: string;
 }
 
-export default function Attributes() {
-  const [tastes, setTastes] = useState<Attribute[]>([]);
-  const [unitTypes, setUnitTypes] = useState<Attribute[]>([]);
-  const [newTaste, setNewTaste] = useState("");
-  const [newUnit, setNewUnit] = useState("");
+// Removed "material" from types
+type AttrType = "color" | "size" | "lifestyle_tag";
+
+export default function LifestyleAttributes() {
+  const [attributes, setAttributes] = useState<Attribute[]>([]);
+  const [inputs, setInputs] = useState<Record<AttrType, string>>({
+    color: "",
+    size: "",
+    lifestyle_tag: ""
+  });
   const [loading, setLoading] = useState(true);
+
+  const fetchAttributes = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("attributes")
+      .select("*")
+      .order("name", { ascending: true });
+
+    if (error) toast.error("Sync failed");
+    else setAttributes(data ?? []);
+    setLoading(false);
+  };
 
   useEffect(() => {
     fetchAttributes();
   }, []);
 
-  const fetchAttributes = async () => {
-    setLoading(true);
+  const addAttribute = async (type: AttrType) => {
+    const val = inputs[type];
+    if (!val.trim()) return toast.error(`Enter ${type} value`);
+
     try {
-      const { data: tasteData, error: tasteError } = await supabase
-        .from("attributes")
-        .select("*")
-        .eq("type", "taste")
-        .order("name", { ascending: true });
-
-      const { data: unitData, error: unitError } = await supabase
-        .from("attributes")
-        .select("*")
-        .eq("type", "unit_type")
-        .order("name", { ascending: true });
-
-      if (tasteError) throw tasteError;
-      if (unitError) throw unitError;
-
-      setTastes(tasteData ?? []);
-      setUnitTypes(unitData ?? []);
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to fetch attributes");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addAttribute = async (name: string, type: "taste" | "unit_type", setter: (val: string) => void) => {
-    if (!name.trim()) return toast.error("Value cannot be empty");
-    
-    try {
-      const { error } = await supabase.from("attributes").insert({ name: name.trim(), type });
+      const { error } = await supabase.from("attributes").insert({ 
+        name: val.trim(), 
+        type 
+      });
       if (error) throw error;
       
-      setter("");
-      toast.success(`${type === 'taste' ? 'Taste' : 'Unit'} added successfully!`);
+      setInputs({ ...inputs, [type]: "" });
+      toast.success(`${type} added`);
       fetchAttributes();
     } catch (err: any) {
-      toast.error(err.message || "Failed to add attribute");
+      toast.error(err.message);
     }
   };
 
   const deleteAttribute = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this?")) return;
     try {
       const { error } = await supabase.from("attributes").delete().eq("id", id);
       if (error) throw error;
-      toast.success("Deleted successfully");
-      fetchAttributes();
-    } catch (err: any) {
-      toast.error("Could not delete item");
+      setAttributes(attributes.filter(a => a.id !== id));
+      toast.success("Removed");
+    } catch (err) {
+      toast.error("Delete failed");
     }
   };
 
-  return (
-    <div className=" bg-gray-50 p-6 md:p-10">
-      <Toaster position="top-right" />
+  const renderSection = (title: string, type: AttrType, Icon: any, placeholder: string) => {
+    const filtered = attributes.filter(a => a.type === type);
 
-      <div className="max-w-8xl mx-auto">
-        <header className="mb-8 flex items-center gap-3">
-          <div className="bg-orange-600 p-2 rounded-lg text-white">
-            <ListChecks size={28} />
-          </div>
+    return (
+      <section className="bg-white border border-slate-200 rounded-[2rem] flex flex-col h-[480px] overflow-hidden shadow-sm hover:shadow-md hover:border-black transition-all duration-300">
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div>
-            <h1 className="text-3xl font-extrabold text-gray-900">Manage Attributes</h1>
-            <p className="text-gray-500 text-sm">Configure your product variations like taste and unit types.</p>
+            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-black">{title}</h2>
+            <p className="text-[10px] font-bold text-slate-400 uppercase mt-1">{filtered.length} Registered</p>
           </div>
+          <Icon className="text-black w-5 h-5 opacity-20 group-hover:opacity-100 transition-opacity" />
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-2 custom-scrollbar">
+          {loading ? (
+            <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin w-5 h-5 text-slate-300" /></div>
+          ) : filtered.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">No Data</div>
+          ) : (
+            filtered.map((attr) => (
+              <div key={attr.id} className="group flex justify-between items-center bg-slate-50 hover:bg-black hover:text-white px-4 py-3 rounded-xl transition-all">
+                <span className="text-xs font-bold uppercase">{attr.name}</span>
+                <button 
+                  onClick={() => deleteAttribute(attr.id)}
+                  className="text-slate-300 hover:text-white transition-opacity opacity-0 group-hover:opacity-100"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="p-6 bg-white border-t border-slate-100">
+          <div className="flex gap-2">
+            <input
+              value={inputs[type]}
+              onChange={(e) => setInputs({ ...inputs, [type]: e.target.value })}
+              onKeyDown={(e) => e.key === 'Enter' && addAttribute(type)}
+              placeholder={placeholder}
+              className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[11px] font-bold uppercase tracking-widest outline-none focus:border-black focus:bg-white transition-all"
+            />
+            <button
+              onClick={() => addAttribute(type)}
+              className="bg-black text-white p-3 rounded-xl hover:bg-zinc-800 transition shadow-lg active:scale-95"
+            >
+              <Plus size={20} />
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-[#fafafa] p-6 md:p-12 text-black selection:bg-black selection:text-white">
+      <Toaster 
+        position="bottom-right" 
+        toastOptions={{
+          style: {
+            background: '#000',
+            color: '#fff',
+            fontSize: '12px',
+            borderRadius: '10px',
+          }
+        }} 
+      />
+
+      <div className="max-w-7xl mx-auto">
+        <header className="mb-16 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-black p-2.5 rounded-2xl text-white">
+              <Settings2 size={24} />
+            </div>
+            <div>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Inventory System</span>
+              <h1 className="text-4xl font-black tracking-tighter uppercase">Global <span className="text-slate-300">Registry</span></h1>
+            </div>
+          </div>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest max-w-xl leading-relaxed">
+            Manage your footwear and apparel variations. All changes are synced to your live database instantly.
+          </p>
         </header>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          
-          {/* Tastes Section */}
-          <section className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col h-[500px]">
-            <div className="p-6 border-b border-gray-50">
-              <h2 className="text-xl font-bold text-orange-600">Tastes</h2>
-              <p className="text-xs text-gray-400">Available flavor profiles</p>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-thin scrollbar-thumb-gray-200">
-              {loading ? (
-                <div className="h-full flex items-center justify-center text-gray-400 ">Loading...</div>
-              ) : tastes.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-gray-400 ">No tastes added yet.</div>
-              ) : (
-                tastes.map((t) => (
-                  <div key={t.id} className="group flex justify-between items-center bg-gray-50 hover:bg-orange-50 px-4 py-3 rounded-xl transition">
-                    <span className="text-gray-700 font-medium">{t.name}</span>
-                    <button 
-                      onClick={() => deleteAttribute(t.id)}
-                      className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="p-6 bg-gray-50/50 rounded-b-2xl border-t border-gray-100">
-              <div className="flex gap-2">
-                <input
-                  value={newTaste}
-                  onChange={(e) => setNewTaste(e.target.value)}
-                  placeholder="e.g. Spicy, Sweet"
-                  className="flex-1 border-2 border-gray-200 rounded-xl px-4 py-2 focus:border-orange-500 focus:ring-0 outline-none transition"
-                />
-                <button
-                  onClick={() => addAttribute(newTaste, "taste", setNewTaste)}
-                  className="bg-orange-600 text-white p-2 rounded-xl hover:bg-orange-700 transition shadow-lg shadow-orange-200 active:scale-95"
-                >
-                  <Plus size={24} />
-                </button>
-              </div>
-            </div>
-          </section>
-
-          {/* Unit Types Section */}
-          <section className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col h-[500px]">
-            <div className="p-6 border-b border-gray-50">
-              <h2 className="text-xl font-bold text-orange-600">Unit Types</h2>
-              <p className="text-xs text-gray-400">Measurement units (kg, ml, pcs)</p>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-thin scrollbar-thumb-gray-200">
-              {loading ? (
-                <div className="h-full flex items-center justify-center text-gray-400 ">Loading...</div>
-              ) : unitTypes.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-gray-400 ">No units added yet.</div>
-              ) : (
-                unitTypes.map((u) => (
-                  <div key={u.id} className="group flex justify-between items-center bg-gray-50 hover:bg-orange-50 px-4 py-3 rounded-xl transition">
-                    <span className="text-gray-700 font-medium">{u.name}</span>
-                    <button 
-                      onClick={() => deleteAttribute(u.id)}
-                      className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="p-6 bg-gray-50/50 rounded-b-2xl border-t border-gray-100">
-              <div className="flex gap-2">
-                <input
-                  value={newUnit}
-                  onChange={(e) => setNewUnit(e.target.value)}
-                  placeholder="e.g. kg, grams"
-                  className="flex-1 border-2 border-gray-200 rounded-xl px-4 py-2 focus:border-orange-500 focus:ring-0 outline-none transition"
-                />
-                <button
-                  onClick={() => addAttribute(newUnit, "unit_type", setNewUnit)}
-                  className="bg-orange-600 text-white p-2 rounded-xl hover:bg-orange-700 transition shadow-lg shadow-orange-200 active:scale-95"
-                >
-                  <Plus size={24} />
-                </button>
-              </div>
-            </div>
-          </section>
-
+        {/* 3-Column Layout: Color, Size, Lifestyle Tags */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {renderSection("Color Palette", "color", Palette, "E.G. JET BLACK")}
+          {renderSection("Size Guide", "size", Maximize, "E.G. UK 10 / L")}
+          {renderSection("Lifestyle Tags", "lifestyle_tag", Settings2, "E.G. NEW ARRIVAL")}
         </div>
+
+ 
       </div>
+      
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e2e2; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #000; }
+      `}</style>
     </div>
   );
 }

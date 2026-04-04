@@ -1,275 +1,471 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import { createClient } from "@supabase/supabase-js";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import { 
-  Star, 
-  ShoppingBag, 
-  Heart, 
-  Truck, 
-  Award, 
-  ArrowLeft 
+  ShoppingBag, Heart, Truck, 
+  ArrowLeft, ShieldCheck, Tag, ChevronRight, Minus, Plus, CreditCard
 } from "lucide-react";
-
+import ProductCard from "../../components/ProductCard";
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// Interfaces
-interface ProductVariation {
-  id: number;
-  unit_type: string | null;
-  unit_value: string | null;
-  price: number;
-  stock: number;
-}
-
-interface Product {
-  id: number;
-  name: string;
-  sku: string;
-  description: string;
-  ingredients: string | null;
-  pack_of: string | null;
-  max_shelf_life: string | null;
-  has_variation: boolean;
-  brands: { name_en: string; image_url: string } | null;
-}
-
 export default function ProductDetailsPage() {
   const params = useParams();
+  const router = useRouter();
   const productId = params.productId;
 
-  const [product, setProduct] = useState<Product | null>(null);
-  const [variations, setVariations] = useState<ProductVariation[]>([]);
+  const [product, setProduct] = useState<any>(null);
+  const [variations, setVariations] = useState<any[]>([]);
   const [images, setImages] = useState<any[]>([]);
-  const [selectedVariation, setSelectedVariation] = useState<ProductVariation | null>(null);
-  const [activeTab, setActiveTab] = useState<"description" | "specifications">("description");
+  const [selectedVar, setSelectedVar] = useState<any>(null);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [mainImage, setMainImage] = useState("");
   const [isWishlisted, setIsWishlisted] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [wishlistId, setWishlistId] = useState<number | null>(null);
+const [reviews, setReviews] = useState<any[]>([]);
+const [rating, setRating] = useState(5);
+const [similarProducts, setSimilarProducts] = useState<any[]>([]);
+const [reviewText, setReviewText] = useState("");
 
-  const fixUrl = (url?: string) => url || "/default.png";
 
-  useEffect(() => {
-    if (!productId) return;
+  const checkWishlistStatus = useCallback(async (userId: string) => {
+    const { data } = await supabase
+      .from("wishlists")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("product_id", productId)
+      .single();
 
-    async function fetchFullData() {
-      setLoading(true);
-      
-      const { data: prodData } = await supabase
-        .from("products")
-        .select(`*, brands(name_en, image_url)`)
-        .eq("id", productId)
-        .single();
-
-      if (!prodData) return setLoading(false);
-
-      const [varRes, imgRes, revRes] = await Promise.all([
-        supabase.from("product_variations").select("*").eq("product_id", productId),
-        supabase.from("product_images").select("*").eq("product_id", productId),
-        supabase.from("product_reviews").select("*").eq("product_id", productId)
-      ]);
-
-      setProduct(prodData);
-      setVariations(varRes.data || []);
-      setImages(imgRes.data || []);
-      setReviews(revRes.data || []);
-      setMainImage(fixUrl(imgRes.data?.[0]?.image_url));
-      setSelectedVariation(varRes.data?.[0] || null);
-
-      const { data: auth } = await supabase.auth.getUser();
-      if (auth?.user) {
-        setUser(auth.user);
-        const { data: wish } = await supabase
-          .from("wishlists")
-          .select("id")
-          .eq("product_id", productId)
-          .eq("user_id", auth.user.id)
-          .single();
-        setIsWishlisted(!!wish);
-      }
-      setLoading(false);
+    if (data) {
+      setIsWishlisted(true);
+      setWishlistId(data.id);
     }
-    fetchFullData();
   }, [productId]);
 
-  async function toggleWishlist() {
-    if (!user) return toast.error("Please login to wishlist items");
+useEffect(() => {
+  if (!productId) return;
 
-    if (isWishlisted) {
-      const { error } = await supabase
-        .from("wishlists")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("product_id", productId);
+  const fetchFullData = async () => {
+    setLoading(true);
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // ✅ PRODUCT
+    const { data: prod } = await supabase
+      .from("products")
+      .select(`*, brands(name_en, image_url), categories(id, name), subcategories(id, name)`)
+      .eq("id", productId)
+      .single();
+
+    if (!prod) {
+      setLoading(false);
+      return;
+    }
+
+    // ✅ VARIATIONS + IMAGES
+    const [varRes, imgRes, reviewRes] = await Promise.all([
+      supabase.from("product_variations")
+        .select(`*, color:color_id(name), size:size_id(name)`)
+        .eq("product_id", productId),
+
+      supabase.from("product_images")
+        .select("*")
+        .eq("product_id", productId),
+
+      // ✅ REVIEWS
+      supabase.from("reviews")
+        .select("*")
+        .eq("product_id", productId)
+        .order("created_at", { ascending: false })
+    ]);
+
+    // ✅ SIMILAR PRODUCTS (needs prod)
+// ✅ Find this section in your useEffect
+const { data: similarRaw } = await supabase
+  .from("products")
+  .select(`
+    *,
+    brands (name_en),
+    categories (name),
+    product_images (image_url),
+    product_variations (
+      *, 
+      size:size_id(name) 
+    )
+  `) // Added size:size_id(name) here
+  .eq("category_id", prod.category_id)
+  .eq("subcategory_id", prod.subcategory_id)
+  .neq("id", prod.id)
+  .limit(8);
+
+    // ✅ SET STATE
+    setProduct(prod);
+    setVariations(varRes.data || []);
+    setImages(imgRes.data || []);
+    setReviews(reviewRes.data || []);
+const formattedSimilar = similarRaw?.map((p: any) => {
+  // Extract unique size names
+  const availableSizes = p.product_variations
+    ? [...new Set(p.product_variations.map((v: any) => v.size?.name).filter(Boolean))]
+    : [];
+
+  return {
+    ...p,
+    price: p.product_variations?.[0]?.price || 0,
+    image: p.product_images?.[0]?.image_url || "/placeholder.png",
+    sizes: availableSizes, 
+    brand: p.brands?.name_en || "Exclusive"
+  };
+}) || [];
+
+setSimilarProducts(formattedSimilar);
+    setMainImage(imgRes.data?.[0]?.image_url || "/placeholder.png");
+    setSelectedVar(varRes.data?.[0] || null);
+
+    if (user) await checkWishlistStatus(user.id);
+
+    setLoading(false);
+  };
+
+  fetchFullData();
+}, [productId, checkWishlistStatus]);
+
+  const submitReview = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return toast.error("Login required");
+
+  const { error } = await supabase.from("reviews").insert([{
+    product_id: productId,
+    user_id: user.id,
+    rating,
+    review_text: reviewText
+  }]);
+
+  if (!error) {
+    toast.success("Review added!");
+    setReviewText("");
+  }
+};
+
+
+
+
+  const toggleWishlist = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return toast.error("Please login to use Wishlist");
+
+    if (isWishlisted && wishlistId) {
+      const { error } = await supabase.from("wishlists").delete().eq("id", wishlistId);
       if (!error) {
         setIsWishlisted(false);
-        toast.success("Removed from wishlist");
+        setWishlistId(null);
+        toast.success("Removed from Wishlist");
       }
     } else {
-      const { error } = await supabase
-        .from("wishlists")
-        .insert([{ user_id: user.id, product_id: productId }]);
+      const { data, error } = await supabase.from("wishlists").insert([{ user_id: user.id, product_id: productId }]).select().single();
       if (!error) {
         setIsWishlisted(true);
-        toast.success("Added to wishlist");
+        setWishlistId(data.id);
+        toast.success("Added to Wishlist");
       }
     }
-  }
+  };
 
-  async function handleCart() {
-    if (!user) return toast.error("Please login to continue");
-    if (!selectedVariation) return toast.error("Please select a variation");
-
+  const handleCart = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return toast.error("Please login to add to bag");
+    
     const { error } = await supabase.from("cart").insert([{
-      user_id: user.id,
-      product_id: product?.id,
-      variation_id: selectedVariation?.id,
-      quantity
+      user_id: user.id, product_id: product?.id, variation_id: selectedVar?.id, quantity
     }]);
 
     if (!error) {
-      toast.success(`${product?.name} added to collection`);
-    } else {
-      toast.error("Failed to add to cart");
+      toast.success(`${product.name} added to bag!`);
+      window.dispatchEvent(new Event("cartUpdated"));
     }
-  }
+  };
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-black uppercase tracking-widest animate-pulse">Designing Experience...</div>;
-  if (!product) return <div className="h-screen flex items-center justify-center">Product Not Found</div>;
+  /**
+   * BUY NOW HANDLER
+   * Redirects directly to checkout with query params
+   */
+ const handleBuyNow = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return toast.error("Please login to purchase");
+  if (!selectedVar) return toast.error("Please select a variation");
+
+  // selectedVar.id is the unique ID for the specific size/color/price
+  const checkoutUrl = `/userinterface/checkout?productId=${product.id}&variationId=${selectedVar.id}&qty=${quantity}`;
+  router.push(checkoutUrl);
+};
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center bg-[#f8f9fa]">
+      <div className="w-8 h-8 border-2 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#f1f5f9] bg-[radial-gradient(at_top_right,_#e2e8f0,_#f1f5f9,_#ffffff)] pb-20 antialiased text-slate-900">
       <Toaster position="bottom-center" />
-      
-      <div className="flex flex-col lg:flex-row min-h-screen">
-        {/* Left Side: Images */}
-        <div className="lg:w-1/2 lg:sticky lg:top-0 h-[60vh] lg:h-screen bg-slate-50 relative">
-          <button onClick={() => window.history.back()} className="absolute top-8 left-8 z-20 flex items-center gap-2 text-[10px] font-black uppercase text-slate-400 hover:text-slate-900">
-            <ArrowLeft size={16} /> Back
-          </button>
+
+      <div className="max-w-7xl mx-auto px-4 lg:px-8 pt-40">
+        {/* Main Glass Container */}
+        <div className="bg-white/30 backdrop-blur-3xl border border-white/60 shadow-[0_24px_80px_rgba(0,0,0,0.06)] rounded-[56px] p-4 lg:p-10">
           
-          <div className="absolute inset-0 flex items-center justify-center p-12">
-            <Image src={mainImage} alt="Product" fill className="object-contain p-12" priority />
-          </div>
+          <button 
+            onClick={() => router.back()} 
+            className="mb-8 flex items-center gap-2 px-5 py-2.5 bg-white/40 backdrop-blur-md hover:bg-white/60 rounded-full text-[10px] font-black uppercase tracking-[0.1em] text-slate-800 transition-all border border-white/50 shadow-sm"
+          >
+            <ArrowLeft size={14} /> Back
+          </button>
 
-          <div className="absolute bottom-8 left-8 right-8 flex gap-3 overflow-x-auto no-scrollbar">
-            {images.map((img) => (
-              <button 
-                key={img.id}
-                onClick={() => setMainImage(fixUrl(img.image_url))}
-                className={`w-16 h-16 rounded-xl border-2 transition-all ${mainImage === fixUrl(img.image_url) ? "border-slate-900" : "border-transparent opacity-50"}`}
-              >
-                <Image src={fixUrl(img.image_url)} alt="thumb" width={64} height={64} className="w-full h-full object-cover rounded-lg" />
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Right Side: Content */}
-        <div className="lg:w-1/2 p-8 lg:p-20 flex flex-col justify-center">
-          <div className="max-w-xl space-y-6">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-orange-600 bg-orange-50 px-3 py-1 rounded-full">
-                {product.brands?.name_en || "Artisan Brand"}
-              </span>
-              <button onClick={toggleWishlist} className={`p-2 transition-transform active:scale-125 ${isWishlisted ? "text-red-500" : "text-slate-300 hover:text-slate-900"}`}>
-                <Heart size={24} fill={isWishlisted ? "currentColor" : "none"} />
-              </button>
-            </div>
-
-            <h1 className="text-5xl lg:text-7xl font-black text-slate-900 leading-[1.1] ">
-              {product.name}
-            </h1>
-
-            <div className="flex items-center gap-6 py-4 border-y border-slate-100">
-              <div className="flex items-center gap-1 text-slate-900 font-black text-lg">
-                <Star size={16} fill="currentColor" /> {reviews.length > 0 ? (reviews.reduce((a,b) => a+b.rating, 0)/reviews.length).toFixed(1) : "5.0"}
-              </div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{product.sku}</div>
-            </div>
-
-            <div className="space-y-8 pt-4">
-              <div className="flex items-baseline gap-4">
-                <span className="text-5xl font-black text-slate-900">₹{selectedVariation?.price}</span>
-                <span className="text-slate-300 line-through text-lg">₹{Number(selectedVariation?.price || 0) + 120}</span>
-              </div>
-
-              <div className="space-y-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Variation</p>
-                <div className="flex flex-wrap gap-2">
-                  {variations.map((v) => (
-                    <button
-                      key={v.id}
-                      onClick={() => setSelectedVariation(v)}
-                      className={`px-6 py-4 rounded-2xl border-2 transition-all ${selectedVariation?.id === v.id ? "border-slate-900 bg-slate-900 text-white" : "border-slate-100 hover:border-slate-200"}`}
-                    >
-                      <span className="block text-xs font-black">{v.unit_type}</span>
-                      <span className="text-[10px] opacity-60">{v.unit_value}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex items-center bg-slate-50 rounded-2xl px-4 border border-slate-100">
-                  <button onClick={() => setQuantity(q => Math.max(1, q-1))} className="p-2 font-bold">−</button>
-                  <span className="w-8 text-center font-black">{quantity}</span>
-                  <button onClick={() => setQuantity(q => q+1)} className="p-2 font-bold">+</button>
-                </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-20 items-start">
+            
+            {/* LEFT: Image Gallery */}
+            <div className="space-y-6 lg:sticky lg:top-10">
+              <div className="aspect-[4/5] relative bg-gradient-to-tr from-white/80 to-white/20 backdrop-blur-xl rounded-[40px] overflow-hidden border border-white shadow-xl group">
+                <Image 
+                  src={mainImage} 
+                  alt={product.name} 
+                  fill 
+                  className="object-contain p-10 transition-transform duration-1000 group-hover:scale-105"
+                  priority
+                />
                 
-                <button onClick={handleCart} className="flex-1 bg-slate-900 text-white rounded-[2rem] font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-orange-600 transition-all shadow-xl active:scale-95">
-                  <ShoppingBag size={18} /> Add to Collection
-                </button>
-              </div>
-            </div>
-
-            {/* Tabs */}
-            <div className="pt-12 space-y-8">
-              <div className="flex gap-8 border-b border-slate-50">
-                {["description", "specifications"].map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab as any)}
-                    className={`pb-4 text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? "text-slate-900 border-b-2 border-slate-900" : "text-slate-300"}`}
+                <div className="absolute top-6 right-6 flex flex-col gap-3">
+                  <button 
+                    onClick={toggleWishlist} 
+                    className="p-3.5 bg-white/60 backdrop-blur-2xl rounded-full border border-white/80 shadow-lg transition-all hover:scale-110 active:scale-95"
                   >
-                    {tab}
+                    <Heart size={20} className={isWishlisted ? "fill-red-500 text-red-500" : "text-slate-700"} />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex gap-4 overflow-x-auto py-2 no-scrollbar justify-center">
+                {images.map((img) => (
+                  <button 
+                    key={img.id}
+                    onClick={() => setMainImage(img.image_url)}
+                    className={`min-w-[80px] h-20 relative rounded-2xl overflow-hidden border-2 transition-all ${mainImage === img.image_url ? "border-slate-900 scale-105 bg-white" : "border-transparent opacity-40 hover:opacity-100"}`}
+                  >
+                    <Image src={img.image_url} alt="thumb" fill className="object-cover" />
                   </button>
                 ))}
               </div>
-              <div className="text-slate-500 text-sm leading-relaxed">
-                {activeTab === "description" ? product.description : (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><h4 className="text-[9px] font-black uppercase text-slate-300">Shelf Life</h4><p className="font-bold text-slate-900">{product.max_shelf_life}</p></div>
-                    <div><h4 className="text-[9px] font-black uppercase text-slate-300">Pack Size</h4><p className="font-bold text-slate-900">{product.pack_of}</p></div>
-                    <div className="col-span-2"><h4 className="text-[9px] font-black uppercase text-slate-300">Ingredients</h4><p className="font-bold text-slate-900">{product.ingredients}</p></div>
+            </div>
+
+            {/* RIGHT: Product Details */}
+            <div className="flex flex-col py-4">
+              <div className="space-y-8">
+                <div className="space-y-4">
+                  <nav className="inline-flex items-center gap-2 px-3 py-1 bg-black backdrop-blur-lg rounded-full border border-blue-200/50 text-[10px] font-black uppercase tracking-widest text-white">
+                    {product.categories?.name} <ChevronRight size={10} /> {product.subcategories?.name}
+                  </nav>
+
+                  <h1 className="text-5xl lg:text-7xl font-black text-slate-900 leading-[0.95] tracking-tighter">
+                    {product.name}
+                  </h1>
+
+                  <div className="flex items-center gap-6 pt-2">
+                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-400">
+                      <span className="text-slate-900 underline underline-offset-4 decoration-blue-500">{product.brands?.name_en}</span>
+                    </div>
+                    <div className="h-4 w-[1px] bg-slate-300" />
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                      <Tag size={14} /> {product.sku || "NOIR-SS24"}
+                    </div>
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
 
-            {/* Perks */}
-            <div className="pt-12 grid gap-4">
-              <div className="flex items-center gap-4 bg-orange-50/50 p-6 rounded-3xl border border-orange-100">
-                <Award size={20} className="text-orange-600" />
-                <div><h4 className="text-xs font-black uppercase text-slate-900">Quality Guaranteed</h4><p className="text-[10px] text-slate-400">Directly from certified vendors.</p></div>
-              </div>
-              <div className="flex items-center gap-4 bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                <Truck size={20} className="text-slate-900" />
-                <div><h4 className="text-xs font-black uppercase text-slate-900">Express Delivery</h4><p className="text-[10px] text-slate-400">Dispatched within 24 hours.</p></div>
-              </div>
-            </div>
+                <div className="flex items-baseline gap-4 border-y border-slate-200/40 py-8">
+                  <span className="text-6xl font-black text-slate-900 tracking-tighter">₹{selectedVar?.price}</span>
+                  <span className="text-2xl text-slate-300 line-through font-bold">₹{Number(selectedVar?.price) + 499}</span>
+                </div>
 
+                {/* Variation Selection */}
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Personalize Your Selection</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {variations.map((v) => (
+                      <button
+                        key={v.id}
+                        onClick={() => setSelectedVar(v)}
+                        className={`p-5 rounded-[28px] border-2 transition-all text-left relative overflow-hidden group ${
+                          selectedVar?.id === v.id 
+                          ? "bg-slate-900 border-slate-900 text-white shadow-2xl scale-[1.02]" 
+                          : "bg-white/40 backdrop-blur-md border-white/60 text-slate-700 hover:bg-white/80"
+                        }`}
+                      >
+                        <span className={`text-[9px] font-black uppercase tracking-widest block mb-1 ${selectedVar?.id === v.id ? "text-blue-400" : "text-slate-400"}`}>
+                          {v.color?.name || 'Exclusive'}
+                        </span>
+                        <span className="text-sm font-black">Size {v.size?.name || 'OS'}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Action Controls */}
+                <div className="space-y-4">
+                  <div className="flex gap-4">
+                    {/* Quantity Selector */}
+                    <div className="flex items-center bg-white/50 backdrop-blur-xl border border-white/80 rounded-[32px] px-6 py-4 shadow-sm">
+                      <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="p-1 hover:text-blue-600 transition-colors"><Minus size={18} /></button>
+                      <span className="w-12 text-center text-xl font-black">{quantity}</span>
+                      <button onClick={() => setQuantity(quantity + 1)} className="p-1 hover:text-blue-600 transition-colors"><Plus size={18} /></button>
+                    </div>
+                    
+                    {/* Add to Bag Button */}
+                    <button 
+                      onClick={handleCart}
+                      disabled={!selectedVar || selectedVar.stock <= 0}
+                      className="flex-1 bg-white border-2 border-slate-900 text-slate-900 rounded-[32px] flex items-center justify-center gap-3 text-xs font-black uppercase tracking-[0.2em] shadow-lg hover:bg-slate-50 transition-all active:scale-95 disabled:border-slate-200 disabled:text-slate-300"
+                    >
+                      <ShoppingBag size={18} /> Add to Bag
+                    </button>
+                  </div>
+
+                  {/* Buy Now Button */}
+                  <button 
+                    onClick={handleBuyNow}
+                    disabled={!selectedVar || selectedVar.stock <= 0}
+                    className="w-full bg-slate-900 text-white rounded-[32px] py-6 flex items-center justify-center gap-3 text-sm font-black uppercase tracking-[0.3em] shadow-2xl hover:shadow-slate-400 transition-all active:scale-[0.98] disabled:bg-slate-200"
+                  >
+                    <CreditCard size={20} /> Buy Now
+                  </button>
+                </div>
+
+                {/* Luxury Badges */}
+                <div className="grid grid-cols-2 gap-4 pt-4">
+                  <div className="p-5 rounded-[32px] bg-white/20 backdrop-blur-lg border border-white/40 flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-2xl bg-white/60 flex items-center justify-center shadow-sm"><Truck size={18} /></div>
+                    <p className="text-[10px] font-black uppercase tracking-tight text-slate-500">Express<br/><span className="text-slate-900">Delivery</span></p>
+                  </div>
+                  <div className="p-5 rounded-[32px] bg-white/20 backdrop-blur-lg border border-white/40 flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-2xl bg-white/60 flex items-center justify-center shadow-sm"><ShieldCheck size={18} /></div>
+                    <p className="text-[10px] font-black uppercase tracking-tight text-slate-500">Verified<br/><span className="text-slate-900">Original</span></p>
+                  </div>
+                </div>
+
+                {/* Description Pane */}
+                <div className="bg-slate-900/5 backdrop-blur-md p-8 rounded-[40px] border border-white/40 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-5"><ShoppingBag size={80} /></div>
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-4">Designer Notes</h4>
+                  <p className="text-sm text-slate-600 leading-relaxed font-medium">
+                    {product.description || "Synthesizing architectural lines with radical comfort. This piece features a refined texture and engineered fit, serving as a cornerstone for the contemporary wardrobe."}
+                  </p>
+                </div>
+    <div className="mt-2 space-y-12 border-t border-slate-200/60 pt-6">
+  <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div>
+      <h3 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">
+        Community <span className="text-slate-900">Reviews</span>
+      </h3>
+      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mt-2">
+        {reviews.length} Verified Opinions
+      </p>
+    </div>
+  </div>
+
+  {/* Add Review Section */}
+  <div className="bg-white/60 backdrop-blur-2xl border border-white p-8 rounded-[40px] shadow-sm space-y-6">
+    <div className="space-y-2">
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Share Your Experience</p>
+      <div className="flex gap-2">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            onClick={() => setRating(star)}
+            className="transition-transform hover:scale-110 active:scale-95"
+          >
+            <Heart 
+              size={24} 
+              className={`${rating >= star ? "fill-yellow-500 text-yellow-500" : "text-slate-300"} transition-colors`} 
+            />
+          </button>
+        ))}
+      </div>
+    </div>
+
+    <textarea
+      value={reviewText}
+      onChange={(e) => setReviewText(e.target.value)}
+      placeholder="How does it feel? Describe the fit, material, and style..."
+      className="w-full bg-white/50 border border-slate-200 rounded-[24px] p-5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all min-h-[120px] placeholder:text-slate-300"
+    />
+
+    <button 
+      onClick={submitReview} 
+      className="bg-slate-900 text-white px-8 py-4 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-lg active:scale-95"
+    >
+      Publish Review
+    </button>
+  </div>
+
+  {/* Review List */}
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    {reviews.length > 0 ? (
+      reviews.map((r) => (
+        <div 
+          key={r.id} 
+          className="group p-8 rounded-[32px] bg-white/30 border border-white/60 hover:bg-white/50 transition-all duration-500 shadow-sm"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex gap-1">
+              {[...Array(5)].map((_, i) => (
+                <Heart 
+                  key={i} 
+                  size={12} 
+                  className={i < r.rating ? "fill-slate-900 text-slate-900" : "text-slate-200"} 
+                />
+              ))}
+            </div>
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
+              {new Date(r.created_at).toLocaleDateString()}
+            </span>
+          </div>
+          <p className="text-sm text-slate-600 leading-relaxed font-medium mb-4 italic">
+            "{r.review_text}"
+          </p>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-200 to-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500">
+              U
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">
+              Verified Buyer
+            </p>
           </div>
         </div>
+      ))
+    ) : (
+      <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-200 rounded-[40px]">
+        <p className="text-slate-300 text-xs font-black uppercase tracking-widest">No reviews yet. Be the first to trend.</p>
+      </div>
+    )}
+  </div>
+</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-20">
+  <h2 className="text-3xl font-bold mb-6">You may also like</h2>
+
+  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+  {similarProducts.map((p) => (
+  <ProductCard key={p.id} product={p} />
+))}
+  </div>
+</div>
       </div>
     </div>
   );

@@ -117,14 +117,14 @@ export default function SubadminSettings() {
       <div className="max-w-8xl mx-auto mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-            <ShieldCheck className="text-orange-600 w-10 h-10" />
+            <ShieldCheck className="text-black w-10 h-10" />
             Subadmin Management
           </h1>
           <p className="text-gray-500 font-medium mt-1">Manage staff credentials and access control.</p>
         </div>
         <button
           onClick={() => openForm()}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 shadow-lg shadow-orange-100 transition-all active:scale-95"
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-black text-white rounded-xl font-bold hover:bg-black shadow-lg shadow-orange-100 transition-all active:scale-95"
         >
           <UserPlus size={20} />
           Add New Staff
@@ -147,14 +147,14 @@ export default function SubadminSettings() {
                 <tr key={s.id} className="group hover:bg-orange-50/30 transition-colors">
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold border border-orange-200">
+                      <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-black font-bold border border-orange-200">
                         {s.email.charAt(0).toUpperCase()}
                       </div>
                       <span className="font-bold text-gray-800">{s.email}</span>
                     </div>
                   </td>
                   <td className="px-8 py-5">
-                    <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-[10px] font-black uppercase tracking-tighter border border-orange-200">
+                    <span className="px-3 py-1 bg-orange-100 text-black rounded-full text-[10px] font-black uppercase tracking-tighter border border-orange-200">
                       Staff Admin
                     </span>
                   </td>
@@ -162,7 +162,7 @@ export default function SubadminSettings() {
                     <div className="flex justify-end gap-2">
                       <button 
                         onClick={() => openForm(s)}
-                        className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-100 rounded-xl transition-all"
+                        className="p-2 text-gray-400 hover:text-black hover:bg-orange-100 rounded-xl transition-all"
                       >
                         <Pencil size={18} />
                       </button>
@@ -202,13 +202,13 @@ export default function SubadminSettings() {
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Address</label>
                 <div className="relative group">
-                  <Mail className="absolute left-4 top-4 text-gray-300 group-focus-within:text-orange-600 transition-colors" size={20} />
+                  <Mail className="absolute left-4 top-4 text-gray-300 group-focus-within:text-black transition-colors" size={20} />
                   <input
                     type="email"
                     value={selectedSubadmin.email}
                     onChange={(e) => setSelectedSubadmin({ ...selectedSubadmin, email: e.target.value })}
                     placeholder="staff@example.com"
-                    className="w-full bg-gray-50 border-2 border-gray-50 p-4 pl-12 rounded-2xl focus:bg-white focus:border-orange-600 outline-none transition font-medium text-sm"
+                    className="w-full bg-gray-50 border-2 border-gray-50 p-4 pl-12 rounded-2xl focus:bg-white focus:border-black outline-none transition font-medium text-sm"
                   />
                 </div>
               </div>
@@ -217,18 +217,18 @@ export default function SubadminSettings() {
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Password</label>
                 <div className="relative group">
-                  <Lock className="absolute left-4 top-4 text-gray-300 group-focus-within:text-orange-600 transition-colors" size={20} />
+                  <Lock className="absolute left-4 top-4 text-gray-300 group-focus-within:text-black transition-colors" size={20} />
                   <input
                     type={showPassword ? "text" : "password"}
                     value={selectedSubadmin.password}
                     onChange={(e) => setSelectedSubadmin({ ...selectedSubadmin, password: e.target.value })}
                     placeholder="••••••••"
-                    className="w-full bg-gray-50 border-2 border-gray-50 p-4 pl-12 pr-12 rounded-2xl focus:bg-white focus:border-orange-600 outline-none transition font-medium text-sm"
+                    className="w-full bg-gray-50 border-2 border-gray-50 p-4 pl-12 pr-12 rounded-2xl focus:bg-white focus:border-black outline-none transition font-medium text-sm"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-4 text-gray-400 hover:text-orange-600 transition-colors"
+                    className="absolute right-4 top-4 text-gray-400 hover:text-black transition-colors"
                   >
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
@@ -240,7 +240,7 @@ export default function SubadminSettings() {
               <button
                 onClick={saveSubadmin}
                 disabled={loading}
-                className="flex-1 py-4 bg-orange-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-orange-700 shadow-lg shadow-orange-100 transition-all active:scale-95 disabled:opacity-50"
+                className="flex-1 py-4 bg-black text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-black shadow-lg shadow-orange-100 transition-all active:scale-95 disabled:opacity-50"
               >
                 {loading ? "Saving..." : "Save Account"}
               </button>

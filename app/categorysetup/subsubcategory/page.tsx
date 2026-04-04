@@ -181,7 +181,7 @@ export default function SubSubcategoriesPage() {
       <div className="max-w-7xl mx-auto mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-4xl font-black tracking-tight text-slate-900">
-            Deep <span className="text-orange-600">Categories</span>
+            Deep <span className="text-black">Categories</span>
           </h1>
           <p className="text-slate-500 mt-2 font-medium">Manage tertiary level catalog groupings.</p>
         </div>
@@ -201,9 +201,9 @@ export default function SubSubcategoriesPage() {
             onSubmit={handleSubmit}
             className="bg-white rounded-3xl p-8 border border-slate-100 shadow-xl shadow-slate-200/50 relative overflow-hidden"
           >
-            <div className="absolute top-0 left-0 w-full h-1 bg-orange-600"></div>
+            <div className="absolute top-0 left-0 w-full h-1 bg-black"></div>
             <h2 className="text-2xl font-black mb-6 flex items-center gap-2">
-              {editing ? <PencilIcon className="h-6 w-6 text-orange-600" /> : <PlusIcon className="h-6 w-6 text-orange-600" />}
+              {editing ? <PencilIcon className="h-6 w-6 text-black" /> : <PlusIcon className="h-6 w-6 text-black" />}
               {editing ? "Edit Item" : "New Item"}
             </h2>
 
@@ -215,7 +215,7 @@ export default function SubSubcategoriesPage() {
                   value={subSubName}
                   onChange={(e) => setSubSubName(e.target.value)}
                   placeholder="e.g. Leather Recliners"
-                  className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-4 ${fieldErrors.name ? 'border-red-500 focus:ring-red-100' : 'border-slate-200 focus:border-orange-500 focus:ring-orange-100'} outline-none font-semibold text-slate-700`}
+                  className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-4 ${fieldErrors.name ? 'border-black focus:ring-red-100' : 'border-slate-200 focus:border-orange-500 focus:ring-orange-100'} outline-none font-semibold text-slate-700`}
                 />
               </div>
 
@@ -267,7 +267,7 @@ export default function SubSubcategoriesPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 bg-orange-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-orange-700 transition-all shadow-lg shadow-orange-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 bg-black text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-orange-700 transition-all shadow-lg shadow-orange-200 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {submitting && <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
                   {editing ? "Update Record" : "Create Record"}
@@ -314,7 +314,7 @@ export default function SubSubcategoriesPage() {
                       <tr key={sub.id} className="hover:bg-slate-50/50 transition-colors group">
                         <td className="px-6 py-5">
                           <div className="flex items-center gap-4">
-                            <div className="h-12 w-12 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600 flex-shrink-0">
+                            <div className="h-12 w-12 rounded-xl bg-orange-50 flex items-center justify-center text-black flex-shrink-0">
                                 <RectangleStackIcon className="h-6 w-6" />
                             </div>
                             <div>
@@ -322,7 +322,7 @@ export default function SubSubcategoriesPage() {
                                 <div className="flex items-center gap-2 mt-1">
                                     <span className="text-[10px] font-black px-2 py-0.5 bg-slate-100 text-slate-500 rounded uppercase">{sub.category_name}</span>
                                     <span className="text-slate-300">/</span>
-                                    <span className="text-[10px] font-black px-2 py-0.5 bg-orange-50 text-orange-600 rounded uppercase">{sub.subcategory_name}</span>
+                                    <span className="text-[10px] font-black px-2 py-0.5 bg-orange-50 text-black rounded uppercase">{sub.subcategory_name}</span>
                                 </div>
                             </div>
                           </div>
@@ -332,7 +332,7 @@ export default function SubSubcategoriesPage() {
                             <button onClick={() => handleEdit(sub)} className="p-2.5 bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
                                 <PencilIcon className="h-5 w-5" />
                             </button>
-                            <button onClick={() => { setItemToDelete(sub); setShowDeleteModal(true); }} className="p-2.5 bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all">
+                            <button onClick={() => { setItemToDelete(sub); setShowDeleteModal(true); }} className="p-2.5 bg-slate-50 text-slate-400 hover:text-black hover:bg-red-50 rounded-xl transition-all">
                                 <TrashIcon className="h-5 w-5" />
                             </button>
                           </div>
@@ -350,7 +350,7 @@ export default function SubSubcategoriesPage() {
             <div className="flex justify-center items-center gap-2 py-4">
               <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="px-4 py-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-40">Prev</button>
               {[...Array(totalPages)].map((_, i) => (
-                <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-10 h-10 rounded-xl font-black text-xs transition-all ${currentPage === i + 1 ? 'bg-orange-600 text-white shadow-lg shadow-orange-100' : 'bg-white border border-slate-200 text-slate-400 hover:border-orange-300'}`}>{i + 1}</button>
+                <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-10 h-10 rounded-xl font-black text-xs transition-all ${currentPage === i + 1 ? 'bg-black text-white shadow-lg shadow-orange-100' : 'bg-white border border-slate-200 text-slate-400 hover:border-orange-300'}`}>{i + 1}</button>
               ))}
               <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="px-4 py-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-40">Next</button>
             </div>
@@ -362,7 +362,7 @@ export default function SubSubcategoriesPage() {
       {showDeleteModal && itemToDelete && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-[2rem] p-10 shadow-2xl max-w-sm w-full text-center border border-white/20">
-            <div className="h-20 w-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+            <div className="h-20 w-20 bg-red-50 text-black rounded-full flex items-center justify-center mx-auto mb-6">
                 <TrashIcon className="h-10 w-10" />
             </div>
             <h2 className="text-2xl font-black text-slate-800 mb-2">Delete Item?</h2>
@@ -378,7 +378,7 @@ export default function SubSubcategoriesPage() {
                     setShowDeleteModal(false);
                   }
                 }}
-                className="py-4 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg shadow-red-200"
+                className="py-4 bg-black text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg shadow-red-200"
               >Confirm</button>
             </div>
           </div>

@@ -82,7 +82,7 @@ export default function CustomerListPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen">
-       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
     </div>
   );
 
@@ -94,7 +94,7 @@ export default function CustomerListPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
-              <Users className="text-orange-600 w-10 h-10" />
+              <Users className="text-black w-10 h-10" />
               Customer Database
             </h1>
             <p className="text-gray-500 font-medium mt-1">Manage and monitor your user base efficiently.</p>
@@ -103,7 +103,7 @@ export default function CustomerListPage() {
             onClick={exportToExcel}
             className="flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl font-bold hover:bg-gray-50 transition-all shadow-sm active:scale-95"
           >
-            <Download size={18} className="text-orange-600" />
+            <Download size={18} className="text-black" />
             Export Excel
           </button>
         </div>
@@ -135,7 +135,7 @@ export default function CustomerListPage() {
             </div>
             <button
               onClick={() => { setSearch(""); setStatusFilter("All"); }}
-              className="p-3 bg-gray-100 text-gray-500 rounded-xl hover:bg-orange-100 hover:text-orange-600 transition-colors"
+              className="p-3 bg-gray-100 text-gray-500 rounded-xl hover:bg-orange-100 hover:text-black transition-colors"
               title="Reset Filters"
             >
               <RotateCcw size={20} />
@@ -189,7 +189,7 @@ export default function CustomerListPage() {
                         ) : (
                           <button
                             onClick={() => toggleBlockUser(u.id, true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-orange-700 transition active:scale-95 shadow-md shadow-orange-100"
+                            className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black transition active:scale-95 shadow-md shadow-orange-100"
                           >
                             <UserX size={14} /> Block
                           </button>
@@ -215,7 +215,7 @@ export default function CustomerListPage() {
                 onClick={() => setPage(page - 1)}
                 className="p-2 bg-gray-50 border border-gray-200 rounded-xl disabled:opacity-30 hover:bg-white transition shadow-sm"
               >
-                <ChevronLeft size={20} className="text-orange-600" />
+                <ChevronLeft size={20} className="text-black" />
               </button>
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                   const p = i + 1;
@@ -223,7 +223,7 @@ export default function CustomerListPage() {
                     <button
                       key={p}
                       onClick={() => setPage(p)}
-                      className={`w-10 h-10 rounded-xl font-bold text-sm transition-all ${p === page ? 'bg-orange-600 text-white shadow-lg shadow-orange-100' : 'bg-gray-50 text-gray-500 hover:bg-orange-50'}`}
+                      className={`w-10 h-10 rounded-xl font-bold text-sm transition-all ${p === page ? 'bg-black text-white shadow-lg shadow-orange-100' : 'bg-gray-50 text-gray-500 hover:bg-orange-50'}`}
                     >
                       {p}
                     </button>
@@ -234,7 +234,7 @@ export default function CustomerListPage() {
                 onClick={() => setPage(page + 1)}
                 className="p-2 bg-gray-50 border border-gray-200 rounded-xl disabled:opacity-30 hover:bg-white transition shadow-sm"
               >
-                <ChevronRight size={20} className="text-orange-600" />
+                <ChevronRight size={20} className="text-black" />
               </button>
             </div>
           </div>

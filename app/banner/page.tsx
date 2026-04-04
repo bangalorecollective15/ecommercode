@@ -120,12 +120,12 @@ export default function BannerSettings() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-orange-600 tracking-tight">Banner Ads</h1>
+          <h1 className="text-3xl font-extrabold text-black tracking-tight">Banner Ads</h1>
           <p className="text-gray-500">Manage promotional text banners for your site header.</p>
         </div>
         <button
           onClick={() => setSelectedBanner({ id: "", title: "", bg_color: "#ea580c", text_color: "#ffffff", active: true, created_at: "" })}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 shadow-lg shadow-orange-100 transition-all active:scale-95"
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-black text-white rounded-xl font-bold hover:bg-black shadow-lg shadow-orange-100 transition-all active:scale-95"
         >
           <Plus size={20} />
           Create New Banner
@@ -175,7 +175,7 @@ export default function BannerSettings() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex justify-end gap-2">
-                      <button onClick={() => setSelectedBanner(banner)} className="p-2 text-gray-400 hover:text-orange-600 transition">
+                      <button onClick={() => setSelectedBanner(banner)} className="p-2 text-gray-400 hover:text-black transition">
                         <Pencil size={18} />
                       </button>
                       <button onClick={() => { setDeleteId(banner.id); setShowDeleteModal(true); }} className="p-2 text-gray-400 hover:text-red-600 transition">
@@ -217,7 +217,7 @@ export default function BannerSettings() {
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-xl font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
-                <Palette className="text-orange-600" />
+                <Palette className="text-black" />
                 {selectedBanner.id ? "Edit Banner" : "New Banner"}
               </h3>
               <button onClick={() => setSelectedBanner(null)} className="p-2 hover:bg-gray-100 rounded-full transition">
@@ -280,7 +280,7 @@ export default function BannerSettings() {
                   <span className="text-sm font-bold text-gray-700 uppercase">Visible on site</span>
                   <button
                     onClick={() => setSelectedBanner({ ...selectedBanner, active: !selectedBanner.active })}
-                    className={`w-12 h-6 rounded-full transition-colors relative ${selectedBanner.active ? 'bg-orange-600' : 'bg-gray-300'}`}
+                    className={`w-12 h-6 rounded-full transition-colors relative ${selectedBanner.active ? 'bg-black' : 'bg-gray-300'}`}
                   >
                     <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${selectedBanner.active ? 'left-7' : 'left-1'}`} />
                   </button>
@@ -292,7 +292,7 @@ export default function BannerSettings() {
               <button
                 onClick={saveBanner}
                 disabled={loading}
-                className="flex-1 py-4 bg-orange-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-orange-700 shadow-lg shadow-orange-100 transition disabled:opacity-50"
+                className="flex-1 py-4 bg-black text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-black shadow-lg shadow-orange-100 transition disabled:opacity-50"
               >
                 {loading ? "Saving..." : "Save Banner"}
               </button>

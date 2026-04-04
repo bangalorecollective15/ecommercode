@@ -150,12 +150,12 @@ export default function HeroSettings() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-orange-600 tracking-tight">Hero Management</h1>
+          <h1 className="text-3xl font-extrabold text-blacktracking-tight">Hero Management</h1>
           <p className="text-gray-500">Update and organize your homepage banner sliders.</p>
         </div>
         <button
           onClick={openCreateModal}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 shadow-lg shadow-orange-100 transition-all active:scale-95"
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-blacktext-white rounded-xl font-bold hover:bg-blackshadow-lg shadow-black transition-all active:scale-95"
         >
           <Plus size={20} />
           Create New Slider
@@ -205,7 +205,7 @@ export default function HeroSettings() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex justify-end gap-2">
-                      <button onClick={() => setSelectedHero(hero)} className="p-2 text-gray-400 hover:text-orange-600 transition">
+                      <button onClick={() => setSelectedHero(hero)} className="p-2 text-gray-400 hover:text-blacktransition">
                         <PencilIcon size={18} />
                       </button>
                       <button onClick={() => { setDeleteId(hero.id); setShowDeleteModal(true); }} className="p-2 text-gray-400 hover:text-red-600 transition">
@@ -279,7 +279,7 @@ export default function HeroSettings() {
                     <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e.target.files!)} />
                   </label>
                 </div>
-                {uploading && <p className="text-orange-600 text-[10px] font-bold animate-pulse">Processing images...</p>}
+                {uploading && <p className="text-blacktext-[10px] font-bold animate-pulse">Processing images...</p>}
               </div>
 
               {/* Toggle Switch */}
@@ -301,7 +301,7 @@ export default function HeroSettings() {
               <button
                 onClick={saveHero}
                 disabled={loading}
-                className="flex-1 py-4 bg-orange-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-orange-700 shadow-lg shadow-orange-100 transition-all disabled:opacity-50"
+                className="flex-1 py-4 bg-blacktext-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blackshadow-lg shadow-black transition-all disabled:opacity-50"
               >
                 {loading ? "Processing..." : "Save Configuration"}
               </button>

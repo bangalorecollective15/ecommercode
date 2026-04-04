@@ -118,7 +118,7 @@ export default function AdminInstagramLinks() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-orange-600 tracking-tight flex items-center gap-2">
+          <h1 className="text-3xl font-extrabold text-black tracking-tight flex items-center gap-2">
             <Instagram size={32} />
             Instagram Feed
           </h1>
@@ -126,7 +126,7 @@ export default function AdminInstagramLinks() {
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 shadow-lg shadow-orange-100 transition-all active:scale-95"
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-black text-white rounded-xl font-bold hover:bg-black shadow-lg shadow-orange-100 transition-all active:scale-95"
         >
           <Plus size={20} />
           Add New Link
@@ -154,7 +154,7 @@ export default function AdminInstagramLinks() {
                   <tr key={link.id} className="hover:bg-orange-50/20 transition">
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-orange-100 text-orange-600 rounded-lg">
+                        <div className="p-2 bg-orange-100 text-black rounded-lg">
                           <Link2 size={18} />
                         </div>
                         <div className="flex flex-col">
@@ -162,7 +162,7 @@ export default function AdminInstagramLinks() {
                           <a 
                             href={link.url} 
                             target="_blank" 
-                            className="text-[10px] text-orange-500 font-black uppercase flex items-center gap-1 hover:underline"
+                            className="text-[10px] text-red-500 font-black uppercase flex items-center gap-1 hover:underline"
                           >
                             Preview on Instagram <ExternalLink size={10} />
                           </a>
@@ -184,7 +184,7 @@ export default function AdminInstagramLinks() {
                     </td>
                     <td className="px-8 py-5">
                       <div className="flex justify-end gap-2">
-                        <button onClick={() => handleEdit(link)} className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition">
+                        <button onClick={() => handleEdit(link)} className="p-2 text-gray-400 hover:text-black hover:bg-orange-50 rounded-lg transition">
                           <Pencil size={18} />
                         </button>
                         <button onClick={() => { setDeleteId(link.id); setShowDeleteModal(true); }} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
@@ -235,11 +235,11 @@ export default function AdminInstagramLinks() {
               <div className="flex items-center justify-between p-5 bg-orange-50/50 rounded-2xl border border-orange-100">
                 <div>
                   <p className="text-sm font-black text-gray-800 uppercase tracking-tight">Published</p>
-                  <p className="text-[10px] text-orange-600/60 font-black uppercase">Visible to public visitors</p>
+                  <p className="text-[10px] text-black/60 font-black uppercase">Visible to public visitors</p>
                 </div>
                 <button
                   onClick={() => setPublished(!published)}
-                  className={`w-12 h-6 rounded-full transition-all relative shadow-inner ${published ? 'bg-orange-600' : 'bg-gray-300'}`}
+                  className={`w-12 h-6 rounded-full transition-all relative shadow-inner ${published ? 'bg-black' : 'bg-gray-300'}`}
                 >
                   <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow-md ${published ? 'left-7' : 'left-1'}`} />
                 </button>
@@ -250,7 +250,7 @@ export default function AdminInstagramLinks() {
               <button
                 onClick={handleSubmit}
                 disabled={loading}
-                className="flex-1 py-4 bg-orange-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-orange-700 shadow-lg shadow-orange-100 transition-all active:scale-95 disabled:opacity-50"
+                className="flex-1 py-4 bg-black text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-black shadow-lg shadow-orange-100 transition-all active:scale-95 disabled:opacity-50"
               >
                 {loading ? "Saving..." : editId ? "Update Link" : "Save Link"}
               </button>

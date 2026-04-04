@@ -1,5 +1,6 @@
 "use client";
 
+import { Eye, EyeOff, RefreshCw, ArrowRight, ShieldCheck, Lock } from "lucide-react";
 import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 import toast, { Toaster } from "react-hot-toast";
@@ -10,9 +11,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-function generateCaptcha(length = 5) {
-  const chars =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+function generateCaptcha(length = 4) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let result = "";
   for (let i = 0; i < length; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -26,12 +26,10 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [captcha, setCaptcha] = useState("");
   const [captchaValue, setCaptchaValue] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const router = useRouter();
 
-  // Generate captcha on mount
   useEffect(() => setCaptchaValue(generateCaptcha()), []);
 
   const refreshCaptcha = () => {
@@ -39,36 +37,15 @@ export default function Login() {
     setCaptcha("");
   };
 
-  const validateEmail = (email: string) =>
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
-  const validatePassword = (password: string) =>
-    /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{7,}$/.test(
-      password
-    );
-
-  const handleForgotPassword = async () => {
-    if (!validateEmail(email)) {
-      toast.error("Please enter a valid email first!");
-      return;
-    }
-    toast("Password reset is not implemented for subadmins table!");
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!validateEmail(email)) return toast.error("Invalid email format!");
-    if (!validatePassword(password))
-      return toast.error("Password must meet requirements");
-    if (captcha !== captchaValue) {
-      toast.error("Captcha does not match");
+    if (captcha.toUpperCase() !== captchaValue.toUpperCase()) {
+      toast.error("Code Mismatch");
       refreshCaptcha();
       return;
     }
 
     setLoading(true);
-
     try {
       const { data, error } = await supabase
         .from("subadmins")
@@ -76,145 +53,96 @@ export default function Login() {
         .eq("email", email)
         .single();
 
-      console.log(data, error);
-      if (error || !data) {
-        toast.error("Invalid credentials");
+      if (error || !data || data.password !== password) {
+        toast.error("Access Denied");
+        setLoading(false);
         return;
       }
 
-      if (data.password !== password) {
-        toast.error("Incorrect password");
-        return;
-      }
-
-      // Save role and session (do NOT store password!)
-      localStorage.setItem("role", data.role || "subadmin");
-      localStorage.setItem("email", data.email);
       localStorage.setItem("isLoggedIn", "true");
-
-      toast.success("Login successful!");
+      toast.success("Identity Verified");
       router.push("/dashboard");
-    } catch (err: any) {
-      toast.error(err.message || "Something went wrong");
-    } finally {
+    } catch (err) {
+      toast.error("System Error");
       setLoading(false);
     }
   };
 
-  const passwordRules = [
-    { label: "At least 7 characters", valid: password.length >= 7 },
-    { label: "At least one uppercase letter", valid: /[A-Z]/.test(password) },
-    { label: "At least one number", valid: /\d/.test(password) },
-    {
-      label: "At least one special character",
-      valid: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
-    },
-  ];
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      <Toaster position="top-right" />
-      <div className="flex flex-col lg:flex-row w-full max-w-6xl bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200">
+    <div className="min-h-screen w-full flex items-center justify-center bg-[#f8f8f8] p-4 selection:bg-black selection:text-white">
+      <Toaster position="top-center" />
+      
+      {/* Small, Compact Container (Reduced Height) */}
+      <div className="flex w-full max-w-md lg:max-w-4xl bg-white rounded-3xl overflow-hidden lg:h-[580px] shadow-[0_30px_70px_-20px_rgba(0,0,0,0.1)] border border-gray-100">
+        
+        {/* LEFT SIDE: COMPACT FORM */}
+        <div className="w-full lg:w-[45%] p-8 lg:p-10 flex flex-col justify-center bg-white">
+          <div className="w-full max-w-[280px] mx-auto">
+            <header className="mb-6">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="mb-8 flex justify-center lg:justify-start">
+                <img 
+                  src="/banglorecollectivelogo.jpg" 
+                  alt="Logo" 
+                  className="h-10 w-auto object-contain brightness-0" 
+                />
+              </div>
+              </div>
+              <h1 className="text-xl font-black text-black tracking-tighter mb-1 uppercase">Admin panel</h1>
+              <p className="text-gray-400 text-[8px] font-black uppercase tracking-[0.2em]">Restricted Access</p>
+            </header>
 
-        {/* Branding */}
-        <div className="hidden lg:flex flex-col justify-center items-center bg-white p-16 w-1/2">
-          <img src="/logo.png" alt="Logo" className="w-80 mb-6" />
-          <h2 className="text-4xl font-bold text-gray-800 text-center mb-4">
-            Expert Oversight for Business <span className="text-orange-600">Success</span>
-          </h2>
-          <p className="text-gray-600 text-center">
-            Manage products, orders, and customers efficiently.
-          </p>
-        </div>
-
-        {/* Login Form */}
-        <div className="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12">
-          <div className="w-full max-w-md">
-            <h1 className="text-3xl font-semibold text-gray-900 mb-2">
-              Admin Login
-            </h1>
-            <p className="text-gray-600 mb-8">
-              Enter your credentials to access the dashboard
-            </p>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label className="text-sm font-medium">Email</label>
+            <form onSubmit={handleSubmit} className="space-y-3.5">
+              <div className="space-y-1">
+                <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 ml-1">Identity</label>
                 <input
                   type="email"
                   required
-                  className="mt-1 w-full rounded-md border px-4 py-3 shadow-sm"
-                  placeholder="your@email.com"
+                  className="w-full rounded-xl border border-gray-100 bg-gray-50/50 px-4 py-3 text-xs font-bold text-black transition-all focus:bg-white focus:border-black outline-none placeholder:text-gray-300"
+                  placeholder="admin@onlyyou.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
 
-              <div className="relative">
-                <label className="text-sm font-medium">Password</label>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  className="mt-1 w-full rounded-md border px-4 py-3 shadow-sm"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-10 text-gray-500"
-                >
-                  👁️
-                </button>
-                {password.length > 0 && (
-                  <ul className="mt-2 text-sm space-y-1">
-                    {passwordRules.map((rule, index) => (
-                      <li
-                        key={index}
-                        className={`flex gap-2 ${rule.valid ? "text-green-600" : "text-red-600"
-                          }`}
-                      >
-                        {rule.valid ? "✔️" : "❌"} {rule.label}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <div className="flex justify-between items-center">
-                <div className="flex items-center">
+              <div className="space-y-1">
+                <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 ml-1">Key</label>
+                <div className="relative">
                   <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="h-4 w-4"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    className="w-full rounded-xl border border-gray-100 bg-gray-50/50 px-4 py-3 text-xs font-bold text-black transition-all focus:bg-white focus:border-black outline-none"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                   />
-                  <label className="ml-2 text-sm">Remember me</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 hover:text-black transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
                 </div>
               </div>
 
-              <div>
-                <label className="text-sm font-medium">Captcha</label>
-                <div className="flex gap-2 mt-1">
+              <div className="space-y-1">
+                <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 ml-1">Human Check</label>
+                <div className="flex gap-2">
                   <input
                     type="text"
                     required
-                    className="flex-grow rounded-md border px-4 py-3"
-                    placeholder="Enter captcha"
+                    className="w-16 rounded-xl border border-gray-100 bg-gray-50/50 px-3 py-3 text-xs font-black text-center uppercase focus:border-black outline-none"
+                    placeholder="CODE"
                     value={captcha}
                     onChange={(e) => setCaptcha(e.target.value)}
                   />
-                  <div className="flex items-center gap-2">
-                    <div className="bg-purple-200 text-purple-900 px-4 py-2 rounded font-mono tracking-widest select-none">
+                  <div className="flex-grow flex items-center justify-between bg-black rounded-xl px-3 py-3">
+                    <span className="font-mono text-xs font-black text-white tracking-[0.3em] italic select-none">
                       {captchaValue}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={refreshCaptcha}
-                      className="p-2 bg-gray-200 rounded"
-                    >
-                      🔄
+                    </span>
+                    <button type="button" onClick={refreshCaptcha} className="text-gray-500 hover:text-white transition-colors">
+                      <RefreshCw size={12} />
                     </button>
                   </div>
                 </div>
@@ -223,23 +151,36 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 bg-orange-600 text-white font-semibold rounded-lg"
+                className="group w-full mt-2 py-3.5 bg-black text-white font-black rounded-xl shadow-lg hover:bg-zinc-800 transition-all active:scale-[0.96] disabled:opacity-50 flex items-center justify-center gap-2 tracking-[0.15em] uppercase text-[9px]"
               >
-                {loading ? "Signing in..." : "Sign in"}
+                {loading ? "Verifying..." : <>Enter Portal <ArrowRight size={14} /></>}
               </button>
-
-              <div className="text-right">
-                <button
-                  type="button"
-                  onClick={handleForgotPassword}
-                  className="text-sm text-blue-600"
-                >
-                  Forgot Password?
-                </button>
-              </div>
             </form>
+
+            <footer className="mt-8 flex items-center gap-2 text-gray-300">
+              <ShieldCheck size={12} />
+              <span className="text-[8px] font-black uppercase tracking-widest">Secure Admin Session</span>
+            </footer>
           </div>
         </div>
+
+        {/* RIGHT SIDE: IMAGE (DESKTOP) */}
+        <div className="hidden lg:block lg:w-[55%] relative">
+          <img 
+            src="https://images.unsplash.com/photo-1511556820780-d912e42b4980?auto=format&fit=crop&q=80&w=1200" 
+            alt="Studio" 
+            className="absolute inset-0 w-full h-full object-cover grayscale brightness-90 contrast-125"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+          
+          <div className="absolute bottom-8 left-8 right-8">
+            <p className="text-white font-black tracking-[0.4em] text-[7px] uppercase opacity-50 mb-1">OnlyYou Studio</p>
+            <h2 className="text-3xl font-black text-white tracking-tighter leading-none uppercase">
+              MODERN <br /> LIFESTYLE.
+            </h2>
+          </div>
+        </div>
+
       </div>
     </div>
   );

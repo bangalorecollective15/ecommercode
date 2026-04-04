@@ -309,7 +309,7 @@ function StatusBadge({ status }: { status: string }) {
     pending: "bg-amber-100 text-amber-700",
     confirmed: "bg-blue-100 text-blue-700",
     processing: "bg-indigo-100 text-indigo-700",
-    "out of delivery": "bg-orange-100 text-orange-700",
+    "out of delivery": "bg-orange-100 text-black",
     delivered: "bg-emerald-100 text-emerald-700",
   };
 
@@ -325,7 +325,7 @@ function StatCard({ title, value, icon, variant, isCurrency }: any) {
     blue: "bg-blue-50 text-blue-600",
     yellow: "bg-amber-50 text-amber-600",
     green: "bg-emerald-50 text-emerald-600",
-    orange: "bg-orange-50 text-orange-600",
+    orange: "bg-orange-50 text-black",
   };
 
   return (

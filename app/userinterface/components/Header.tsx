@@ -1,242 +1,220 @@
+// app/userinterface/components/Header.tsx
 "use client";
 
-import { Home, Grid, ShoppingCart, User, Heart, ChevronDown, LogOut, Package, Tag } from "lucide-react";
+import { ShoppingCart, User, Heart, ChevronDown, LogOut, Package, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
-import AuthModal from "../components/AuthModal"; // Ensure path is correct
+import { useRouter } from "next/navigation";
+import AuthModal from "../components/AuthModal";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-interface Banner {
-  id: string;
-  bg_color: string;
-  text_color: string;
-  title: string;
-  active: boolean;
-}
+interface SubSubCategory { id: number; name: string; }
+interface SubCategory { id: number; name: string; sub_subcategories: SubSubCategory[]; }
+interface Category { id: number; name: string; subcategories: SubCategory[]; }
 
 export default function Header() {
+  const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [cartCount, setCartCount] = useState(0);
-  const [banner, setBanner] = useState<Banner | null>(null);
-  const [loadingBanner, setLoadingBanner] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [banner, setBanner] = useState<any>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false); // NEW STATE
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on click outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    const fetchData = async () => {
+      const { data: bData } = await supabase.from("banner").select("*").eq("active", true).limit(1).single();
+      if (bData) setBanner(bData);
 
-  // Auth Listener
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      const session = data.session;
-      setIsAuthenticated(!!session);
-      setUserId(session?.user?.id || null);
+      const { data: catData } = await supabase.from("categories").select(`
+          id, name, 
+          subcategories (id, name, sub_subcategories (id, name))
+        `).order('priority', { ascending: true });
+      if (catData) setCategories(catData as any);
     };
-    checkAuth();
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+
+    fetchData();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsAuthenticated(!!session);
-      setUserId(session?.user?.id || null);
-      if (session) setIsAuthModalOpen(false); // Close modal on successful login
     });
-    return () => listener.subscription.unsubscribe();
+    return () => authListener.subscription.unsubscribe();
   }, []);
-
-  // Fetch Banner
-  useEffect(() => {
-    const fetchBanner = async () => {
-      const { data } = await supabase
-        .from("banner")
-        .select("*")
-        .eq("active", true)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-      if (data) setBanner(data);
-      setLoadingBanner(false);
-    };
-    fetchBanner();
-  }, []);
-
-  // Fetch Cart Count
-  const fetchCartCount = async (uid: string | null) => {
-    if (!uid) {
-      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-      const totalQty = cart.reduce((sum: number, i: any) => sum + (i.quantity || 1), 0);
-      setCartCount(totalQty);
-      return;
-    }
-    const { data } = await supabase.from("cart").select("quantity").eq("user_id", uid);
-    if (data) {
-      const totalQty = data.reduce((sum, i) => sum + i.quantity, 0);
-      setCartCount(totalQty);
-    }
-  };
-
-  useEffect(() => {
-    fetchCartCount(userId);
-    const handleCartEvent = () => fetchCartCount(userId);
-    window.addEventListener("cartUpdated", handleCartEvent);
-    return () => window.removeEventListener("cartUpdated", handleCartEvent);
-  }, [userId]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.reload(); // Refresh to update state
+    try {
+      await supabase.auth.signOut();
+      setDropdownOpen(false);
+      router.push("/userinterface/home");
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
   };
 
   return (
     <>
-      <header className="w-full bg-white sticky top-0 z-50 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.08)]">
-        {/* Dynamic Banner */}
-      
-         {banner && (
-  <div
-    className="w-full py-1 px-4 text-center transition-all duration-500 border-b border-black/5"
-    style={{ backgroundColor: banner.bg_color, color: banner.text_color }}
-  >
-    <p className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.3em] leading-none py-1">
-      {banner.title}
-    </p>
-  </div>
-)}
-    
+      <header className="fixed top-4 w-full z-50 px-6">
+        {banner && (
+          <div 
+            className="max-w-6xl mx-auto mb-3 py-2 rounded-full overflow-hidden backdrop-blur-lg border border-white/20 shadow-lg"
+            style={{ backgroundColor: banner.bg_color, color: banner.text_color }}
+          >
+            <div className="flex whitespace-nowrap">
+              <div className="flex animate-marquee gap-8 items-center">
+                <p className="text-[9px] font-black uppercase tracking-[0.4em]">{banner.title}</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.4em]">{banner.title}</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.4em]">{banner.title}</p>
+              </div>
+            </div>
+            <style jsx>{`
+              @keyframes marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-33.33%); } }
+              .animate-marquee { animation: marquee 20s linear infinite; }
+            `}</style>
+          </div>
+        )}
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-24 md:h-32">
+        <div className="max-w-7xl mx-auto backdrop-blur-xl bg-white/75 border border-white/40 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] rounded-[2.5rem] px-10">
+          <div className="flex items-center justify-between h-20">
             
-            {/* Logo */}
             <Link href="/" className="flex-shrink-0 transition-transform hover:scale-105 active:scale-95">
-              <Image
-                src="/logo.png"
-                alt="Brand Logo"
-                width={220}
-                height={90}
-                className="object-contain w-auto h-16 md:h-24"
-                priority
-              />
+              <Image src="/banglorecollectivelogo.jpg" alt="Logo" width={140} height={50} className="h-10 w-auto object-contain" priority />
             </Link>
 
-            {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center gap-10">
-              <NavLink href="/userinterface/home" icon={<Home size={20} />} label="Home" />
-             <NavLink href="/userinterface/category" icon={<Grid size={20} />} label="Categories" />
-             <NavLink href="/userinterface/Gproducts" icon={<Tag size={20} />} label="Products" />
-              
-              <div className="h-8 w-[1px] bg-slate-200 mx-2" />
+            <nav className="hidden lg:flex items-center gap-3">
+              <Link href="/userinterface/home" className="px-5 py-2 border border-slate-200 rounded-full tracking-[0.15em] font-bold text-[10px] uppercase hover:bg-slate-900 hover:text-white transition-all duration-500">
+                HOME
+              </Link>
 
-              <div className="flex items-center gap-6">
-                {!isAuthenticated ? (
-                  <button
-                    onClick={() => setIsAuthModalOpen(true)} // TRIGGER MODAL
-                    className="px-10 py-4 bg-orange-600 text-white rounded-2xl font-black text-sm tracking-widest shadow-lg shadow-orange-100 hover:bg-orange-700 hover:-translate-y-1 transition-all active:scale-95"
-                  >
-                    LOGIN
+              {categories.map((category) => (
+                <div key={category.id} className="relative group/l1">
+                  <button className="px-5 py-2 border border-slate-200 rounded-full flex items-center gap-2 tracking-[0.15em] font-bold text-[10px] uppercase hover:bg-slate-900 hover:text-white transition-all duration-500 group-hover/l1:bg-slate-900 group-hover/l1:text-white">
+                    {category.name.toUpperCase()} 
+                    <ChevronDown size={10} className="opacity-40 group-hover/l1:rotate-180 transition-transform" />
                   </button>
-                ) : (
-                  <>
-                    <Link href="/userinterface/wishlist" className="p-3 text-slate-600 hover:text-orange-600 hover:bg-orange-50 rounded-2xl transition-all relative group">
-                      <Heart size={26} className="group-hover:fill-orange-600" />
-                    </Link>
 
-                    <Link href="/userinterface/cart" className="p-3 text-slate-600 hover:text-orange-600 hover:bg-orange-50 rounded-2xl transition-all relative group">
-                      <ShoppingCart size={26} />
-                      {cartCount > 0 && (
-                        <span className="absolute top-2 right-2 bg-orange-600 text-white text-[10px] font-black rounded-full min-w-[22px] h-5 px-1 flex items-center justify-center border-2 border-white">
-                          {cartCount}
-                        </span>
-                      )}
-                    </Link>
-
-                    <div className="relative" ref={dropdownRef}>
-                      <button
-                        onClick={() => setDropdownOpen(!dropdownOpen)}
-                        className={`flex items-center gap-3 p-1.5 pr-4 rounded-[1.25rem] border transition-all ${dropdownOpen ? 'border-orange-200 bg-orange-50' : 'border-slate-100 hover:border-orange-200'}`}
+                  <div className="absolute top-full left-0 w-64 pt-2 opacity-0 invisible group-hover/l1:opacity-100 group-hover/l1:visible transition-all duration-300 z-50">
+                    <div className="backdrop-blur-2xl bg-white/95 border border-slate-100 shadow-2xl rounded-2xl overflow-visible py-2">
+                      
+                      {/* 1. VIEW ALL MAIN CATEGORY */}
+                      <Link 
+                        href={`/userinterface/Gproducts/category/${category.id}`} 
+                        className="block px-5 py-3 text-[11px] font-black text-orange-600 border-b border-slate-50 hover:bg-orange-50 transition-all uppercase tracking-wider"
                       >
-                        <div className="w-12 h-12 bg-orange-600 rounded-xl flex items-center justify-center text-white font-bold shadow-inner">
-                          <User size={24} />
-                        </div>
-                        <ChevronDown size={18} className={`text-slate-400 transition-transform duration-300 ${dropdownOpen ? 'rotate-180' : ''}`} />
-                      </button>
+                        All {category.name}
+                      </Link>
 
-                      {dropdownOpen && (
-                        <div className="absolute right-0 mt-4 w-60 bg-white shadow-2xl shadow-slate-300 border border-slate-100 rounded-[2rem] py-4 overflow-hidden animate-in fade-in zoom-in duration-200">
-                          <p className="px-6 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 mb-2">My Account</p>
-                          <DropdownLink href="/userinterface/order" icon={<Package size={20} />} label="My Orders" />
-                          <div className="h-[1px] bg-slate-50 my-3 mx-6" />
-                          <button
-                            onClick={handleLogout}
-                            className="flex w-full items-center gap-4 px-6 py-3 text-sm font-black text-red-500 hover:bg-red-50 transition-colors"
+                      {category.subcategories?.map((sub) => (
+                        <div key={sub.id} className="relative group/l2">
+                          {/* 2. SUBCATEGORY LINK */}
+                          <Link 
+                            href={`/userinterface/Gproducts/subcategory/${sub.id}`} 
+                            className="flex items-center justify-between px-5 py-3 text-[13px] font-bold text-slate-700 hover:bg-slate-900 hover:text-white transition-all"
                           >
-                            <LogOut size={20} /> Logout
-                          </button>
+                            {sub.name}
+                            {sub.sub_subcategories && sub.sub_subcategories.length > 0 && <ChevronRight size={14} className="opacity-50" />}
+                          </Link>
+
+                          {sub.sub_subcategories && sub.sub_subcategories.length > 0 && (
+                            <div className="absolute top-0 left-full w-56 pl-1 opacity-0 invisible group-hover/l2:opacity-100 group-hover/l2:visible transition-all duration-300">
+                              <div className="backdrop-blur-2xl bg-white border border-slate-100 shadow-2xl rounded-2xl py-2">
+                                
+                                {/* 3. VIEW ALL WITHIN SUBCATEGORY */}
+                                <Link 
+                                  href={`/userinterface/Gproducts/subcategory/${sub.id}`} 
+                                  className="block px-6 py-2 text-[10px] font-black text-orange-600 border-b border-slate-50 mb-1 hover:text-orange-700 uppercase"
+                                >
+                                  All {sub.name}
+                                </Link>
+
+                                {sub.sub_subcategories.map((ss) => (
+                                  /* 4. DEEP SUB-SUB CATEGORY LINK */
+                                  <Link 
+                                    key={ss.id} 
+                                    href={`/userinterface/Gproducts/products/${ss.id}`} 
+                                    className="block px-6 py-2.5 text-[12px] font-semibold text-slate-500 hover:text-black transition-colors"
+                                  >
+                                    {ss.name}
+                                  </Link>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      ))}
                     </div>
-                  </>
-                )}
+                  </div>
+                </div>
+              ))}
+
+              <div className="flex items-center gap-3 ml-4 pl-4 border-l border-slate-200/50">
+                <Link href="/userinterface/Gproducts" className="px-5 py-2 border border-slate-200 rounded-full tracking-[0.15em] font-bold text-[10px] uppercase hover:bg-slate-900 hover:text-white transition-all duration-500">
+                  Product Gallery
+                </Link>
+                <Link href="/userinterface/about" className="px-5 py-2 border border-slate-200 rounded-full tracking-[0.15em] font-bold text-[10px] uppercase hover:bg-slate-900 hover:text-white transition-all duration-500">
+                  ABOUT US
+                </Link>
               </div>
             </nav>
 
-            {/* Mobile Icons */}
-            <div className="lg:hidden flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              {isAuthenticated && (
+                <div className="flex items-center gap-1 mr-2 pr-4 border-r border-slate-200/60">
+                  <IconButton href="/userinterface/wishlist"><Heart size={20} /></IconButton>
+                  <IconButton href="/userinterface/cart" count={cartCount}><ShoppingCart size={20} /></IconButton>
+                </div>
+              )}
+
               {!isAuthenticated ? (
-                <button onClick={() => setIsAuthModalOpen(true)} className="p-3 bg-orange-600 text-white rounded-xl">
-                  <User size={24} />
+                <button 
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="px-8 py-3 bg-slate-900 text-white rounded-full text-[11px] font-black tracking-[0.2em] hover:bg-orange-600 shadow-xl transition-all active:scale-95"
+                >
+                  LOGIN
                 </button>
               ) : (
-                <Link href="/userinterface/cart" className="relative p-2 text-slate-600">
-                  <ShoppingCart size={26} />
-                  {cartCount > 0 && <span className="absolute top-0 right-0 bg-orange-600 text-white text-[10px] rounded-full w-5 h-5 flex items-center justify-center border-2 border-white">{cartCount}</span>}
-                </Link>
+                <div className="relative" ref={dropdownRef}>
+                  <button 
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    className="w-11 h-11 rounded-full border-2 border-white bg-white/50 flex items-center justify-center hover:bg-white transition-all shadow-sm"
+                  >
+                    <User size={20} className="text-slate-800" />
+                  </button>
+                  {dropdownOpen && (
+                    <div className="absolute right-0 mt-5 w-60 backdrop-blur-2xl bg-white/95 border border-slate-100 shadow-2xl rounded-2xl py-3 animate-in fade-in slide-in-from-top-2">
+                      <p className="px-6 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Account</p>
+                      <Link href="/userinterface/order" className="flex items-center gap-3 px-6 py-3 text-sm font-bold text-slate-700 hover:bg-orange-50 transition-colors"><Package size={18}/> My Orders</Link>
+                      <div className="h-px bg-slate-100 my-2 mx-4" />
+                      <button onClick={handleLogout} className="flex w-full items-center gap-3 px-6 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition-colors"><LogOut size={18}/> Logout</button>
+                    </div>
+                  )}
+                </div>
               )}
-              <button className="p-3 bg-slate-50 rounded-xl text-slate-600">
-                <Grid size={26} />
-              </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Auth Modal Component */}
-      <AuthModal 
-        isOpen={isAuthModalOpen} 
-        onClose={() => setIsAuthModalOpen(false)} 
-      />
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </>
   );
 }
 
-// Sub-components NavLink and DropdownLink remain the same as your code...
-function NavLink({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
+function IconButton({ href, children, count }: { href: string; children: React.ReactNode; count?: number }) {
   return (
-    <Link href={href} className="flex flex-col items-center lg:flex-row gap-2 text-[15px] font-black text-slate-700 hover:text-orange-600 transition-all group tracking-tight">
-      <span className="text-slate-300 group-hover:text-orange-600 group-hover:scale-110 transition-all duration-300">{icon}</span>
-      {label}
-    </Link>
-  );
-}
-
-function DropdownLink({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
-  return (
-    <Link href={href} className="flex items-center gap-4 px-6 py-3.5 text-sm font-bold text-slate-600 hover:bg-orange-50 hover:text-orange-600 transition-all">
-      {icon} <span>{label}</span>
+    <Link href={href} className="p-3 text-slate-800 hover:text-orange-600 hover:bg-white/50 rounded-full transition-all relative">
+      {children}
+      {count !== undefined && count > 0 && (
+        <span className="absolute top-2 right-2 bg-orange-600 text-white text-[8px] font-black rounded-full h-4 w-4 flex items-center justify-center border-2 border-white shadow-sm">
+          {count}
+        </span>
+      )}
     </Link>
   );
 }
