@@ -445,7 +445,7 @@ useEffect(() => {
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
             {/* Ensure you use section.products here so each category is unique */}
-            {section.products.map((p) => (
+            {section.products.map((p: any) => (
               <div key={p.id} className="relative group hover:-translate-y-4 transition-transform duration-500">
                 <ProductCard product={p} userId={userId} />
               </div>
