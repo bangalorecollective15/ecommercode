@@ -66,7 +66,7 @@ const loadProducts = async () => {
 const filteredProducts = products.flatMap((p) => {
   if (!p.product_variations) return [];
 
-  return p.product_variations.map((v) => {
+  return p.product_variations.map((v: any) => {
     // Helper to extract name regardless of if Supabase returns an array or object
     const getName = (val: any) => {
       if (!val) return null;
