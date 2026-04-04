@@ -33,7 +33,7 @@ const [reviews, setReviews] = useState<any[]>([]);
 const [rating, setRating] = useState(5);
 const [similarProducts, setSimilarProducts] = useState<any[]>([]);
 const [reviewText, setReviewText] = useState("");
-
+const [userId, setUserId] = useState<string | null>(null);
 
   const checkWishlistStatus = useCallback(async (userId: string) => {
     const { data } = await supabase
@@ -55,8 +55,12 @@ useEffect(() => {
   const fetchFullData = async () => {
     setLoading(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-
+    // Inside your useEffect's fetchFullData function:
+const { data: { user } } = await supabase.auth.getUser();
+if (user) {
+  setUserId(user.id); // Save the ID to state
+  await checkWishlistStatus(user.id);
+}
     // ✅ PRODUCT
     const { data: prod } = await supabase
       .from("products")
@@ -460,11 +464,15 @@ setSimilarProducts(formattedSimilar);
         <div className="mt-20">
   <h2 className="text-3xl font-bold mb-6">You may also like</h2>
 
-  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+ <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
   {similarProducts.map((p) => (
-  <ProductCard key={p.id} product={p} />
-))}
-  </div>
+    <ProductCard 
+      key={p.id} 
+      product={p} 
+      userId={userId} // Add this line
+    />
+  ))}
+</div>
 </div>
       </div>
     </div>
