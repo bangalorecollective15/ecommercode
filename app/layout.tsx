@@ -11,7 +11,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter();
 
   const [mounted, setMounted] = useState(false);
-  const [role, setRole] = useState<string | null>(null);
+const [role, setRole] = useState<"admin" | "subadmin" | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
