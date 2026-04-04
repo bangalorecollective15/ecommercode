@@ -5,7 +5,7 @@ import Sidebar from "@/app/components/Sidebar";
 import Header from "@/app/components/Header";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-
+type UserRole = "admin" | "subadmin";
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -18,7 +18,7 @@ const [role, setRole] = useState<"admin" | "subadmin" | null>(null);
     setMounted(true);
 
     const isLoggedIn = localStorage.getItem("isLoggedIn");
-    const storedRole = localStorage.getItem("userRole");
+const storedRole = localStorage.getItem("userRole") as "admin" | "subadmin" | null;
 
     const isPublicPage =
       pathname.startsWith("/login") ||
