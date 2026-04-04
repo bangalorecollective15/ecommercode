@@ -90,11 +90,21 @@ export default function CartPage() {
         .eq("id", item.variation_id || 0)
         .single();
 
-      if (varData) {
-        price = varData.price;
-        stock = varData.stock;
-        varName = `${varData.color?.name || ""} ${varData.size?.name || ""}`.trim();
-      }
+    if (varData) {
+  price = varData.price;
+  stock = varData.stock;
+
+  // Helper to safely get the name from either an object or the first element of an array
+  const getName = (val: any) => {
+    if (!val) return "";
+    return Array.isArray(val) ? (val[0]?.name || "") : (val.name || "");
+  };
+
+  const color = getName(varData.color);
+  const size = getName(varData.size);
+  
+  varName = `${color} ${size}`.trim();
+}
 
       return {
         id: item.id,
