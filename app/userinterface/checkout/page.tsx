@@ -65,12 +65,12 @@ function CheckoutContent() {
   const shippingCost = totalPrice >= 500 ? 0 : cart.reduce((max, item) => Math.max(max, item.shippingCharge), 0);
   const grandTotal = totalPrice + shippingCost;
 
-  const fetchCartData = useCallback(async (uid: string | null) => {
+const fetchCartData = useCallback(async (uid: string | null) => {
     const buyNowVarId = searchParams.get("variationId");
     const buyNowQty = parseInt(searchParams.get("qty") || "1");
 
     if (buyNowVarId) {
-      // 1. BUY NOW LOGIC: Fetch directly from variation ID
+      // 1. BUY NOW LOGIC
       const { data: item, error } = await supabase
         .from("product_variations")
         .select(`
@@ -79,15 +79,19 @@ function CheckoutContent() {
           size:size_id(name),
           products(id, name, shipping_charge, product_images(image_url))
         `)
-        .eq("id", Number(buyNowVarId)) // Ensure Number for BigInt columns
+        .eq("id", Number(buyNowVarId))
         .single();
 
       if (item && !error) {
+        // Handle the case where color or size might be returned as an array
+        const colorName = Array.isArray(item.color) ? item.color[0]?.name : (item.color as any)?.name;
+        const sizeName = Array.isArray(item.size) ? item.size[0]?.name : (item.size as any)?.name;
+
         setCart([{
           productId: item.products.id,
           name: item.products.name,
           variationId: item.id,
-          variationName: `${item.color?.name || ''} ${item.size?.name || ''}`.trim() || "Standard",
+          variationName: `${colorName || ''} ${sizeName || ''}`.trim() || "Standard",
           price: item.price,
           quantity: buyNowQty,
           stock: item.stock,
@@ -109,23 +113,30 @@ function CheckoutContent() {
         .eq("user_id", uid);
 
       if (data && !error) {
-        const formatted = data.map((item: any) => ({
-          productId: item.products.id,
-          name: item.products.name,
-          variationId: item.product_variations.id,
-          variationName: `${item.product_variations.color?.name || ''} ${item.product_variations.size?.name || ''}`.trim(),
-          price: item.product_variations.price,
-          quantity: item.quantity,
-          stock: item.product_variations.stock,
-          image: item.products.product_images?.[0]?.image_url || "/placeholder.png",
-          shippingCharge: item.products.shipping_charge || 0,
-        })).filter(i => i.stock > 0);
+        const formatted = data.map((item: any) => {
+          const v = item.product_variations;
+          // Safe extraction for joined table data
+          const colorName = Array.isArray(v.color) ? v.color[0]?.name : v.color?.name;
+          const sizeName = Array.isArray(v.size) ? v.size[0]?.name : v.size?.name;
+
+          return {
+            productId: item.products.id,
+            name: item.products.name,
+            variationId: v.id,
+            variationName: `${colorName || ''} ${sizeName || ''}`.trim() || "Standard",
+            price: v.price,
+            quantity: item.quantity,
+            stock: v.stock,
+            image: item.products.product_images?.[0]?.image_url || "/placeholder.png",
+            shippingCharge: item.products.shipping_charge || 0,
+          };
+        }).filter((i: any) => i.stock > 0);
+        
         setCart(formatted);
       }
     }
     setLoading(false);
   }, [searchParams]);
-
   useEffect(() => {
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
