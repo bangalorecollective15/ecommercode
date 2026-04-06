@@ -38,7 +38,6 @@ interface Order {
   cart_items: CartItem[];
   payment_status: string; // 'pending', 'paid', 'rejected'
   payment_rejection_reason?: string;
-  payment_method: string;
   full_name: string;
   phone_number: string;
   house_number: string;
