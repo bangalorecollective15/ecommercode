@@ -2,7 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    // remotePatterns is the modern, secure way to handle external images
     remotePatterns: [
       {
         protocol: "https",
@@ -24,10 +23,25 @@ const nextConfig: NextConfig = {
         hostname: "images.unsplash.com",
         pathname: "/**",
       },
+      // FIXED: Added Bangalore Collective domain to prevent the Runtime Error
+      {
+        protocol: "https",
+        hostname: "bangalorecollective.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "img.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "**.googleusercontent.com",
+        pathname: "/**",
+      },
     ],
   },
 
-  // Optimized for production & Docker deployments
   output: "standalone",
   trailingSlash: true,
 };

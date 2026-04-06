@@ -42,24 +42,36 @@ function ProductsContent() {
     fetchData();
   }, []);
 
-const filteredItems = useMemo(() => {
-  return products
-    .filter(p => {
-      // ... your existing category/subcategory filters ...
-      if (filters.category_id && Number(p.category_id) !== Number(filters.category_id)) return false;
-      return true;
-    })
-    .sort((a, b) => {
-      if (filters.sort === "alpha") {
-        return a.name.localeCompare(b.name); // Alphabetical A-Z
-      }
-      if (filters.sort === "oldest") {
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime(); // Oldest first
-      }
-      // Default: Latest (Newest first)
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
-}, [products, filters]);
+  const filteredItems = useMemo(() => {
+    return products
+      .filter(p => {
+        // 1. Category Filter
+        if (filters.category_id && Number(p.category_id) !== Number(filters.category_id)) return false;
+
+        // 2. Subcategory Filter
+        if (filters.subcategory_id && Number(p.subcategory_id) !== Number(filters.subcategory_id)) return false;
+
+        // 3. Sub-Subcategory Filter
+        if (filters.sub_subcategory_id && Number(p.sub_subcategory_id) !== Number(filters.sub_subcategory_id)) return false;
+
+        // 4. Brand Filter
+        if (filters.brand_id && Number(p.brand_id) !== Number(filters.brand_id)) return false;
+
+        return true;
+      })
+      .sort((a, b) => {
+        // Sorting Logic
+        if (filters.sort === "alpha") {
+          return a.name.localeCompare(b.name);
+        }
+        if (filters.sort === "oldest") {
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        }
+        // Default: Latest (Newest first)
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+  }, [products, filters]);
+
   const activeCategoryName = categories.find(c => Number(c.id) === Number(filters.category_id))?.name;
   const activeBrandName = brands.find(b => Number(b.id) === Number(filters.brand_id))?.name_en;
 
@@ -67,7 +79,7 @@ const filteredItems = useMemo(() => {
     <div className="bg-[#fcfcfc] min-h-screen text-slate-900 pb-20 relative">
       <div className="h-16 w-full" />
       <div className="absolute top-0 left-0 w-full h-[600px] bg-gradient-to-b from-orange-50/40 via-white to-transparent -z-10" />
-      
+
       <header className="pt-32 pb-1 px-6 lg:px-12 max-w-[1600px] mx-auto text-center">
         <div className="inline-flex items-center gap-2 mb-4 px-4 py-1.5 bg-white border border-slate-100 rounded-full shadow-sm">
           <Sparkles className="text-orange-600" size={12} />

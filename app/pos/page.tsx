@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 import toast, { Toaster } from "react-hot-toast";
 import {
-  Search, ShoppingCart, User, CreditCard, Plus, Minus, X, Check, RefreshCw, Hash
+  Search, ShoppingCart, User, CreditCard, Plus, Minus, X, Check, RefreshCw, Hash, Tag
 } from "lucide-react";
 
 const supabase = createClient(
@@ -37,18 +37,16 @@ export default function POSPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Update this line inside your fetchData function
-      /* Replace the prodRes line in your fetchData function */
       const [catRes, prodRes, custRes] = await Promise.all([
         supabase.from("categories").select("*").order("priority", { ascending: true }),
         supabase.from("products").select(`
-    *, 
-    product_variations (
-      *,
-      color:color_id (name),
-      size:size_id (name)
-    )
-  `),
+          *, 
+          product_variations (
+            *,
+            color:color_id (name),
+            size:size_id (name)
+          )
+        `),
         supabase.from("customers").select("*").order("name", { ascending: true })
       ]);
       if (catRes.data) setCategories(catRes.data);
@@ -64,7 +62,6 @@ export default function POSPage() {
 
   useEffect(() => {
     fetchData();
-    // Close dropdown on click outside
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsCustomerDropdownOpen(false);
@@ -102,12 +99,22 @@ export default function POSPage() {
       return toast.error("Stock limit reached");
     }
 
+    // Logic for Sale Price selection
+    const originalPrice = variation ? variation.price : product.price;
+    const salePrice = variation ? variation.sale_price : product.sale_price;
+    const finalPrice = (salePrice && salePrice > 0 && salePrice < originalPrice) ? salePrice : originalPrice;
+
     if (existing) {
       setCart(cart.map((item) => item.cid === cid ? { ...item, qty: item.qty + 1 } : item));
     } else {
       setCart([...cart, {
-        cid, id: product.id, name: product.name, variation,
-        price: variation ? variation.price : product.price, qty: 1,
+        cid, 
+        id: product.id, 
+        name: product.name, 
+        variation,
+        price: finalPrice, // Use sale price if applicable
+        originalPrice: originalPrice,
+        qty: 1,
       }]);
     }
     toast.success(`${product.name} added`, { style: { borderRadius: '12px', background: '#000', color: '#fff', fontSize: '10px', fontWeight: 'bold' } });
@@ -146,7 +153,6 @@ export default function POSPage() {
           throw new Error("Name and Phone are required");
         }
 
-        // Check for existing phone number to prevent duplicates
         const { data: existingCust } = await supabase
           .from("customers")
           .select("id, name, phone")
@@ -181,7 +187,6 @@ export default function POSPage() {
         customerPhone = customer.phone;
       }
 
-      // Insert Order
       const { error: orderError } = await supabase.from("pos_orders").insert([
         {
           customer_id: customerId,
@@ -202,7 +207,6 @@ export default function POSPage() {
         style: { background: "#000", color: "#fff", borderRadius: "12px", fontWeight: 'bold' }
       });
 
-      // Reset Terminal
       setCart([]);
       setCustomerType("");
       setSelectedCustomerId("");
@@ -243,7 +247,7 @@ export default function POSPage() {
         <header className="px-8 py-6 border-b border-gray-100 bg-white">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div>
-              <h1 className="text-2xl font-black tracking-tighter text-black uppercase">Terminal POS</h1>
+              <h1 className="text-2xl font-black tracking-tighter text-black uppercase">POS</h1>
             </div>
 
             <div className="flex flex-1 max-w-xl gap-3">
@@ -270,7 +274,7 @@ export default function POSPage() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-8 no-scrollbar bg-white">
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 gap-6">
             {filteredProducts.map((p) => {
               const variations = p.product_variations || [];
               const singleVar = variations.length === 1 ? variations[0] : null;
@@ -295,7 +299,14 @@ export default function POSPage() {
                             {singleVar.stock} IN STOCK
                           </span>
                         </div>
-                        <p className="text-xl font-black text-black tracking-tighter">₹{singleVar.price}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xl font-black text-black tracking-tighter">
+                            ₹{(singleVar.sale_price && singleVar.sale_price > 0) ? singleVar.sale_price : singleVar.price}
+                          </p>
+                          {singleVar.sale_price && singleVar.sale_price > 0 && (
+                            <p className="text-xs font-bold text-gray-300 line-through">₹{singleVar.price}</p>
+                          )}
+                        </div>
                       </div>
                     ) : hasVariations ? (
                       <div className="mt-4">
@@ -305,18 +316,15 @@ export default function POSPage() {
                           className="w-full text-[10px] font-black uppercase tracking-widest border-b border-gray-100 py-2 outline-none focus:border-black text-black bg-transparent"
                         >
                           <option value="">Select Variation</option>
-                          {/* Replace your current variations.map with this */}
-                          {/* Replace your current variations.map with this logic */}
                           {variations.map((v: any) => {
                             const colorName = v.color?.name;
                             const sizeName = v.size?.name;
-
-                            // Combines color and size (e.g., "Black / 40") or shows just one if the other is null
                             const label = [colorName, sizeName].filter(Boolean).join(" / ");
+                            const displayPrice = (v.sale_price && v.sale_price > 0) ? v.sale_price : v.price;
 
                             return (
                               <option key={v.id} value={v.id}>
-                                {label || `Variation #${v.id}`} — ₹{v.price}
+                                {label || `Variation #${v.id}`} — ₹{displayPrice}
                               </option>
                             );
                           })}
@@ -330,7 +338,14 @@ export default function POSPage() {
                             {p.stock} IN STOCK
                           </span>
                         </div>
-                        <p className="text-xl font-black text-black tracking-tighter">₹{p.price}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xl font-black text-black tracking-tighter">
+                            ₹{(p.sale_price && p.sale_price > 0) ? p.sale_price : p.price}
+                          </p>
+                          {p.sale_price && p.sale_price > 0 && (
+                            <p className="text-xs font-bold text-gray-300 line-through">₹{p.price}</p>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -352,7 +367,6 @@ export default function POSPage() {
       {/* RIGHT: Checkout Sidebar */}
       <div className="w-full md:w-[450px] bg-white flex flex-col border-l border-slate-200 relative shadow-2xl">
 
-        {/* Header Section */}
         <div className="p-6 flex items-center justify-between bg-white/80 backdrop-blur-md sticky top-0 z-10">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-slate-950 rounded-2xl flex items-center justify-center shadow-lg shadow-slate-200">
@@ -360,7 +374,7 @@ export default function POSPage() {
             </div>
             <div>
               <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Checkout</h2>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Terminal ID: #001</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">ID: #001</p>
             </div>
           </div>
           <div className="flex flex-col items-end">
@@ -370,22 +384,29 @@ export default function POSPage() {
           </div>
         </div>
 
-        {/* Cart Items Section */}
         <div className="flex-1 overflow-y-auto px-6 py-2 space-y-3 no-scrollbar bg-slate-50/50">
           {cart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-300">
               <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
                 <ShoppingCart className="w-6 h-6 opacity-20" />
               </div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 text-center">Your terminal cart <br /> is currently empty</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 text-center">Your cart <br /> is currently empty</p>
             </div>
           ) : (
             cart.map((item) => (
               <div key={item.cid} className="group flex gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300">
                 <div className="flex-1">
-                  <h4 className="text-[11px] font-black text-slate-900 uppercase leading-tight mb-1">{item.name}</h4>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h4 className="text-[11px] font-black text-slate-900 uppercase leading-tight">{item.name}</h4>
+                    {item.originalPrice > item.price && (
+                      <Tag className="w-3 h-3 text-orange-600" />
+                    )}
+                  </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-slate-400">₹{item.price}</span>
+                    <span className="text-[10px] font-bold text-slate-900">₹{item.price}</span>
+                    {item.originalPrice > item.price && (
+                      <span className="text-[9px] font-bold text-slate-300 line-through">₹{item.originalPrice}</span>
+                    )}
                     {item.variation && (
                       <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded font-bold text-slate-500 uppercase">
                         {item.variation.unit_value}{item.variation.unit_type}
@@ -406,10 +427,8 @@ export default function POSPage() {
           )}
         </div>
 
-        {/* Summary & Checkout Section */}
         <div className="p-6 bg-white border-t border-slate-100 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)] space-y-5">
 
-          {/* Customer Selection */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">
@@ -474,7 +493,6 @@ export default function POSPage() {
             )}
           </div>
 
-          {/* Settlement Method */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">
               <CreditCard className="w-3 h-3 text-slate-900" /> Settlement
@@ -492,7 +510,6 @@ export default function POSPage() {
             </div>
           </div>
 
-          {/* Financials */}
           <div className="pt-4 border-t border-slate-100 space-y-2">
             <div className="flex justify-between text-[10px] font-bold text-slate-400">
               <span>SUBTOTAL</span>
@@ -524,7 +541,6 @@ export default function POSPage() {
         </div>
       </div>
 
-      {/* MINIMAL MODAL */}
       {editingField && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex justify-center items-center z-[100] p-6">
           <div className="bg-white p-8 rounded-3xl w-full max-w-sm shadow-2xl border border-white/20">

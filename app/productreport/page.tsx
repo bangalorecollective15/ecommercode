@@ -13,7 +13,8 @@ import {
   CheckCircle2, 
   XCircle,
   TrendingUp,
-  Filter
+  Filter,
+  Tag
 } from "lucide-react";
 
 const supabase = createClient(
@@ -25,7 +26,7 @@ interface Product {
   id: number;
   name: string;
   sku: string;
-  price: number | null;
+  display_price: number | null; // sale_price if exists, else price
   stock: number | null;
   active: boolean;
   shipping_charge: number | null;
@@ -40,7 +41,7 @@ export default function ProductReport() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<
-    "created_at" | "price" | "stock" | "total_orders" | "total_revenue"
+    "created_at" | "display_price" | "stock" | "total_orders" | "total_revenue"
   >("created_at");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -52,44 +53,68 @@ export default function ProductReport() {
   const fetchProducts = async () => {
     setLoading(true);
     try {
+      // 1. Fetch Products with price, sale_price, and stock from variations
       const { data: productsData, error: productsError } = await supabase
         .from("products")
         .select(`
           id, name, sku, active, shipping_charge, created_at,
-          product_variations!inner(price, stock)
+          product_variations(price, sale_price, stock)
         `)
         .order("created_at", { ascending: false });
 
       if (productsError) throw productsError;
 
-      const { data: orderItems, error: orderItemsError } = await supabase
-        .from("order_items")
-        .select("order_id, product_id, quantity, price");
+      // 2. Fetch Orders for performance metrics
+      const { data: ordersData, error: ordersError } = await supabase
+        .from("orders")
+        .select("id, cart_items");
 
-      if (orderItemsError) throw orderItemsError;
+      if (ordersError) throw ordersError;
 
-      const orderCountMap: Record<number, Set<number>> = {};
-      const revenueMap: Record<number, number> = {};
+      const orderCountMap: Record<string, Set<string>> = {};
+      const revenueMap: Record<string, number> = {};
 
-      orderItems?.forEach((item: any) => {
-        const pid = Number(item.product_id);
-        if (!orderCountMap[pid]) orderCountMap[pid] = new Set();
-        orderCountMap[pid].add(Number(item.order_id));
-        revenueMap[pid] = (revenueMap[pid] || 0) + (Number(item.price) * Number(item.quantity));
+      ordersData?.forEach((order: any) => {
+        try {
+          const items = typeof order.cart_items === 'string' 
+            ? JSON.parse(order.cart_items) 
+            : order.cart_items;
+
+          items?.forEach((item: any) => {
+            const pid = String(item.productId); 
+            const oid = String(order.id);
+            const qty = Number(item.quantity || 0);
+            const price = Number(item.price || 0);
+
+            if (!orderCountMap[pid]) orderCountMap[pid] = new Set();
+            orderCountMap[pid].add(oid);
+            revenueMap[pid] = (revenueMap[pid] || 0) + (price * qty);
+          });
+        } catch (e) {
+          console.error("Error parsing cart_items:", e);
+        }
       });
 
+      // 3. Map final data with fallback logic: sale_price ?? price
       const mapped: Product[] = (productsData as any[]).map((p) => {
         const variation = p.product_variations?.[0];
+        const productIdStr = String(p.id);
+
+        // Fallback: If sale_price exists and is not null, use it. Otherwise use price.
+        const finalPrice = (variation?.sale_price !== null && variation?.sale_price !== undefined) 
+          ? variation.sale_price 
+          : variation?.price;
+
         return {
           id: p.id,
           name: p.name,
           sku: p.sku,
           active: p.active,
-          price: variation?.price ?? null,
+          display_price: finalPrice ?? null,
           stock: variation?.stock ?? null,
           shipping_charge: p.shipping_charge ?? 0,
-          total_orders: orderCountMap[p.id]?.size ?? 0,
-          total_revenue: revenueMap[p.id] ?? 0,
+          total_orders: orderCountMap[productIdStr]?.size ?? 0,
+          total_revenue: revenueMap[productIdStr] ?? 0,
           created_at: p.created_at,
         };
       });
@@ -137,7 +162,7 @@ export default function ProductReport() {
   );
 
   return (
-    <div className="p-6 md:p-10 bg-gray-50 min-h-screen">
+    <div className="p-6 md:p-10 bg-gray-50 min-h-screen text-slate-900">
       <div className="max-w-8xl mx-auto space-y-8">
         
         {/* Header */}
@@ -147,7 +172,7 @@ export default function ProductReport() {
               <Package className="text-black w-10 h-10" />
               Product Insights
             </h1>
-            <p className="text-gray-500 font-medium mt-1">Real-time performance and inventory tracking.</p>
+            <p className="text-gray-500 font-medium mt-1">Real-time tracking with dynamic pricing fallback.</p>
           </div>
           <button
             onClick={exportToExcel}
@@ -187,7 +212,7 @@ export default function ProductReport() {
                 className="pl-10 pr-8 py-3 bg-gray-50 border-none rounded-2xl outline-none font-bold text-sm text-gray-600 appearance-none cursor-pointer hover:bg-gray-100 transition"
               >
                 <option value="created_at">Sort: Newest</option>
-                <option value="price">Sort: Price</option>
+                <option value="display_price">Sort: Price</option>
                 <option value="stock">Sort: Stock</option>
                 <option value="total_orders">Sort: Popularity</option>
                 <option value="total_revenue">Sort: Revenue</option>
@@ -209,7 +234,7 @@ export default function ProductReport() {
               <thead>
                 <tr className="bg-gray-50/50 border-b border-gray-100">
                   <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400">Product Info</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400">Inventory</th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400">Current Price</th>
                   <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400">Performance</th>
                   <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400">Status</th>
                   <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-400 text-right">Added</th>
@@ -223,7 +248,10 @@ export default function ProductReport() {
                       <div className="text-[10px] font-black text-gray-400 uppercase mt-1 tracking-tighter">SKU: {p.sku}</div>
                     </td>
                     <td className="px-8 py-6">
-                      <div className="text-sm font-bold text-gray-700">₹{p.price?.toLocaleString() || "-"}</div>
+                      <div className="flex items-center gap-1.5 text-sm font-black text-slate-800">
+                        <Tag size={12} className="text-orange-500" />
+                        ₹{p.display_price?.toLocaleString() || "-"}
+                      </div>
                       <div className={`text-[10px] font-bold mt-1 ${ (p.stock || 0) < 5 ? 'text-red-500' : 'text-gray-400'}`}>
                         STOCK: {p.stock ?? "0"}
                       </div>

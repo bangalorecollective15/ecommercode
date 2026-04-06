@@ -6,13 +6,13 @@ import Image from "next/image";
 import Link from "next/link";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { 
-  Package, 
-  ChevronRight, 
-  Download, 
-  Star, 
-  X, 
-  Loader2, 
+import {
+  Package,
+  ChevronRight,
+  Download,
+  Star,
+  X,
+  Loader2,
   ArrowLeft,
   Clock,
   CheckCircle2,
@@ -36,6 +36,9 @@ interface Order {
   id: string;
   user_id: string;
   cart_items: CartItem[];
+  payment_status: string; // 'pending', 'paid', 'rejected'
+  payment_rejection_reason?: string;
+  payment_method: string;
   full_name: string;
   phone_number: string;
   house_number: string;
@@ -71,6 +74,12 @@ export default function UserOrdersPage() {
   const [reviewProduct, setReviewProduct] = useState<{ productId: number; name: string } | null>(null);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
+
+  const paymentStatusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
+    pending: { label: "Waiting for Approval", color: "text-amber-600", bgColor: "bg-amber-50" },
+    paid: { label: "Payment Confirmed", color: "text-emerald-600", bgColor: "bg-emerald-50" },
+    rejected: { label: "Payment Rejected", color: "text-red-600", bgColor: "bg-red-50" },
+  };
 
   // 🔐 AUTH SESSION
   useEffect(() => {
@@ -126,14 +135,14 @@ export default function UserOrdersPage() {
     doc.text(`Order ID: ${order.id}`, 14, 40);
     doc.text(`Date: ${new Date(order.order_date).toLocaleDateString()}`, 14, 45);
     doc.text(`Bill To: ${order.full_name}`, 14, 55);
-    
+
     autoTable(doc, {
       startY: 65,
       head: [["Item", "Qty", "Price", "Total"]],
       body: order.cart_items.map(i => [i.name, i.quantity, `₹${i.price}`, `₹${i.price * i.quantity}`]),
       headStyles: { fillColor: [15, 23, 42] }
     });
-    
+
     doc.save(`Order-${order.id.slice(0, 8)}.pdf`);
   };
 
@@ -144,7 +153,7 @@ export default function UserOrdersPage() {
   return (
     <div className="min-h-screen bg-[#fafafa] pt-32 pb-24 px-6">
       <Toaster position="bottom-right" />
-      
+
       <div className="max-w-7xl mx-auto">
         {/* Header - Styled like Cart Page */}
         <header className="mb-16">
@@ -167,35 +176,80 @@ export default function UserOrdersPage() {
             {orders.map((order) => {
               const status = statusConfig[order.status.toLowerCase()] || statusConfig.placed;
               return (
-                <div 
+                <div
                   key={order.id}
                   onClick={() => setSelectedOrderId(order.id)}
-                  className="group flex flex-col md:flex-row items-center gap-8 p-8 bg-white border border-slate-100 rounded-[2.5rem] hover:border-orange-200 transition-all cursor-pointer"
+                  className="group relative flex flex-col md:flex-row items-center gap-8 p-6 md:p-8 bg-white border border-slate-100 rounded-[2.5rem] hover:shadow-2xl hover:shadow-orange-100/50 hover:border-orange-200 transition-all duration-500 cursor-pointer overflow-hidden"
                 >
-                  {/* Order Images Stack */}
-                  <div className="flex -space-x-8">
+                  {/* Subtle Background Accent */}
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-orange-50/30 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-orange-100/50 transition-colors" />
+
+                  {/* Left: Order Images Stack */}
+                  <div className="flex -space-x-10 md:-space-x-12 shrink-0">
                     {order.cart_items.slice(0, 3).map((item, i) => (
-                      <div key={i} className="relative w-24 h-24 rounded-2xl overflow-hidden border-4 border-white shadow-sm rotate-[-5deg] group-hover:rotate-0 transition-transform">
-                        <Image src={item.image_url || "/placeholder.png"} alt={item.name} fill className="object-cover" />
+                      <div
+                        key={i}
+                        className="relative w-24 h-24 md:w-28 md:h-28 rounded-3xl overflow-hidden border-[6px] border-white shadow-xl shadow-slate-200/50 transition-all duration-500 group-hover:translate-y-[-5px]"
+                        style={{
+                          zIndex: 3 - i,
+                          transform: `rotate(${i === 0 ? '-8deg' : i === 1 ? '0deg' : '8deg'})`
+                        }}
+                      >
+                        <Image
+                          src={item.image_url || "/placeholder.png"}
+                          alt={item.name}
+                          fill
+                          className="object-cover group-hover:scale-110 transition-transform duration-700"
+                        />
                       </div>
                     ))}
+                    {order.cart_items.length > 3 && (
+                      <div className="w-12 h-12 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-black z-10 self-end -ml-4 border-4 border-white shadow-lg">
+                        +{order.cart_items.length - 3}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <status.icon size={14} className={status.color} />
-                      <span className={`text-[10px] font-black uppercase tracking-widest ${status.color}`}>
-                        {status.label}
-                      </span>
+                  {/* Center: Order Info */}
+                  <div className="flex-1 space-y-3 z-10">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Delivery Status */}
+                      <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border border-current/10 ${status.color} bg-opacity-5`}>
+                        <status.icon size={12} strokeWidth={3} />
+                        <span className="text-[9px] font-black uppercase tracking-widest">
+                          {status.label}
+                        </span>
+                      </div>
+
+                      {/* Payment Status Badge */}
+                      <div className={`px-3 py-1 rounded-full border ${paymentStatusConfig[order.payment_status]?.bgColor} border-current/5`}>
+                        <span className={`text-[9px] font-black uppercase tracking-tighter ${paymentStatusConfig[order.payment_status]?.color}`}>
+                          {paymentStatusConfig[order.payment_status]?.label || "Pending Review"}
+                        </span>
+                      </div>
                     </div>
-                    <h3 className="font-black text-xl uppercase text-slate-900">Order #{order.id.slice(0, 8)}</h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">{new Date(order.order_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric'})}</p>
+
+                    <div>
+                      <h3 className="font-black text-2xl md:text-3xl tracking-tighter text-slate-900 uppercase leading-none mb-1">
+                        Order <span className="text-orange-600">#</span>{order.id.slice(0, 8)}
+                      </h3>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                        <Clock size={12} /> {new Date(order.order_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="text-right">
-                    <p className="text-2xl font-black text-slate-900">₹{order.grand_total.toLocaleString()}</p>
-                    <button className="mt-2 text-[10px] font-black uppercase tracking-widest text-orange-600 flex items-center gap-2 ml-auto">
-                      View Details <ChevronRight size={14} />
+                  {/* Right: Pricing & CTA */}
+                  <div className="flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-auto gap-4 pt-4 md:pt-0 border-t md:border-t-0 border-slate-50 z-10">
+                    <div className="text-left md:text-right">
+                      <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">Total Amount</p>
+                      <p className="text-3xl font-black text-slate-900 tracking-tighter">
+                        ₹{order.grand_total.toLocaleString()}
+                      </p>
+                    </div>
+
+                    <button className="flex items-center gap-2 px-5 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest group-hover:bg-orange-600 transition-colors duration-300 shadow-lg shadow-slate-200">
+                      Details <ChevronRight size={14} strokeWidth={3} />
                     </button>
                   </div>
                 </div>
@@ -243,12 +297,36 @@ export default function UserOrdersPage() {
                       <h4 className="font-black text-sm uppercase">{item.name}</h4>
                       <p className="text-[10px] font-bold text-slate-400 uppercase">{item.variationName}</p>
                       <div className="flex justify-between items-end mt-2">
-                         <span className="text-xs font-bold text-slate-500">Qty: {item.quantity}</span>
-                         <span className="font-black text-sm">₹{item.price.toLocaleString()}</span>
+                        <span className="text-xs font-bold text-slate-500">Qty: {item.quantity}</span>
+                        <span className="font-black text-sm">₹{item.price.toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Inside the Order Drawer, before the Shipping Info Card */}
+              <div className={`p-6 rounded-3xl border mb-8 ${paymentStatusConfig[selectedOrder.payment_status]?.bgColor} border-slate-100`}>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Payment Method</p>
+                    <p className="font-bold text-slate-900 uppercase text-xs">{selectedOrder.payment_method}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</p>
+                    <p className={`font-black uppercase text-xs ${paymentStatusConfig[selectedOrder.payment_status]?.color}`}>
+                      {paymentStatusConfig[selectedOrder.payment_status]?.label}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Show rejection reason if applicable */}
+                {selectedOrder.payment_status === 'rejected' && selectedOrder.payment_rejection_reason && (
+                  <div className="mt-4 pt-4 border-t border-red-100">
+                    <p className="text-[10px] font-black text-red-400 uppercase mb-1">Reason for Rejection</p>
+                    <p className="text-xs font-bold text-red-700 italic">"{selectedOrder.payment_rejection_reason}"</p>
+                  </div>
+                )}
               </div>
 
               {/* Shipping Info Card */}
@@ -264,7 +342,7 @@ export default function UserOrdersPage() {
                     <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Total Paid</p>
                     <p className="text-3xl font-black">₹{selectedOrder.grand_total.toLocaleString()}</p>
                   </div>
-                  <button 
+                  <button
                     onClick={() => downloadInvoice(selectedOrder)}
                     className="bg-white/10 p-4 rounded-2xl hover:bg-orange-600 transition-colors"
                   >

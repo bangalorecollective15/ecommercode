@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import {
-  Plus, Save, Sparkles,Layers, Image as ImageIcon, X, Loader2, Hash, ArrowLeft
+  Plus, Save, Sparkles, Layers, Image as ImageIcon, X, Loader2, Hash, ArrowLeft
 } from "lucide-react";
 
 const supabase = createClient(
@@ -87,6 +87,7 @@ export default function EditLifestyleProduct({ params }: { params: Promise<{ id:
         setSubSubcategories(subSub || []);
       }
 
+      // Inside the fetchData function, update the setForm call:
       setForm({
         name: p.name || "",
         sku: p.sku || "",
@@ -96,7 +97,7 @@ export default function EditLifestyleProduct({ params }: { params: Promise<{ id:
         sub_subcategory_id: p.sub_subcategory_id?.toString() || "",
         brand_id: p.brand_id?.toString() || "",
         lifestyle_tag_id: p.lifestyle_tag_id?.toString() || "",
-        variations: p.product_variations || [],
+        variations: p.product_variations || [], // Ensure your DB column is named sale_price
         existingImages: p.product_images || [],
         newImageFiles: [],
         newImagePreviews: [],
@@ -124,53 +125,62 @@ export default function EditLifestyleProduct({ params }: { params: Promise<{ id:
     setSubSubcategories(data || []);
   };
 
-  const handleUpdate = async () => {
-    if (!form.name) return toast.error("Name is required");
-    setSaving(true);
+ const handleUpdate = async () => {
+  if (!form.name) return toast.error("Name is required");
+  setSaving(true);
 
-    try {
-      // 1. Update Core Product
-      const { error: pErr } = await supabase.from("products").update({
-        name: form.name,
-        description: form.description,
-        brand_id: form.brand_id ? parseInt(form.brand_id) : null,
-        category_id: form.category_id ? parseInt(form.category_id) : null,
-        subcategory_id: form.subcategory_id ? parseInt(form.subcategory_id) : null,
-        sub_subcategory_id: form.sub_subcategory_id ? parseInt(form.sub_subcategory_id) : null,
-        lifestyle_tag_id: form.lifestyle_tag_id ? parseInt(form.lifestyle_tag_id) : null,
-      }).eq("id", productId);
+  try {
+    // 1. Update Core Product
+    const { error: pErr } = await supabase.from("products").update({
+      name: form.name,
+      description: form.description,
+      brand_id: form.brand_id ? parseInt(form.brand_id) : null,
+      category_id: form.category_id ? parseInt(form.category_id) : null,
+      subcategory_id: form.subcategory_id ? parseInt(form.subcategory_id) : null,
+      sub_subcategory_id: form.sub_subcategory_id ? parseInt(form.sub_subcategory_id) : null,
+      lifestyle_tag_id: form.lifestyle_tag_id ? parseInt(form.lifestyle_tag_id) : null,
+    }).eq("id", productId);
 
-      if (pErr) throw pErr;
+    if (pErr) throw pErr;
 
-      // 2. Upload New Images
-      for (const file of form.newImageFiles) {
-        const fileName = `${Date.now()}-${file.name}`;
-        const { data: upData, error: upErr } = await supabase.storage.from('product-images').upload(`products/${fileName}`, file);
-        if (upErr) throw upErr;
+    // 2. Upload New Images
+    for (const file of form.newImageFiles) {
+      const fileName = `${Date.now()}-${file.name}`;
+      const { error: upErr } = await supabase.storage.from('product-images').upload(`products/${fileName}`, file);
+      if (upErr) throw upErr;
 
-        const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(`products/${fileName}`);
-        await supabase.from("product_images").insert({ product_id: productId, image_url: publicUrl });
-      }
-
-      // 3. Sync Variations (Delete old ones and re-insert for simplicity)
-      await supabase.from("product_variations").delete().eq("product_id", productId);
-      const varRows = form.variations.map(v => ({
-        product_id: productId,
-        color_id: v.color_id ? parseInt(v.color_id) : null,
-        size_id: v.size_id ? parseInt(v.size_id) : null,
-        price: Number(v.price),
-        stock: Number(v.stock)
-      }));
-      await supabase.from("product_variations").insert(varRows);
-
-      toast.success("Product updated successfully!");
-      router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setSaving(false);
+      const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(`products/${fileName}`);
+      await supabase.from("product_images").insert({ product_id: productId, image_url: publicUrl });
     }
-  };
+
+    // 3. Sync Variations (Added sale_price here)
+    await supabase.from("product_variations").delete().eq("product_id", productId);
+    
+    const varRows = form.variations.map(v => ({
+      product_id: productId,
+      color_id: v.color_id ? parseInt(v.color_id) : null,
+      size_id: v.size_id ? parseInt(v.size_id) : null,
+      price: parseFloat(v.price) || 0,
+      stock: parseInt(v.stock) || 0,
+      sale_price: v.sale_price ? parseFloat(v.sale_price) : null // THIS WAS MISSING
+    }));
+
+    const { error: varErr } = await supabase.from("product_variations").insert(varRows);
+    if (varErr) throw varErr;
+
+    toast.success("Product updated successfully!");
+    
+    // Refresh to clear newImageFiles and fetch fresh data
+    router.refresh(); 
+    fetchData(); 
+
+  } catch (err: any) {
+    toast.error(err.message);
+    console.error("Update Error:", err);
+  } finally {
+    setSaving(false);
+  }
+};
 
   const removeExistingImage = async (imgId: number) => {
     const { error } = await supabase.from("product_images").delete().eq("id", imgId);
@@ -239,44 +249,105 @@ export default function EditLifestyleProduct({ params }: { params: Promise<{ id:
                 <h2 className="text-lg font-black uppercase tracking-widest">STOCK VARIANTS</h2>
               </div>
 
-              <div className="space-y-6">
-                {form.variations.map((v, i) => (
-                  <div key={i} className="grid grid-cols-2 md:grid-cols-12 gap-6 items-end border-b border-white/5 pb-6">
-                    <div className="md:col-span-3 space-y-2">
-                      <p className="text-[8px] font-bold text-slate-500 uppercase">Color</p>
-                      <select className="w-full bg-transparent border-b border-white/20 py-2 text-xs font-bold outline-none" value={v.color_id || ""} onChange={e => {
-                        const newV = [...form.variations]; newV[i].color_id = e.target.value; setForm({ ...form, variations: newV });
-                      }}>
-                        <option className="bg-black text-white" value="">NONE</option>
-                        {dbColors.map(c => <option className="bg-black text-white" key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                    </div>
-                    <div className="md:col-span-3 space-y-2">
-                      <p className="text-[8px] font-bold text-slate-500 uppercase">Size</p>
-                      <select className="w-full bg-transparent border-b border-white/20 py-2 text-xs font-bold outline-none" value={v.size_id || ""} onChange={e => {
-                        const newV = [...form.variations]; newV[i].size_id = e.target.value; setForm({ ...form, variations: newV });
-                      }}>
-                        <option className="bg-black text-white" value="">NONE</option>
-                        {dbSizes.map(s => <option className="bg-black text-white" key={s.id} value={s.id}>{s.name}</option>)}
-                      </select>
-                    </div>
-                    <div className="md:col-span-3 space-y-2">
-                      <p className="text-[8px] font-bold text-slate-500 uppercase">Price (₹)</p>
-                      <input className="w-full bg-transparent border-b border-white/20 py-2 text-xs font-bold outline-none" value={v.price} onChange={e => {
-                        const newV = [...form.variations]; newV[i].price = e.target.value; setForm({ ...form, variations: newV });
-                      }} />
-                    </div>
-                    <div className="md:col-span-2 space-y-2">
-                      <p className="text-[8px] font-bold text-slate-500 uppercase">Stock</p>
-                      <input className="w-full bg-transparent border-b border-white/20 py-2 text-xs font-bold outline-none" value={v.stock} onChange={e => {
-                        const newV = [...form.variations]; newV[i].stock = e.target.value; setForm({ ...form, variations: newV });
-                      }} />
-                    </div>
-                    <button type="button" onClick={() => setForm({ ...form, variations: form.variations.filter((_, idx) => idx !== i) })} className="p-2 text-slate-600 hover:text-white"><X size={16} /></button>
-                  </div>
-                ))}
-                <button type="button" onClick={() => setForm({ ...form, variations: [...form.variations, { color_id: "", size_id: "", price: "0", stock: "0" }] })} className="w-full py-4 border border-dashed border-white/20 rounded-xl text-[10px] font-black uppercase hover:bg-white/5 transition-colors">+ ADD VARIATION</button>
-              </div>
+              <div className="space-y-4">
+  {form.variations.map((v, i) => (
+    <div key={i} className="grid grid-cols-12 gap-4 items-center border-b border-white/10 pb-4 group">
+      
+      {/* 1. COLOR */}
+      <div className="col-span-2 space-y-1">
+        <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Color</p>
+        <select 
+          className="w-full bg-transparent border-b border-white/10 py-1 text-[11px] font-bold outline-none focus:border-white transition-colors" 
+          value={v.color_id || ""} 
+          onChange={e => {
+            const newV = [...form.variations]; newV[i].color_id = e.target.value; setForm({ ...form, variations: newV });
+          }}
+        >
+          <option className="bg-black" value="">NONE</option>
+          {dbColors.map(c => <option className="bg-black" key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      </div>
+
+      {/* 2. SIZE */}
+      <div className="col-span-2 space-y-1">
+        <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Size</p>
+        <select 
+          className="w-full bg-transparent border-b border-white/10 py-1 text-[11px] font-bold outline-none focus:border-white transition-colors" 
+          value={v.size_id || ""} 
+          onChange={e => {
+            const newV = [...form.variations]; newV[i].size_id = e.target.value; setForm({ ...form, variations: newV });
+          }}
+        >
+          <option className="bg-black" value="">NONE</option>
+          {dbSizes.map(s => <option className="bg-black" key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      </div>
+
+      {/* 3. REGULAR PRICE */}
+      <div className="col-span-2 space-y-1">
+        <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Retail (₹)</p>
+        <input
+          className="w-full bg-transparent border-b border-white/10 py-1 text-[11px] font-bold outline-none focus:border-white"
+          value={v.price}
+          placeholder="0"
+          onChange={e => {
+    const newV = [...form.variations];
+    newV[i].price = e.target.value; // Store as string while typing
+    setForm({ ...form, variations: newV });
+  }}
+        />
+      </div>
+
+      {/* 4. SALE PRICE */}
+      <div className="col-span-2 space-y-1">
+        <p className="text-[7px] font-black text-emerald-500 uppercase tracking-widest">Sale (₹)</p>
+        <input
+          placeholder="Optional"
+          className="w-full bg-transparent border-b border-white/10 py-1 text-[11px] font-bold outline-none text-emerald-400 focus:border-emerald-400"
+          value={v.sale_price || ""}
+         onChange={e => {
+    const newV = [...form.variations];
+    newV[i].sale_price = e.target.value; // Correctly maps to the state
+    setForm({ ...form, variations: newV });
+  }}
+        />
+      </div>
+
+      {/* 5. STOCK */}
+      <div className="col-span-2 space-y-1">
+        <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Stock</p>
+        <input
+          className="w-full bg-transparent border-b border-white/10 py-1 text-[11px] font-bold outline-none focus:border-white"
+          value={v.stock}
+          placeholder="0"
+          onChange={e => {
+            const newV = [...form.variations]; newV[i].stock = e.target.value; setForm({ ...form, variations: newV });
+          }}
+        />
+      </div>
+
+      {/* 6. REMOVE BUTTON */}
+      <div className="col-span-2 flex justify-end items-end pb-1">
+        <button 
+          type="button" 
+          onClick={() => setForm({ ...form, variations: form.variations.filter((_, idx) => idx !== i) })} 
+          className="p-2 text-slate-600 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all"
+        >
+          <X size={14} />
+        </button>
+      </div>
+
+    </div>
+  ))}
+
+  <button 
+    type="button" 
+    onClick={() => setForm({ ...form, variations: [...form.variations, { color_id: "", size_id: "", price: "0", sale_price: "", stock: "0" }] })} 
+    className="w-full py-3 mt-4 border border-dashed border-white/10 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-white hover:border-white/30 hover:bg-white/5 transition-all"
+  >
+    + Add New Variation
+  </button>
+</div>
             </div>
           </div>
 

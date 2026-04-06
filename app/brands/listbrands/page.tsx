@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Image from "next/image";
+       import Link from "next/link";
 import { 
   Search, 
   Download, 
@@ -71,24 +72,50 @@ export default function BrandList() {
     }
   };
 
-  const handleDelete = async (brand: Brand) => {
-    if (!confirm(`Delete ${brand.name_en}?`)) return;
+const handleDelete = async (brand: Brand) => {
+    // Premium confirmation style
+    if (!confirm(`CAUTION: Deleting "${brand.name_en}" will remove it from all linked products. Continue?`)) return;
 
+    setLoading(true); // Show loader while deleting
     try {
-      if (brand.image_url) {
-        const path = brand.image_url.split("/").pop()?.split("?")[0];
-        if (path) {
-          await supabase.storage.from("brand-images").remove([path]);
+      // 1. Handle Storage Cleanup (if image exists)
+      if (brand.image_url && brand.image_url.includes("supabase.co")) {
+        try {
+          // Extracts filename correctly from Supabase Public URL
+          const parts = brand.image_url.split("/");
+          const fileName = parts[parts.length - 1].split("?")[0];
+          
+          if (fileName) {
+            await supabase.storage.from("brand-images").remove([fileName]);
+          }
+        } catch (storageErr) {
+          console.warn("Storage cleanup skipped or failed:", storageErr);
         }
       }
 
-      const { error } = await supabase.from("brands").delete().eq("id", brand.id);
-      if (error) throw error;
+      // 2. Database Deletion
+      const { error } = await supabase
+        .from("brands")
+        .delete()
+        .eq("id", brand.id);
 
-      toast.success("Brand deleted");
-      fetchBrands();
+      if (error) {
+        // Specifically catch Foreign Key Violations (Error code 23503)
+        if (error.code === '23503') {
+          throw new Error("Cannot delete brand: It is currently linked to active products.");
+        }
+        throw error;
+      }
+
+      toast.success("Brand Identity Purged");
+      
+      // Update local state immediately for a fast UI feel
+      setBrands(prev => prev.filter(b => b.id !== brand.id));
+      
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(err.message || "Deletion failed");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -155,15 +182,20 @@ export default function BrandList() {
           </div>
           
           <div className="flex items-center gap-3">
-            <button className="h-14 px-8 bg-black text-white rounded-full font-black text-[11px] uppercase tracking-widest hover:bg-slate-800 transition-all flex items-center gap-3 group">
-              <Plus className="w-4 h-4" /> Add Registry <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
+  
+<Link href="/brands/newbrands">
+  <button className="h-14 px-8 bg-black text-white rounded-full font-black text-[11px] uppercase tracking-widest hover:bg-slate-800 transition-all flex items-center gap-3 group">
+    <Plus className="w-4 h-4" /> 
+    Add Registry 
+    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+  </button>
+</Link>
           </div>
         </div>
-
-        {/* SEARCH & FILTERS */}
+{/* SEARCH & FILTERS - UPDATED TO OCCUPY FULL WIDTH */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
-          <div className="md:col-span-8 relative group">
+          {/* SEARCH BAR - Occupies 10/12 of the line */}
+          <div className="md:col-span-10 relative group">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 group-focus-within:text-black transition-colors" />
             <input
               type="text"
@@ -174,12 +206,8 @@ export default function BrandList() {
               className="w-full h-14 pl-12 pr-6 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:bg-white focus:border-black text-xs font-bold uppercase tracking-widest transition-all"
             />
           </div>
-          <button
-            onClick={fetchBrands}
-            className="md:col-span-2 h-14 bg-slate-100 text-black border border-slate-200 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-black hover:text-white transition-all"
-          >
-            Apply Filter
-          </button>
+
+          {/* CSV BUTTON - Occupies the remaining 2/12 of the line */}
           <button className="md:col-span-2 h-14 bg-white text-slate-400 border border-slate-100 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:border-black hover:text-black transition-all flex items-center justify-center gap-2">
             <Download className="w-4 h-4" /> CSV
           </button>

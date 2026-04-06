@@ -11,6 +11,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// Replace your INITIAL_FORM_STATE with this:
 const INITIAL_FORM_STATE = {
   name: "",
   sku: "",
@@ -20,7 +21,8 @@ const INITIAL_FORM_STATE = {
   sub_subcategory_id: "",
   brand_id: "",
   lifestyle_tag_id: "",
-  variations: [{ color_id: "", size_id: "", price: "", stock: "" }],
+  // Added sale_price here
+  variations: [{ color_id: "", size_id: "", price: "", sale_price: "", stock: "" }], 
   images: [] as File[],
   imagePreviews: [] as string[],
 };
@@ -129,19 +131,21 @@ export default function AddLifestyleProduct() {
       }
 
       // 4. Insert Variations
-      const variationPayload = form.variations.map(v => ({
-        product_id: productData.id,
-        color_id: v.color_id ? parseInt(v.color_id) : null,
-        size_id: v.size_id ? parseInt(v.size_id) : null,
-        price: parseFloat(v.price) || 0,
-        stock: parseInt(v.stock) || 0
-      }));
+    // Find "4. Insert Variations" inside handleSubmit and replace the payload:
+const variationPayload = form.variations.map(v => ({
+  product_id: productData.id,
+  color_id: v.color_id ? parseInt(v.color_id) : null,
+  size_id: v.size_id ? parseInt(v.size_id) : null,
+  price: parseFloat(v.price) || 0,
+  sale_price: v.sale_price ? parseFloat(v.sale_price) : null, // Added this line
+  stock: parseInt(v.stock) || 0
+}));
 
       const { error: vError } = await supabase.from("product_variations").insert(variationPayload);
       if (vError) throw vError;
 
       toast.success("Product saved successfully!");
-
+setForm(prev => ({ ...prev, variations: [] }));
       // Cleanup and Reset
       form.imagePreviews.forEach(url => URL.revokeObjectURL(url));
       setForm(INITIAL_FORM_STATE);
@@ -215,36 +219,92 @@ export default function AddLifestyleProduct() {
                 <h2 className="text-lg font-black uppercase tracking-widest">SIZE & INVENTORY REGISTRY</h2>
               </div>
 
-              <div className="space-y-6">
-                {form.variations.map((v, i) => (
-                  <div key={i} className="grid grid-cols-2 md:grid-cols-12 gap-6 items-end border-b border-white/5 pb-6">
-                    <div className="md:col-span-3 space-y-2">
-                      <p className="text-[8px] font-bold text-slate-500 uppercase">Color</p>
-                      <select className="w-full bg-transparent border-b border-white/20 py-2 text-xs font-bold outline-none" value={v.color_id} onChange={e => handleVariationChange(i, "color_id", e.target.value)}>
-                        <option className="bg-black text-white" value="">SELECT COLOR</option>
-                        {dbColors.map(c => <option className="bg-black text-white" key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                    </div>
-                    <div className="md:col-span-3 space-y-2">
-                      <p className="text-[8px] font-bold text-slate-500 uppercase">Size</p>
-                      <select className="w-full bg-transparent border-b border-white/20 py-2 text-xs font-bold outline-none" value={v.size_id} onChange={e => handleVariationChange(i, "size_id", e.target.value)}>
-                        <option className="bg-black text-white" value="">SELECT SIZE</option>
-                        {dbSizes.map(s => <option className="bg-black text-white" key={s.id} value={s.id}>{s.name}</option>)}
-                      </select>
-                    </div>
-                    <div className="md:col-span-3 space-y-2">
-                      <p className="text-[8px] font-bold text-slate-500 uppercase">Price (₹)</p>
-                      <input className="w-full bg-transparent border-b border-white/20 py-2 text-xs font-bold outline-none" value={v.price} onChange={e => handleVariationChange(i, "price", e.target.value)} />
-                    </div>
-                    <div className="md:col-span-2 space-y-2">
-                      <p className="text-[8px] font-bold text-slate-500 uppercase">Stock</p>
-                      <input className="w-full bg-transparent border-b border-white/20 py-2 text-xs font-bold outline-none" value={v.stock} onChange={e => handleVariationChange(i, "stock", e.target.value)} />
-                    </div>
-                    <button type="button" onClick={() => setForm({ ...form, variations: form.variations.filter((_, idx) => idx !== i) })} className="p-2 text-slate-600 hover:text-white"><X size={16} /></button>
-                  </div>
-                ))}
-                <button type="button" onClick={() => setForm({ ...form, variations: [...form.variations, { color_id: "", size_id: "", price: "", stock: "" }] })} className="w-full py-4 border border-dashed border-white/20 rounded-xl text-[10px] font-black uppercase">+ ADD VARIATION</button>
-              </div>
+            <div className="space-y-4">
+  {form.variations.map((v, i) => (
+    <div key={i} className="grid grid-cols-12 gap-4 items-center border-b border-white/10 pb-4 group">
+      
+      {/* 1. COLOR (Span 2) */}
+      <div className="col-span-2 space-y-1">
+        <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Color</p>
+        <select 
+          className="w-full bg-transparent border-b border-white/10 py-1 text-[11px] font-bold outline-none focus:border-white transition-colors" 
+          value={v.color_id} 
+          onChange={e => handleVariationChange(i, "color_id", e.target.value)}
+        >
+          <option className="bg-black" value="">SELECT</option>
+          {dbColors.map(c => <option className="bg-black" key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      </div>
+
+      {/* 2. SIZE (Span 2) */}
+      <div className="col-span-2 space-y-1">
+        <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Size</p>
+        <select 
+          className="w-full bg-transparent border-b border-white/10 py-1 text-[11px] font-bold outline-none focus:border-white transition-colors" 
+          value={v.size_id} 
+          onChange={e => handleVariationChange(i, "size_id", e.target.value)}
+        >
+          <option className="bg-black" value="">SELECT</option>
+          {dbSizes.map(s => <option className="bg-black" key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      </div>
+
+      {/* 3. REGULAR PRICE (Span 2) */}
+      <div className="col-span-2 space-y-1">
+        <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Retail (₹)</p>
+        <input
+          className="w-full bg-transparent border-b border-white/10 py-1 text-[11px] font-bold outline-none focus:border-white transition-colors"
+          value={v.price}
+          placeholder="0.00"
+          onChange={e => handleVariationChange(i, "price", e.target.value)}
+        />
+      </div>
+
+      {/* 4. SALE PRICE (Span 2) */}
+      <div className="col-span-2 space-y-1">
+        <p className="text-[7px] font-black text-emerald-500 uppercase tracking-widest">Sale (₹)</p>
+        <input
+          placeholder="0.00"
+          className="w-full bg-transparent border-b border-white/10 py-1 text-[11px] font-bold outline-none text-emerald-400 focus:border-emerald-400 transition-colors"
+          value={v.sale_price}
+          onChange={e => handleVariationChange(i, "sale_price", e.target.value)}
+        />
+      </div>
+
+      {/* 5. STOCK (Span 1) */}
+      <div className="col-span-1 space-y-1">
+        <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Qty</p>
+        <input
+          className="w-full bg-transparent border-b border-white/10 py-1 text-[11px] font-bold outline-none focus:border-white transition-colors text-center"
+          value={v.stock}
+          placeholder="0"
+          onChange={e => handleVariationChange(i, "stock", e.target.value)}
+        />
+      </div>
+
+      {/* 6. REMOVE BUTTON (Remaining Space) */}
+      <div className="col-span-3 flex justify-end items-center pt-3">
+        <button 
+          type="button" 
+          onClick={() => setForm({ ...form, variations: form.variations.filter((_, idx) => idx !== i) })} 
+          className="p-2 text-slate-600 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all"
+        >
+          <X size={14} />
+        </button>
+      </div>
+
+    </div>
+  ))}
+
+  {/* Updated Add Button to match the single-line theme */}
+  <button 
+    type="button" 
+    onClick={() => setForm({ ...form, variations: [...form.variations, { color_id: "", size_id: "", price: "", sale_price: "", stock: "" }] })} 
+    className="w-full py-3 mt-4 border border-dashed border-white/10 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-white hover:border-white/30 hover:bg-white/5 transition-all"
+  >
+    + Add New Variation
+  </button>
+</div>
             </div>
           </div>
           <div className="space-y-10">

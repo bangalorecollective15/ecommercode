@@ -1,387 +1,185 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, Suspense, useCallback } from "react";
-import { createClient } from "@supabase/supabase-js";
-import toast, { Toaster } from "react-hot-toast";
-import {
-  ChevronLeftIcon, ShieldCheckIcon, TruckIcon,
-  CreditCardIcon, BanknotesIcon, MapPinIcon
-} from "@heroicons/react/24/outline";
-import Link from "next/link";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-interface CartItem {
-  productId: number;
-  name: string;
-  variationId: string | number;
-  variationName: string;
-  price: number;
-  quantity: number;
-  image: string;
-  shippingCharge: number;
-  stock: number;
-}
-
-const cities = ["Mumbai", "Delhi", "Bangalore", "Chennai", "Kolkata", "Hyderabad", "Pune"];
+import { Loader2, ChevronLeft, CreditCard, MapPin, ShieldCheck, Upload, CheckCircle2, Copy, Info } from "lucide-react";
+import toast, { Toaster } from "react-hot-toast";
+import supabase from "@/lib/supabase";
 
 export default function CheckoutPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-black uppercase tracking-widest text-slate-400">Initializing Secure Checkout...</div>}>
-      <CheckoutContent />
-    </Suspense>
-  );
-}
-
-function CheckoutContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [checkoutData, setCheckoutData] = useState<any>(null);
+  const [gateway, setGateway] = useState<any>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [paymentProof, setPaymentProof] = useState<File | null>(null);
 
-  const [form, setForm] = useState({
-    full_name: "",
-    phone_number: "",
-    alt_phone_number: "",
-    house_number: "",
+  const [address, setAddress] = useState({
+    fullName: "",
+    phone: "",
+    altPhone: "",
+    houseNumber: "",
     street: "",
     city: "",
     state: "",
     pincode: "",
   });
 
-  const [paymentMethod, setPaymentMethod] = useState("razorpay");
-
-  // Totals Calculation
-  const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shippingCost = totalPrice >= 500 ? 0 : cart.reduce((max, item) => Math.max(max, item.shippingCharge), 0);
-  const grandTotal = totalPrice + shippingCost;
-
-const fetchCartData = useCallback(async (uid: string | null) => {
-    const buyNowVarId = searchParams.get("variationId");
-    const buyNowQty = parseInt(searchParams.get("qty") || "1");
-
-   if (buyNowVarId) {
-      // 1. BUY NOW LOGIC
-      const { data: item, error } = await supabase
-        .from("product_variations")
-        .select(`
-          id, price, stock,
-          color:color_id(name),
-          size:size_id(name),
-          products(id, name, shipping_charge, product_images(image_url))
-        `)
-        .eq("id", Number(buyNowVarId))
-        .single();
-
-      if (item && !error) {
-        // Fix: Ensure we access the single product object even if returned as array
-        const product = Array.isArray(item.products) ? item.products[0] : (item.products as any);
-        
-        const colorName = Array.isArray(item.color) ? item.color[0]?.name : (item.color as any)?.name;
-        const sizeName = Array.isArray(item.size) ? item.size[0]?.name : (item.size as any)?.name;
-
-        setCart([{
-          productId: product.id,
-          name: product.name,
-          variationId: item.id,
-          variationName: `${colorName || ''} ${sizeName || ''}`.trim() || "Standard",
-          price: item.price,
-          quantity: buyNowQty,
-          stock: item.stock,
-          image: product.product_images?.[0]?.image_url || "/placeholder.png",
-          shippingCharge: product.shipping_charge || 0,
-        }]);
-      } else {
-        toast.error("Could not retrieve product details.");
-      }
-    }else if (uid) {
-      // 2. STANDARD CART LOGIC
-      const { data, error } = await supabase
-        .from("cart")
-        .select(`
-          quantity,
-          product_variations(id, price, stock, color:color_id(name), size:size_id(name)),
-          products(id, name, shipping_charge, product_images(image_url))
-        `)
-        .eq("user_id", uid);
-
-      if (data && !error) {
-        const formatted = data.map((item: any) => {
-          const v = item.product_variations;
-          // Safe extraction for joined table data
-          const colorName = Array.isArray(v.color) ? v.color[0]?.name : v.color?.name;
-          const sizeName = Array.isArray(v.size) ? v.size[0]?.name : v.size?.name;
-
-          return {
-            productId: item.products.id,
-            name: item.products.name,
-            variationId: v.id,
-            variationName: `${colorName || ''} ${sizeName || ''}`.trim() || "Standard",
-            price: v.price,
-            quantity: item.quantity,
-            stock: v.stock,
-            image: item.products.product_images?.[0]?.image_url || "/placeholder.png",
-            shippingCharge: item.products.shipping_charge || 0,
-          };
-        }).filter((i: any) => i.stock > 0);
-        
-        setCart(formatted);
-      }
-    }
-    setLoading(false);
-  }, [searchParams]);
   useEffect(() => {
-    const getSession = async () => {
+    const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      setUserId(session?.user?.id || null);
-      await fetchCartData(session?.user?.id || null);
+      if (!session) {
+        toast.error("Please login");
+        return router.push("/login");
+      }
+      setUserId(session.user.id);
+      setUserEmail(session.user.email || "");
+
+      const saved = localStorage.getItem("active_checkout");
+      if (!saved) return router.push("/userinterface/cart");
+      setCheckoutData(JSON.parse(saved));
+
+      const { data: pay } = await supabase.from("payment_gateways").select("*").eq("is_active", true).single();
+      setGateway(pay);
+      setLoading(false);
     };
-    getSession();
-  }, [fetchCartData]);
+    init();
+  }, []);
 
-  const handleInput = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
-
-  const finalizeOrder = async (orderId: string) => {
-    // 1. Decrement Stock for each item
-    for (const item of cart) {
-      await supabase.rpc("decrement_stock", {
-        variation_id: item.variationId,
-        qty: item.quantity
-      });
-    }
-
-    // 2. If it was a cart purchase (not buy now), clear the cart table
-    if (!searchParams.get("variationId") && userId) {
-      await supabase.from("cart").delete().eq("user_id", userId);
-    }
-
-    toast.success("Order confirmed!");
-    router.push(`/userinterface/order/`);
-  };
-
-  const placeOrder = async () => {
-    if (!form.full_name || !form.phone_number || !form.city || !form.pincode) {
-      return toast.error("Please provide complete delivery details");
-    }
-
-    setSubmitting(true);
+  const handleOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paymentProof) return toast.error("Please upload payment proof");
+    setIsSubmitting(true);
 
     try {
-      // Insert into orders table
-      const { data: order, error } = await supabase.from("orders").insert([{
+      // 1. Upload Screenshot to Storage
+      const fileName = `${userId}/${Date.now()}-${paymentProof.name}`;
+      const { data: uploadData, error: uploadErr } = await supabase.storage
+        .from("payment-proofs")
+        .upload(fileName, paymentProof);
+
+      if (uploadErr) throw uploadErr;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("payment-proofs")
+        .getPublicUrl(fileName);
+
+      // 2. Create Order in Database
+      const tax = checkoutData.subtotal * 0.18;
+      const { error: orderErr } = await supabase.from("orders").insert({
         user_id: userId,
-        ...form,
-        payment_method: paymentMethod,
-        total_price: totalPrice,
-        shipping_cost: shippingCost,
-        grand_total: grandTotal,
-        cart_items: cart, // Storing snapshot of items for history
-        payment_status: paymentMethod === "cod" ? "pending" : "awaiting",
-      }]).select().single();
+        full_name: address.fullName,
+        phone_number: address.phone,
+        alt_phone_number: address.altPhone,
+        house_number: address.houseNumber,
+        street: address.street,
+        city: address.city,
+        state: address.state,
+        pincode: address.pincode,
+        payment_method: "Bank Transfer",
+        payment_id: publicUrl, // Public URL stored as payment reference
+        total_price: checkoutData.subtotal,
+        shipping_cost: checkoutData.shipping,
+        grand_total: checkoutData.total + tax,
+        cart_items: checkoutData.items,
+        email: userEmail
+      });
 
-      if (error) throw error;
+      if (orderErr) throw orderErr;
 
-      if (paymentMethod === "razorpay") {
-        // Razorpay logic here (omitted for brevity, keep your existing loadRazorpay)
-        // ... (Refer to your existing code for rzp.open())
-      } else {
-        await finalizeOrder(order.id);
-      }
+      // 3. Cleanup
+      localStorage.removeItem("active_checkout");
+      toast.success("Order Placed Successfully!");
+      router.push("/userinterface/order");
+
     } catch (err: any) {
-      toast.error(err.message || "Something went wrong");
+      toast.error(err.message);
     } finally {
-      setSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
-  // ... (UI Rendering remains similar to your original code)
-  if (loading) return (
-    <div className="h-screen flex flex-col items-center justify-center gap-4 bg-slate-50">
-      <div className="w-12 h-12 border-4 border-slate-200 border-t-orange-600 rounded-full animate-spin" />
-      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Securing your session</p>
-    </div>
-  );
+  if (loading) return <div className="h-screen flex items-center justify-center bg-[#fafafa]"><Loader2 className="animate-spin text-orange-600" /></div>;
+
+  const tax = checkoutData.subtotal * 0.18;
+  const grandTotal = checkoutData.total + tax;
 
   return (
-    <div className="min-h-screen bg-slate-50 pt-32 pb-20 px-4 md:px-10 antialiased">
-      <Toaster position="top-right" />
-      <div className="max-w-7xl mx-auto">
-        <header className="mb-12">
-          <Link href="/userinterface/cart" className="inline-flex items-center gap-2 text-slate-400 hover:text-orange-600 transition-all mb-4 group">
-            <ChevronLeftIcon className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Return to Bag</span>
-          </Link>
-          <div className="flex items-baseline gap-4">
-            <h1 className="text-6xl font-black text-slate-900 tracking-tighter">Checkout</h1>
-            <div className="h-2 w-2 rounded-full bg-orange-600 animate-pulse" />
-          </div>
-        </header>
+    <div className="min-h-screen bg-[#fafafa] pt-28 pb-20 px-6">
+      <Toaster position="top-center" />
+      <div className="max-w-6xl mx-auto">
+        <button onClick={() => router.back()} className="flex items-center gap-2 text-slate-400 hover:text-slate-900 mb-8 font-black text-[10px] uppercase tracking-widest transition-all">
+          <ChevronLeft size={16} /> Back to Bag
+        </button>
 
-        <div className="grid lg:grid-cols-12 gap-16 items-start">
-          {/* LEFT: Forms */}
-          <div className="lg:col-span-7 space-y-10">
-            <section className="bg-white rounded-[3rem] p-10 shadow-sm border border-slate-100">
-              <div className="flex items-center gap-4 mb-10">
-                <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-600">
-                  <MapPinIcon className="w-6 h-6" />
-                </div>
-                <h2 className="text-2xl font-black tracking-tighter">Shipping Information</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+          {/* FORM COLUMN */}
+          <div className="lg:col-span-7 space-y-8">
+            <section className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center"><MapPin size={20}/></div>
+                <h2 className="text-xl font-black uppercase tracking-tighter">Shipping Address</h2>
               </div>
-
-              <div className="grid md:grid-cols-2 gap-8">
-                <div className="md:col-span-2 space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Full Name</label>
-                  <input name="full_name" value={form.full_name} onChange={handleInput} className="w-full bg-slate-50 border-2 border-transparent focus:bg-white focus:border-orange-500 rounded-[2rem] px-8 py-5 transition-all font-bold outline-none" placeholder="Enter your full name" />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Phone Number</label>
-                  <input name="phone_number" value={form.phone_number} onChange={handleInput} className="w-full bg-slate-50 border-2 border-transparent focus:bg-white focus:border-orange-500 rounded-[2rem] px-8 py-5 transition-all font-bold outline-none" placeholder="Primary phone" />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Alternate Phone (Optional)</label>
-                  <input name="alt_phone_number" value={form.alt_phone_number} onChange={handleInput} className="w-full bg-slate-50 border-2 border-transparent focus:bg-white focus:border-orange-500 rounded-[2rem] px-8 py-5 transition-all font-bold outline-none" placeholder="Secondary phone" />
-                </div>
-
-                <div className="md:col-span-2 space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Flat, House no., Building, Apartment</label>
-                  <input name="house_number" value={form.house_number} onChange={handleInput} className="w-full bg-slate-50 border-2 border-transparent focus:bg-white focus:border-orange-500 rounded-[2rem] px-8 py-5 transition-all font-bold outline-none" placeholder="e.g. 402, Sunset Towers" />
-                </div>
-
-                <div className="md:col-span-2 space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Area, Street, Sector, Village</label>
-                  <input name="street" value={form.street} onChange={handleInput} className="w-full bg-slate-50 border-2 border-transparent focus:bg-white focus:border-orange-500 rounded-[2rem] px-8 py-5 transition-all font-bold outline-none" placeholder="e.g. MG Road, Sector 15" />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">City</label>
-                  <select name="city" value={form.city} onChange={handleInput} className="w-full bg-slate-50 border-2 border-transparent focus:bg-white focus:border-orange-500 rounded-[2rem] px-8 py-5 transition-all font-bold outline-none appearance-none">
-                    <option value="">Select City</option>
-                    {cities.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Pincode</label>
-                  <input name="pincode" value={form.pincode} onChange={handleInput} className="w-full bg-slate-50 border-2 border-transparent focus:bg-white focus:border-orange-500 rounded-[2rem] px-8 py-5 transition-all font-bold outline-none" placeholder="6-digit code" />
-                </div>
+              <div className="grid grid-cols-2 gap-4">
+                <input required placeholder="Full Name" className="col-span-2 p-4 bg-slate-50 rounded-2xl text-sm font-bold border-none focus:ring-2 focus:ring-orange-600/20" onChange={e => setAddress({...address, fullName: e.target.value})} />
+                <input required placeholder="Phone Number" className="p-4 bg-slate-50 rounded-2xl text-sm font-bold border-none" onChange={e => setAddress({...address, phone: e.target.value})} />
+                <input placeholder="Alt Phone (Optional)" className="p-4 bg-slate-50 rounded-2xl text-sm font-bold border-none" onChange={e => setAddress({...address, altPhone: e.target.value})} />
+                <input required placeholder="House / Flat No." className="p-4 bg-slate-50 rounded-2xl text-sm font-bold border-none" onChange={e => setAddress({...address, houseNumber: e.target.value})} />
+                <input required placeholder="Pincode" className="p-4 bg-slate-50 rounded-2xl text-sm font-bold border-none" onChange={e => setAddress({...address, pincode: e.target.value})} />
+                <textarea required placeholder="Full Street Address" className="col-span-2 p-4 bg-slate-50 rounded-2xl text-sm font-bold border-none h-24" onChange={e => setAddress({...address, street: e.target.value})} />
+                <input required placeholder="City" className="p-4 bg-slate-50 rounded-2xl text-sm font-bold border-none" onChange={e => setAddress({...address, city: e.target.value})} />
+                <input required placeholder="State" className="p-4 bg-slate-50 rounded-2xl text-sm font-bold border-none" onChange={e => setAddress({...address, state: e.target.value})} />
               </div>
             </section>
 
-            <section className="bg-white rounded-[3rem] p-10 shadow-sm border border-slate-100">
-              <div className="flex items-center gap-4 mb-10">
-                <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-600">
-                  <CreditCardIcon className="w-6 h-6" />
+            <section className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
+              <h2 className="text-xl font-black uppercase tracking-tighter mb-8 flex items-center gap-4">
+                <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center"><CreditCard size={20}/></div>
+                Payment Details
+              </h2>
+              {gateway && (
+                <div className="p-6 bg-slate-900 rounded-[2rem] text-white space-y-4 mb-6">
+                  <div className="flex justify-between border-b border-white/10 pb-3"><span className="text-[10px] text-white/40 uppercase font-bold tracking-widest">Bank</span><span className="font-black text-sm">{gateway.bank_name}</span></div>
+                  <div className="flex justify-between border-b border-white/10 pb-3"><span className="text-[10px] text-white/40 uppercase font-bold tracking-widest">A/C Number</span><span className="font-black text-sm">{gateway.account_number}</span></div>
+                  <div className="flex justify-between"><span className="text-[10px] text-white/40 uppercase font-bold tracking-widest">IFSC</span><span className="font-black text-sm text-orange-500">{gateway.ifsc_code}</span></div>
                 </div>
-                <h2 className="text-2xl font-black tracking-tighter">Payment Strategy</h2>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                {[
-                  { id: 'razorpay', label: 'Online Payment', sub: 'Cards, UPI & Netbanking', icon: CreditCardIcon },
-                  { id: 'cod', label: 'Cash on Delivery', sub: 'Pay at your doorstep', icon: BanknotesIcon }
-                ].map((method) => (
-                  <button
-                    key={method.id}
-                    onClick={() => setPaymentMethod(method.id)}
-                    className={`flex items-center gap-6 p-6 rounded-[2.5rem] border-2 transition-all text-left ${paymentMethod === method.id ? 'border-orange-600 bg-orange-50/30' : 'border-slate-50 bg-slate-50/50 hover:bg-slate-50'}`}
-                  >
-                    <div className={`p-4 rounded-2xl ${paymentMethod === method.id ? 'bg-orange-600 text-white shadow-lg' : 'bg-white text-slate-300'}`}>
-                      <method.icon className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <p className="font-black text-xs uppercase tracking-widest">{method.label}</p>
-                      <p className="text-[10px] text-slate-400 font-medium">{method.sub}</p>
-                    </div>
-                  </button>
-                ))}
+              )}
+              <div className="bg-orange-50 p-6 rounded-[2rem] border border-orange-100">
+                <p className="text-[10px] font-black uppercase text-orange-600 mb-4 tracking-widest">Upload Payment Proof</p>
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-orange-200 rounded-2xl bg-white cursor-pointer hover:bg-orange-100/50 transition-all">
+                  <input type="file" className="hidden" accept="image/*" onChange={e => setPaymentProof(e.target.files?.[0] || null)} />
+                  {paymentProof ? <span className="text-xs font-black text-green-600 flex items-center gap-2"><CheckCircle2 size={16}/> {paymentProof.name}</span> : <Upload className="text-orange-400" />}
+                </label>
               </div>
             </section>
           </div>
 
-          {/* RIGHT: Summary */}
-          <aside className="lg:col-span-5 sticky top-32">
-            <div className="bg-slate-900 rounded-[3.5rem] p-10 text-white shadow-[0_40px_100px_-20px_rgba(15,23,42,0.3)] relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-orange-600/10 rounded-full -mr-32 -mt-32 blur-3xl" />
-
-              <h2 className="text-3xl font-black tracking-tighter mb-10">Order Summary</h2>
-
-              <div className="space-y-6 mb-10 max-h-[300px] overflow-y-auto pr-4 custom-scrollbar">
-                {cart.map((item) => (
-                  <div key={item.variationId} className="flex gap-6 items-center group">
-                    <div className="relative w-20 h-20 rounded-3xl overflow-hidden bg-white/10 flex-shrink-0 border border-white/5 transition-transform group-hover:scale-105">
-                      <Image src={item.image} alt={item.name} fill className="object-cover" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-black truncate uppercase tracking-tight">{item.name}</p>
-                      <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mt-1">
-                        {item.variationName} <span className="mx-2 text-white/20">|</span> Qty: {item.quantity}
-                      </p>
-                    </div>
-                    <p className="font-black text-lg tracking-tighter">₹{(item.price * item.quantity).toFixed(0)}</p>
-                  </div>
-                ))}
+          {/* BILLING COLUMN */}
+          <div className="lg:col-span-5">
+            <div className="sticky top-28 bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
+              <h3 className="text-lg font-black uppercase tracking-tighter mb-6">Order Total</h3>
+              <div className="space-y-3 pb-6 mb-6 border-b border-slate-50">
+                <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest"><span>Subtotal</span><span>₹{checkoutData.subtotal.toLocaleString()}</span></div>
+                <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest"><span>Shipping</span><span>₹{checkoutData.shipping}</span></div>
+                <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest"><span>GST (18%)</span><span>₹{tax.toLocaleString()}</span></div>
               </div>
-
-              <div className="space-y-5 border-t border-white/10 pt-8 mb-10">
-                <div className="flex justify-between items-center text-slate-400">
-                  <span className="text-[11px] font-black uppercase tracking-[0.2em]">Subtotal</span>
-                  <span className="font-black text-white">₹{totalPrice.toFixed(0)}</span>
-                </div>
-                <div className="flex justify-between items-center text-slate-400">
-                  <span className="text-[11px] font-black uppercase tracking-[0.2em]">Shipping</span>
-                  <span className={`font-black ${shippingCost === 0 ? "text-green-400" : "text-white"}`}>
-                    {shippingCost === 0 ? "COMPLIMENTARY" : `₹${shippingCost.toFixed(0)}`}
-                  </span>
-                </div>
-                <div className="flex justify-between items-end pt-6">
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Total amount</span>
-                    <p className="text-[10px] text-orange-500/80 font-bold uppercase tracking-widest italic">Incl. all taxes</p>
-                  </div>
-                  <span className="text-5xl font-black tracking-tighter">₹{grandTotal.toFixed(0)}</span>
-                </div>
+              <div className="flex justify-between items-end">
+                <span className="text-orange-600 font-black text-xs uppercase tracking-widest">Grand Total</span>
+                <span className="text-5xl font-black tracking-tighter">₹{grandTotal.toLocaleString()}</span>
               </div>
-
-              <button
-                disabled={submitting || cart.length === 0}
-                onClick={placeOrder}
-                className="w-full py-7 bg-orange-600 hover:bg-orange-500 disabled:bg-slate-800 text-white rounded-[2rem] font-black uppercase text-sm tracking-[0.2em] transition-all shadow-2xl active:scale-[0.98] flex items-center justify-center gap-4 group"
+              <button 
+                onClick={handleOrder} 
+                disabled={isSubmitting}
+                className="w-full bg-slate-900 text-white mt-10 py-6 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] hover:bg-orange-600 transition-all shadow-xl shadow-slate-900/10 active:scale-[0.98]"
               >
-                {submitting ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <ShieldCheckIcon className="w-6 h-6 transition-transform group-hover:scale-110" />
-                    Complete Order
-                  </>
-                )}
+                {isSubmitting ? <Loader2 className="animate-spin mx-auto" /> : "Complete Purchase"}
               </button>
-
-              <div className="mt-8 flex items-center justify-center gap-3 opacity-40 text-[9px] font-black uppercase tracking-[0.3em]">
-                <TruckIcon className="w-4 h-4" />
-                Estimated Arrival: 3-5 Business Days
-              </div>
             </div>
-
-            <div className="mt-8 p-6 bg-orange-50/50 rounded-[2rem] border border-orange-100 flex items-start gap-4">
-              <ShieldCheckIcon className="w-6 h-6 text-orange-600 mt-1" />
-              <p className="text-[11px] leading-relaxed font-semibold text-orange-900/70">
-                Secure Checkout: Your data is encrypted and transactions are handled via PCI-DSS compliant gateways.
-              </p>
-            </div>
-          </aside>
+          </div>
         </div>
       </div>
     </div>

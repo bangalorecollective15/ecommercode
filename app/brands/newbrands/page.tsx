@@ -21,7 +21,6 @@ export default function AddBrand() {
     const newErrors: any = {};
     if (!form.brandName.trim()) newErrors.brandName = "Brand name is required.";
     else if (form.brandName.length < 2) newErrors.brandName = "Too short.";
-    if (!form.altText.trim()) newErrors.altText = "Alt text is required.";
     if (!imageFile) newErrors.image = "Upload is required.";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -136,19 +135,7 @@ export default function AddBrand() {
               </div>
 
               {/* ALT TEXT */}
-              <div className="space-y-3">
-                <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">
-                  SEO Metadata / Alt Text
-                </label>
-                <input
-                  type="text"
-                  value={form.altText}
-                  onChange={(e) => setForm({ ...form, altText: e.target.value })}
-                  placeholder="Describe the visual asset..."
-                  className={`w-full px-6 py-4 rounded-2xl border text-sm font-bold tracking-tight transition-all outline-none 
-                    ${errors.altText ? "border-red-500 ring-4 ring-red-50" : "border-slate-100 bg-slate-50 focus:bg-white focus:border-black focus:ring-4 focus:ring-slate-100"}`}
-                />
-              </div>
+
 
               {/* IMAGE UPLOAD */}
               <div className="space-y-3">
@@ -158,7 +145,7 @@ export default function AddBrand() {
                 <div className="relative group">
                   <label className={`group border-2 border-dashed rounded-3xl w-full h-56 flex flex-col items-center justify-center cursor-pointer transition-all duration-300
                     ${imageFile ? "bg-slate-50 border-black" : "bg-slate-50 border-slate-200 hover:border-black hover:bg-white"}`}>
-                    
+
                     {imageFile ? (
                       <div className="relative w-36 h-36 rounded-2xl overflow-hidden shadow-2xl border border-white">
                         <Image
@@ -220,11 +207,11 @@ export default function AddBrand() {
                 <div className="w-2 h-2 rounded-full bg-slate-200"></div>
               </div>
             </div>
-            
+
             {/* LUXURY PREVIEW CARD */}
             <div className="bg-slate-950 rounded-[2.5rem] p-10 flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
-              
+
               <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl p-8 w-full aspect-square flex items-center justify-center mb-8 overflow-hidden relative group">
                 {imageFile ? (
                   <img

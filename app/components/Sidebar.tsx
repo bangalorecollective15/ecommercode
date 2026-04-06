@@ -16,7 +16,9 @@ import {
   LogOut,
   ChevronRight,
   LayoutDashboard,
-  Circle
+  QrCode,        // Added for UPI
+  CreditCard,    // Added for Payments
+  CheckCircle    // Added for Approvals
 } from "lucide-react";
 
 interface SidebarProps {
@@ -29,23 +31,34 @@ export default function Sidebar({ role }: SidebarProps) {
 
   const menu = [
     { label: "Overview", href: "/dashboard", icon: <LayoutDashboard size={16} /> },
-    { label: "Terminal POS", href: "/pos", icon: <ClipboardList size={16} /> },
+    { label: "POS", href: "/pos", icon: <ClipboardList size={16} /> },
     { label: "Orders", href: "/orderupdate", icon: <ShoppingCart size={16} /> },
+    
+    // NEW: PAYMENTS SECTION
+    {
+      label: "Payments",
+      icon: <CreditCard size={16} />,
+      subMenu: [
+        { label: "UPI Scanner", href: "/payments/upi-scanner", icon: <QrCode size={14} /> },
+        { label: "Pay Approvals", href: "/payments/approvals", icon: <CheckCircle size={14} /> },
+      ],
+    },
+
     {
       label: "Brand",
       icon: <Shield size={16} />,
       subMenu: [
-        { label: "New Entry", href: "/brands/newbrands" },
-        { label: "Inventory", href: "/brands/listbrands" },
+        { label: "New Brands", href: "/brands/newbrands" },
+        { label: "List Brands", href: "/brands/listbrands" },
       ],
     },
     {
       label: "Category",
       icon: <ListTree size={16} />,
       subMenu: [
-        { label: "Primary", href: "/categorysetup/category" },
-        { label: "Secondary", href: "/categorysetup/subcategory" },
-        { label: "Tertiary", href: "/categorysetup/subsubcategory" },
+        { label: "Main category", href: "/categorysetup/category" },
+        { label: "subcategory", href: "/categorysetup/subcategory" },
+        { label: "Deep subcategory", href: "/categorysetup/subsubcategory" },
       ],
     },
     {
@@ -54,17 +67,17 @@ export default function Sidebar({ role }: SidebarProps) {
       subMenu: [
         { label: "Add New", href: "/products/addproducts" },
         { label: "All Products", href: "/products/listproducts" },
+        { label: "Bulk Upload", href: "/products/bulkupload" },
         { label: "Stock", href: "/products/restock" },
         { label: "Attributes", href: "/attribute" },
       ],
     },
     {
-      label: "Marketing",
+      label: "Home page",
       icon: <Megaphone size={16} />,
       subMenu: [
-        { label: "Hero Banner", href: "/hero" },
-        { label: "Showcase", href: "/banner" },
-        { label: "Notification", href: "/notification" },
+        { label: "Banner Sections", href: "/hero" },
+        { label: "Top Sections", href: "/banner" },
         { label: "Instagram", href: "/insta" },
       ],
     },
@@ -80,9 +93,8 @@ export default function Sidebar({ role }: SidebarProps) {
     { label: "User", href: "/customer", icon: <Users size={16} /> },
   ];
 
-  // This Effect automatically opens the correct menu based on the URL on page load
   useEffect(() => {
-    filteredMenu.forEach((item) => {
+    menu.forEach((item) => {
       if (item.subMenu) {
         const isSubItemActive = item.subMenu.some((sub) => pathname === sub.href);
         if (isSubItemActive) {
@@ -92,8 +104,9 @@ export default function Sidebar({ role }: SidebarProps) {
     });
   }, [pathname]);
 
+  // Updated Filter: Added "Payments" to subadmin visibility
   const filteredMenu = role === "subadmin" 
-    ? menu.filter(m => ["Overview", "Terminal POS", "Orders", "Products"].includes(m.label)) 
+    ? menu.filter(m => ["Overview", "POS", "Orders", "Products", "Payments"].includes(m.label)) 
     : menu;
 
   return (
@@ -115,7 +128,6 @@ export default function Sidebar({ role }: SidebarProps) {
       {/* 2. NAVIGATION */}
       <nav className="flex-1 px-5 space-y-1.5 overflow-y-auto no-scrollbar">
         {filteredMenu.map((item) => {
-          // Check if current page is the main link OR inside the subMenu
           const isCurrentPath = pathname === item.href;
           const isSubMenuChildActive = item.subMenu?.some((sub) => pathname === sub.href);
           const isParentActive = isCurrentPath || isSubMenuChildActive;
@@ -127,7 +139,7 @@ export default function Sidebar({ role }: SidebarProps) {
                   <button
                     onClick={() => setOpenMenu(openMenu === item.label ? null : item.label)}
                     className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300
-                    ${isParentActive ? "bg-black text-white shadow-xl shadow-black/10" : "text-gray-400 hover:text-black hover:bg-gray-50"}`}
+                    ${isParentActive ? "bg-black text-white shadow-xl shadow-black/10" : "text-black hover:bg-gray-50"}`}
                   >
                     <div className="flex items-center gap-3">
                       {item.icon}
@@ -136,38 +148,37 @@ export default function Sidebar({ role }: SidebarProps) {
                     <ChevronRight size={12} className={`transition-transform duration-500 ${openMenu === item.label ? "rotate-90" : "opacity-30"}`} />
                   </button>
                   
-              {openMenu === item.label && (
-  <div className="mt-1 ml-9 flex flex-col gap-1 border-l-2 border-gray-100/50">
-    {item.subMenu.map((sub) => {
-      const isSubActive = pathname === sub.href;
-      return (
-        <Link
-          key={sub.label}
-          href={sub.href}
-          className={`
-            relative block px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all
-            ${isSubActive 
-              ? "text-black bg-gray-50 rounded-r-lg" 
-              : "text-slate-500 hover:text-black hover:bg-gray-50/50 rounded-r-lg"
-            }
-          `}
-        >
-          {/* Active Indicator Dot */}
-          {isSubActive && (
-            <span className="absolute left-[-2px] top-1/2 -translate-y-1/2 w-0.5 h-4 bg-black rounded-full" />
-          )}
-          {sub.label}
-        </Link>
-      );
-    })}
-  </div>
-)}
+                  {openMenu === item.label && (
+                    <div className="mt-1 ml-9 flex flex-col gap-1 border-l-2 border-gray-100/50">
+                      {item.subMenu.map((sub) => {
+                        const isSubActive = pathname === sub.href;
+                        return (
+                          <Link
+                            key={sub.label}
+                            href={sub.href}
+                            className={`
+                              relative block px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all
+                              ${isSubActive 
+                                ? "text-black bg-gray-50 rounded-r-lg" 
+                                : "text-black hover:bg-gray-50/50 rounded-r-lg"
+                              }
+                            `}
+                          >
+                            {isSubActive && (
+                              <span className="absolute left-[-2px] top-1/2 -translate-y-1/2 w-0.5 h-4 bg-black rounded-full" />
+                            )}
+                            {sub.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <Link
                   href={item.href!}
                   className={`flex items-center gap-3 px-4 py-3 rounded-xl mb-1 transition-all duration-300
-                  ${pathname === item.href ? "bg-black text-white shadow-xl shadow-black/10" : "text-gray-400 hover:text-black hover:bg-gray-50"}`}
+                  ${pathname === item.href ? "bg-black text-white shadow-xl shadow-black/10" : "text-black hover:bg-gray-50"}`}
                 >
                   {item.icon}
                   <span className="text-[10px] font-black uppercase tracking-[0.15em]">{item.label}</span>
@@ -181,8 +192,6 @@ export default function Sidebar({ role }: SidebarProps) {
       {/* 3. FOOTER */}
       <div className="p-6">
         <div className="bg-gray-50/50 rounded-[1.5rem] p-5 flex flex-col items-center border border-gray-100/50">
-      
-
           <button
             onClick={() => window.location.href = "/login"}
             className="w-full py-3 bg-white border border-black text-black text-[9px] font-black uppercase tracking-[0.2em] rounded-xl hover:bg-black hover:text-white transition-all active:scale-[0.97] shadow-sm"
