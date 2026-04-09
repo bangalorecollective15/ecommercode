@@ -23,7 +23,7 @@ export default function JewelryLandingPage() {
     hero3: "https://images.unsplash.com/photo-1617038220319-276d3cfab638?q=80&w=2070&auto=format&fit=crop",
     sapphire: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?q=80&w=1974&auto=format&fit=crop",
     silver: "https://images.unsplash.com/photo-1605100804763-247f67b3557e?q=80&w=2070&auto=format&fit=crop",
-    gem: "https://images.unsplash.com/photo-1616111721541-0118679f2294?q=80&w=1961&auto=format&fit=crop",
+gem: "https://images.unsplash.com/photo-1602751584552-8ba73aad10e1?q=80&w=1964&auto=format&fit=crop",
     rose: "https://images.unsplash.com/photo-1569388330292-79cc1ec67270?q=80&w=1974&auto=format&fit=crop",
     promo1: "https://images.unsplash.com/photo-1573408301185-9146fe634ad0?q=80&w=2000&auto=format&fit=crop",
     promo2: "https://images.unsplash.com/photo-1602173574767-37ac01994b2a?q=80&w=2000&auto=format&fit=crop",

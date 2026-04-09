@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Sidebar from "@/app/components/Sidebar";
 import Header from "@/app/components/Header";
 
@@ -6,18 +9,25 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const [role, setRole] = useState<"admin" | "subadmin">("admin");
+
+  useEffect(() => {
+    const storedRole = localStorage.getItem("userRole") as "admin" | "subadmin";
+    if (storedRole) {
+      setRole(storedRole);
+    }
+  }, []);
+
   return (
-    <div className="flex min-h-screen bg-[#fcfcfc]">
-      {/* Sidebar stays fixed on the left */}
-      <Sidebar />
+    <div className="flex h-screen overflow-hidden bg-[#fcfcfc]">
+      <Sidebar role={role} /> 
       
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header stays at the top of the content area */}
+      <div className="flex flex-col flex-1 overflow-x-hidden overflow-y-auto">
         <Header />
-        
-        {/* This is where your Dashboard Page content will render */}
-        <main className="flex-1">
-          {children}
+        <main className="p-6 md:p-10">
+          <div className="max-w-7xl mx-auto">
+            {children}
+          </div>
         </main>
       </div>
     </div>
