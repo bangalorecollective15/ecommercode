@@ -14,7 +14,8 @@ import {
   Truck, 
   LayoutDashboard,
   Calendar,
-  Eye
+  Eye,
+  ArrowUpRight
 } from "lucide-react";
 
 const supabase = createClient(
@@ -64,14 +65,11 @@ export default function OrdersDashboard() {
     const to = from + pageSize - 1;
 
     let query = supabase.from("orders").select("*", { count: "exact" });
-
     if (search) query = query.ilike("full_name", `%${search}%`);
     if (statusFilter) query = query.eq("status", statusFilter);
-
     query = query.order("order_date", { ascending: sortOrder === "asc" }).range(from, to);
 
     const { data, count, error } = await query;
-
     if (!error) {
       setOrders(data as Order[]);
       setTotalOrders(count || 0);
@@ -80,9 +78,7 @@ export default function OrdersDashboard() {
   };
 
   const fetchCounts = async () => {
-    // Optimization: Only select the status column
     const { data } = await supabase.from("orders").select("status");
-
     const newCounts: OrderCounts = {
       pending: 0, confirmed: 0, processing: 0, out_for_delivery: 0, delivered: 0,
     };
@@ -95,7 +91,6 @@ export default function OrdersDashboard() {
       else if (s === "out_for_delivery" || s === "out of delivery") newCounts.out_for_delivery++;
       else if (s === "delivered") newCounts.delivered++;
     });
-
     setCounts(newCounts);
   };
 
@@ -107,44 +102,52 @@ export default function OrdersDashboard() {
   const totalPages = Math.ceil(totalOrders / pageSize);
 
   return (
-    <div className="min-h-screen bg-[#FDFDFD] p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-[#FBFBFC] p-4 md:p-10 selection:bg-brand-gold selection:text-white">
+      <div className="max-w-7xl mx-auto space-y-10">
         
-        {/* Header */}
-        <div className="flex items-center justify-between">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
-            <div className="flex items-center gap-2 text-black mb-1">
-              <LayoutDashboard size={20} />
-              <span className="text-xs font-black uppercase tracking-widest">Management</span>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-[2px] bg-brand-gold" />
+              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-brand-gold">Studio Registry</span>
             </div>
-            <h1 className="text-4xl font-black text-slate-900 tracking-tight">Orders</h1>
+            <h1 className="text-5xl font-black text-brand-blue tracking-tighter uppercase leading-none">
+              Order <span className="text-brand-gold italic">Ledger</span>
+            </h1>
           </div>
-          <div className="bg-orange-50 px-4 py-2 rounded-2xl border border-orange-100">
-             <p className="text-[10px] font-bold text-orange-600 uppercase tracking-tighter">Total Managed</p>
-             <p className="text-xl font-black text-orange-700">{totalOrders}</p>
+          
+          <div className="flex items-center gap-4 bg-white p-4 rounded-[2rem] border border-slate-100 shadow-xl shadow-brand-blue/5">
+            <div className="w-12 h-12 bg-brand-blue rounded-2xl flex items-center justify-center text-brand-gold shadow-lg">
+              <Package size={20} />
+            </div>
+            <div>
+               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Managed</p>
+               <p className="text-2xl font-black text-brand-blue leading-none tracking-tight">{totalOrders}</p>
+            </div>
           </div>
         </div>
 
-        {/* Status Counts - Redesigned */}
+        {/* Status Analytics - Redesigned Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <StatusCard label="Placed" value={counts.pending} icon={<Clock size={20}/>} color="amber" />
-          <StatusCard label="Confirmed" value={counts.confirmed} icon={<Package size={20}/>} color="blue" />
-          <StatusCard label="Processing" value={counts.processing} icon={<LayoutDashboard size={20}/>} color="purple" />
-          <StatusCard label="Shipping" value={counts.out_for_delivery} icon={<Truck size={20}/>} color="orange" />
-          <StatusCard label="Delivered" value={counts.delivered} icon={<CheckCircle2 size={20}/>} color="green" />
+          <StatusCard label="In Queue" value={counts.pending} icon={<Clock size={18}/>} color="gold" />
+          <StatusCard label="Confirmed" value={counts.confirmed} icon={<CheckCircle2 size={18}/>} color="blue" />
+          <StatusCard label="Workplace" value={counts.processing} icon={<LayoutDashboard size={18}/>} color="blue" />
+          <StatusCard label="Transit" value={counts.out_for_delivery} icon={<Truck size={18}/>} color="gold" />
+          <StatusCard label="Archived" value={counts.delivered} icon={<Package size={18}/>} color="green" />
         </div>
 
-        {/* Toolbar: Search & Filters */}
-        <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">
+        {/* Filter Controls */}
+        <div className="bg-brand-blue p-6 rounded-[2.5rem] shadow-2xl shadow-brand-blue/20">
           <div className="flex flex-col lg:flex-row gap-4">
             <div className="relative flex-grow">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input
                 type="text"
-                placeholder="Search by customer name..."
+                placeholder="FIND CLIENT BY NAME OR ID..."
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 font-medium text-slate-700 transition-all"
+                className="w-full pl-14 pr-6 py-5 bg-white/5 border-none rounded-[1.5rem] focus:ring-2 focus:ring-brand-gold text-[11px] font-bold text-white uppercase tracking-widest transition-all placeholder:text-slate-500"
               />
             </div>
             
@@ -152,29 +155,20 @@ export default function OrdersDashboard() {
               <select
                 value={statusFilter}
                 onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-                className="bg-slate-50 border-none rounded-2xl px-6 py-4 font-bold text-slate-600 focus:ring-2 focus:ring-orange-500 outline-none appearance-none"
+                className="bg-white/5 border-none rounded-2xl px-8 py-5 text-[10px] font-black text-white uppercase tracking-widest focus:ring-2 focus:ring-brand-gold outline-none cursor-pointer"
               >
-                <option value="">All Statuses</option>
-                <option value="placed">Placed</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="processing">Processing</option>
-                <option value="out_for_delivery">Out for Delivery</option>
-                <option value="delivered">Delivered</option>
-              </select>
-
-              <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as "asc" | "desc")}
-                className="bg-slate-50 border-none rounded-2xl px-6 py-4 font-bold text-slate-600 focus:ring-2 focus:ring-orange-500 outline-none"
-              >
-                <option value="desc">Newest First</option>
-                <option value="asc">Oldest First</option>
+                <option className="text-black" value="">Status: All</option>
+                <option className="text-black" value="placed">Placed</option>
+                <option className="text-black" value="confirmed">Confirmed</option>
+                <option className="text-black" value="processing">Processing</option>
+                <option className="text-black" value="out_for_delivery">Transit</option>
+                <option className="text-black" value="delivered">Delivered</option>
               </select>
 
               <button
                 onClick={() => { setSearch(""); setStatusFilter(""); setSortOrder("desc"); setPage(1); }}
-                className="p-4 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl transition-colors"
-                title="Clear Filters"
+                className="p-5 bg-brand-gold text-brand-blue rounded-2xl hover:scale-105 transition-transform shadow-lg shadow-brand-gold/20"
+                title="Reset Workspace"
               >
                 <FilterX size={20} />
               </button>
@@ -182,56 +176,61 @@ export default function OrdersDashboard() {
           </div>
         </div>
 
-        {/* Table Container */}
-        <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/40 border border-slate-100 overflow-hidden">
+        {/* Data Table */}
+        <div className="bg-white rounded-[3rem] shadow-2xl shadow-brand-blue/5 border border-slate-100 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50">
-                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Date & Time</th>
-                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Customer</th>
-                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Amount</th>
-                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
-                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
+                  <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Creation Date</th>
+                  <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Client Identity</th>
+                  <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Settlement</th>
+                  <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Status</th>
+                  <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="py-20 text-center text-orange-600 font-bold animate-pulse">Loading orders...</td>
+                    <td colSpan={5} className="py-32 text-center">
+                       <div className="inline-flex items-center gap-3 text-brand-gold animate-pulse">
+                         <div className="w-2 h-2 rounded-full bg-brand-gold" />
+                         <span className="text-[11px] font-black uppercase tracking-[0.3em]">Synchronizing Registry...</span>
+                       </div>
+                    </td>
                   </tr>
                 ) : orders.map((order) => (
-                  <tr key={order.id} className="hover:bg-orange-50/30 transition-colors group">
-                    <td className="px-8 py-5">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-slate-100 p-2 rounded-xl text-slate-500 group-hover:bg-white group-hover:text-orange-600 transition-colors">
+                  <tr key={order.id} className="hover:bg-slate-50 transition-all group">
+                    <td className="px-10 py-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-300 group-hover:bg-brand-blue group-hover:text-brand-gold transition-colors">
                           <Calendar size={16} />
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-sm font-bold text-slate-700">
-                            {new Date(order.order_date).toLocaleDateString("en-GB", { day: '2-digit', month: 'short', year: 'numeric' })}
+                          <span className="text-xs font-black text-brand-blue">
+                            {new Date(order.order_date).toLocaleDateString("en-GB", { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()}
                           </span>
-                          <span className="text-[10px] font-medium text-slate-400 uppercase tracking-tighter">
+                          <span className="text-[10px] font-bold text-slate-400">
                             {new Date(order.order_date).toLocaleTimeString("en-GB", { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
                       </div>
                     </td>
-                    <td className="px-8 py-5">
-                      <span className="text-sm font-black text-slate-800">{order.full_name}</span>
+                    <td className="px-10 py-6">
+                      <span className="text-xs font-black text-brand-blue uppercase tracking-wider">{order.full_name}</span>
                     </td>
-                    <td className="px-8 py-5">
-                      <span className="text-sm font-black text-black">₹{order.grand_total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    <td className="px-10 py-6">
+                      <span className="text-sm font-black text-brand-blue tracking-tighter">₹{order.grand_total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                     </td>
-                    <td className="px-8 py-5 text-center">
+                    <td className="px-10 py-6 text-center">
                       <StatusBadge status={order.status} />
                     </td>
-                    <td className="px-8 py-5 text-right">
+                    <td className="px-10 py-6 text-right">
                       <button
-                       onClick={() => router.push(`/orderupdate/vieworder/${order.id}`)}
-                        className="inline-flex items-center gap-2 bg-black  text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-lg shadow-orange-100 transition-all active:scale-95"
+                        onClick={() => router.push(`/orderupdate/vieworder/${order.id}`)}
+                        className="p-3 bg-brand-blue text-white rounded-xl hover:bg-brand-gold transition-all shadow-lg hover:shadow-brand-gold/20"
                       >
-                        <Eye size={14} /> UPDATE
+                        <ArrowUpRight size={18} />
                       </button>
                     </td>
                   </tr>
@@ -240,33 +239,27 @@ export default function OrdersDashboard() {
             </table>
           </div>
 
-          {/* Pagination */}
-          <div className="px-8 py-6 bg-slate-50/50 border-t border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-slate-500 font-bold">
-              Showing <span className="text-slate-900">{orders.length}</span> of {totalOrders} orders
-            </p>
+          {/* Footer Pagination */}
+          <div className="px-10 py-8 bg-slate-50/30 flex flex-col md:flex-row items-center justify-between gap-6 border-t border-slate-50">
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Page</span>
+              <div className="flex items-center gap-1.5 bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm">
+                 <span className="text-xs font-black text-brand-blue">{page}</span>
+                 <span className="text-slate-300">/</span>
+                 <span className="text-xs font-black text-slate-400">{totalPages}</span>
+              </div>
+            </div>
             
             <div className="flex items-center gap-2">
               <button
-                className="p-2 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 disabled:opacity-30 transition-colors"
+                className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-slate-100 text-brand-blue hover:bg-brand-blue hover:text-white disabled:opacity-30 transition-all shadow-sm"
                 onClick={() => setPage(p => Math.max(p - 1, 1))}
                 disabled={page === 1}
               >
                 <ChevronLeft size={20} />
               </button>
-              
-              <div className="flex items-center gap-1">
-                 <span className="px-4 py-2 bg-white border border-slate-200 rounded-xl font-black text-sm text-orange-600">
-                   {page}
-                 </span>
-                 <span className="text-slate-400 font-bold px-2">/</span>
-                 <span className="px-2 font-bold text-slate-500 text-sm">
-                   {totalPages}
-                 </span>
-              </div>
-
               <button
-                className="p-2 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 disabled:opacity-30 transition-colors"
+                className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white border border-slate-100 text-brand-blue hover:bg-brand-blue hover:text-white disabled:opacity-30 transition-all shadow-sm"
                 onClick={() => setPage(p => Math.min(p + 1, totalPages))}
                 disabled={page === totalPages}
               >
@@ -280,40 +273,38 @@ export default function OrdersDashboard() {
   );
 }
 
-// Sub-components
+// Redesigned Components
 function StatusCard({ label, value, icon, color }: any) {
   const themes: Record<string, string> = {
-    amber: "bg-amber-50 text-amber-600 border-amber-100",
-    blue: "bg-blue-50 text-blue-600 border-blue-100",
-    purple: "bg-purple-50 text-purple-600 border-purple-100",
-    orange: "bg-orange-50 text-orange-600 border-orange-100",
+    gold: "bg-brand-gold/5 text-brand-gold border-brand-gold/10",
+    blue: "bg-brand-blue/5 text-brand-blue border-brand-blue/10",
     green: "bg-emerald-50 text-emerald-600 border-emerald-100",
   };
 
   return (
-    <div className={`${themes[color]} border p-5 rounded-[1.5rem] flex flex-col gap-3 shadow-sm`}>
+    <div className={`${themes[color]} border p-6 rounded-[2rem] flex flex-col gap-4 shadow-sm group hover:scale-[1.02] transition-transform`}>
       <div className="flex items-center justify-between">
-        <div className="p-2 bg-white/50 rounded-lg">{icon}</div>
-        <span className="text-2xl font-black">{value}</span>
+        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-inherit">{icon}</div>
+        <span className="text-2xl font-black tracking-tighter">{value}</span>
       </div>
-      <span className="text-[10px] font-black uppercase tracking-widest opacity-80">{label}</span>
+      <span className="text-[9px] font-black uppercase tracking-[0.2em] opacity-80">{label}</span>
     </div>
   );
 }
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    pending: "bg-amber-100 text-amber-700",
-    confirmed: "bg-blue-100 text-blue-700",
-    processing: "bg-purple-100 text-purple-700",
-    out_for_delivery: "bg-orange-600 text-white", // Featured Orange-600
-    delivered: "bg-emerald-100 text-emerald-700",
+    pending: "bg-brand-gold/10 text-brand-gold",
+    confirmed: "bg-brand-blue text-white",
+    processing: "bg-slate-100 text-brand-blue border-slate-200",
+    out_for_delivery: "bg-brand-gold text-brand-blue", 
+    delivered: "bg-emerald-50 text-emerald-700",
   };
 
   const label = status.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
-    <span className={`px-4 py-1.5 text-[10px] rounded-full font-black uppercase tracking-tighter inline-block shadow-sm ${colors[status] || "bg-slate-100 text-slate-700"}`}>
+    <span className={`px-5 py-2 text-[9px] rounded-xl font-black uppercase tracking-widest border inline-block ${colors[status] || "bg-slate-50 text-slate-400 border-slate-100"}`}>
       {label}
     </span>
   );

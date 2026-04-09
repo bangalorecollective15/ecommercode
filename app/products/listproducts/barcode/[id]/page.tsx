@@ -115,56 +115,61 @@ console.log("ERROR:", error);
   );
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-6 md:p-10">
-      <div className="max-w-8xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#FBFBFC] p-6 md:p-12 text-[#2b2652] selection:bg-[#c4a174] selection:text-white">
+      <div className="max-w-7xl mx-auto space-y-10">
 
         {/* Header */}
         <div className="flex items-center justify-between">
           <button
             onClick={() => router.back()}
-            className="flex items-center gap-2 text-gray-500 hover:text-orange-600 font-bold transition-all group"
+            className="flex items-center gap-3 text-slate-400 hover:text-[#c4a174] font-black transition-all group"
           >
-            <ArrowLeft size={20} className="group-hover:-translate-x-1" />
-            <span className="uppercase tracking-widest text-xs">Back</span>
+            <ArrowLeft size={18} className="group-hover:-translate-x-2 transition-transform" />
+            <span className="uppercase tracking-[0.3em] text-[10px]">Back to Fleet</span>
           </button>
-          <h1 className="text-2xl font-black text-gray-900 uppercase">Barcode Generator</h1>
+          <div className="text-right">
+             <h1 className="text-3xl font-black text-[#2b2652] uppercase tracking-tighter">
+                Barcode <span className="text-[#c4a174] italic">Engine</span>
+             </h1>
+          </div>
         </div>
 
         {/* Configuration Card */}
-        <div className="bg-white p-8 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col lg:flex-row gap-8 items-stretch lg:items-end transition-all">
+        <div className="bg-white p-10 rounded-[3rem] shadow-2xl shadow-[#2b2652]/5 border border-slate-50 flex flex-col lg:flex-row gap-10 items-stretch lg:items-end transition-all relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-1 h-full bg-[#c4a174]"></div>
 
           {/* Product Info Section */}
-          <div className="flex-1 space-y-3">
-            <div className="flex items-center gap-2 px-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
-              <label className="text-[11px] font-black uppercase text-gray-400 tracking-[0.1em]">Selected Product</label>
+          <div className="flex-1 space-y-4">
+            <div className="flex items-center gap-3 px-1">
+              <div className="w-2 h-2 rounded-full bg-[#c4a174]"></div>
+              <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Target Entity</label>
             </div>
-            <div className="group relative overflow-hidden p-4 bg-gray-50/50 rounded-2xl border border-gray-100 hover:border-orange-200 hover:bg-white transition-all duration-300">
-              <p className="font-extrabold text-gray-900 text-lg leading-tight">{product.name}</p>
-              <p className="text-[10px] text-gray-400 font-bold mt-1 flex items-center gap-1.5">
-                <span className="px-1.5 py-0.5 bg-gray-200 rounded text-gray-600">ID: {product.id}</span>
-                <span className="px-1.5 py-0.5 bg-gray-200 rounded text-gray-600">SKU: {product.sku}</span>
-              </p>
+            <div className="group relative overflow-hidden p-6 bg-slate-50/50 rounded-[2rem] border border-slate-100 hover:border-[#c4a174]/30 hover:bg-white transition-all duration-500">
+              <p className="font-black text-[#2b2652] text-2xl tracking-tighter uppercase">{product.name}</p>
+              <div className="text-[9px] text-[#c4a174] font-black mt-2 flex items-center gap-3 tracking-widest uppercase">
+                <span className="px-3 py-1 bg-[#2b2652] text-white rounded-lg">ID: {product.id}</span>
+                <span className="px-3 py-1 bg-[#2b2652] text-white rounded-lg">SKU: {product.sku}</span>
+              </div>
             </div>
           </div>
 
           {/* Selection Controls */}
-          <div className="lg:w-1/3 space-y-3">
-            <label className="text-[11px] font-black uppercase text-gray-400 tracking-[0.1em] px-1">Size and color</label>
-            <div className="flex gap-3">
+          <div className="lg:w-1/3 space-y-4">
+            <label className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] px-1">Variant Configuration</label>
+            <div className="flex gap-4">
               <div className="relative flex-1 group">
                 <select
                   value={selectedVariation?.id || ""}
                   onChange={(e) => setSelectedVariation(variations.find(v => v.id === Number(e.target.value)))}
-                  className="w-full appearance-none bg-gray-50 border border-gray-100 p-4 rounded-2xl text-sm font-bold text-gray-700 outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 focus:bg-white transition-all cursor-pointer"
+                  className="w-full appearance-none bg-slate-50 border border-slate-100 p-5 rounded-2xl text-[11px] font-black uppercase tracking-widest text-[#2b2652] outline-none focus:border-[#c4a174] focus:bg-white transition-all cursor-pointer"
                 >
                   {variations.map((v) => (
                     <option key={v.id} value={v.id}>
-                      {[v.color?.name, v.size?.name].filter(Boolean).join("  -- ") || "No Variation"}
+                      {[v.color?.name, v.size?.name].filter(Boolean).join(" — ") || "Default Variation"}
                     </option>
                   ))}
                 </select>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 group-focus-within:text-orange-500 transition-colors">
+                <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-[#c4a174]">
                   <Tag size={16} />
                 </div>
               </div>
@@ -174,24 +179,24 @@ console.log("ERROR:", error);
                 min={1}
                 value={qty}
                 onChange={(e) => setQty(Number(e.target.value))}
-                className="w-24 bg-gray-50 border border-gray-100 p-4 rounded-2xl text-sm font-black text-center text-gray-800 outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 focus:bg-white transition-all"
+                className="w-28 bg-slate-50 border border-slate-100 p-5 rounded-2xl text-lg font-black text-center text-[#2b2652] outline-none focus:border-[#c4a174] transition-all"
               />
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3">
+          <div className="flex gap-4">
             <button
               onClick={generateBarcodeItems}
-              className="flex-[2] bg-gray-900 text-white font-bold px-8 py-4 rounded-2xl hover:bg-orange-600 active:scale-95 transition-all flex items-center justify-center gap-3 shadow-xl shadow-gray-200 hover:shadow-orange-200"
+              className="flex-[2] bg-[#2b2652] text-[#c4a174] font-black px-10 py-5 rounded-[1.5rem] hover:bg-[#1a1733] active:scale-95 transition-all flex items-center justify-center gap-3 shadow-xl shadow-[#2b2652]/20 uppercase text-[10px] tracking-widest"
             >
-              <LayoutGrid size={20} className="stroke-[2.5px]" />
-              <span className="tracking-tight">Generate</span>
+              <LayoutGrid size={18} strokeWidth={3} />
+              Generate
             </button>
 
             <button
               onClick={handleReset}
-              className="p-4 bg-gray-100 text-gray-400 rounded-2xl hover:bg-red-50 hover:text-red-500 active:scale-90 transition-all border border-transparent hover:border-red-100"
+              className="p-5 bg-slate-50 text-slate-300 rounded-[1.5rem] hover:bg-red-50 hover:text-red-500 active:scale-90 transition-all border border-transparent hover:border-red-100"
               title="Reset"
             >
               <RotateCcw size={20} />
@@ -200,36 +205,44 @@ console.log("ERROR:", error);
             <button
               disabled={generatedItems.length === 0}
               onClick={() => handlePrint()}
-              className="flex-1 bg-green-500 disabled:bg-gray-100 disabled:text-gray-300 text-white font-bold px-8 py-4 rounded-2xl hover:bg-green-600 active:scale-95 transition-all flex items-center justify-center gap-3 shadow-xl shadow-green-100 disabled:shadow-none"
+              className="flex-1 bg-[#c4a174] disabled:bg-slate-100 disabled:text-slate-300 text-white font-black px-10 py-5 rounded-[1.5rem] hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-3 shadow-xl shadow-[#c4a174]/20 uppercase text-[10px] tracking-widest disabled:shadow-none"
             >
-              <Printer size={20} className="stroke-[2.5px]" />
-              <span className="tracking-tight">Print</span>
+              <Printer size={18} strokeWidth={3} />
+              Print
             </button>
           </div>
         </div>
 
         {/* Preview Area */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="h-1 flex-1 bg-gray-100 rounded-full"></div>
-            <span className="text-[10px] font-black text-gray-300 uppercase">Preview</span>
-            <div className="h-1 flex-1 bg-gray-100 rounded-full"></div>
+        <div className="space-y-8">
+          <div className="flex items-center gap-4">
+            <div className="h-[1px] flex-1 bg-slate-100"></div>
+            <span className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">Digital Proof</span>
+            <div className="h-[1px] flex-1 bg-slate-100"></div>
           </div>
 
           {generatedItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-gray-300">
-              <Tag size={48} />
-              <p className="text-sm font-medium uppercase mt-2">No Barcodes</p>
+            <div className="flex flex-col items-center justify-center py-24 text-slate-200">
+              <div className="relative mb-4">
+                 <Tag size={64} className="opacity-20" />
+                 <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-8 h-[2px] bg-[#c4a174]/30 rotate-45"></div>
+                 </div>
+              </div>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] mt-2">Awaiting Generation</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
               {generatedItems.map((item) => (
-                <div key={`preview-${item.id}`} className="bg-white p-4 rounded-3xl border border-gray-100 flex flex-col items-center shadow-sm">
-                  <p className="text-[10px] font-black text-orange-600 uppercase mb-1">Swaadha</p>
-                  <p className="text-[10px] font-bold text-gray-800 mb-2">{item.name}</p>
-                  {/* PREVIEW ID */}
-                  <svg id={`barcode-${item.id}`} className="max-w-full"></svg>
-                  <p className="text-[9px] font-bold text-gray-400 mt-2 tracking-widest">{item.unit}</p>
+                <div key={`preview-${item.id}`} className="bg-white p-6 rounded-[2.5rem] border border-slate-50 flex flex-col items-center shadow-sm hover:shadow-xl hover:shadow-[#2b2652]/5 transition-all duration-500 group">
+                  <p className="text-[9px] font-black text-[#c4a174] uppercase tracking-widest mb-1 group-hover:scale-110 transition-transform">Swaadha</p>
+                  <p className="text-[10px] font-bold text-[#2b2652] mb-4 text-center px-2 line-clamp-1 uppercase">{item.name}</p>
+                  
+                  <div className="bg-slate-50 p-4 rounded-2xl w-full flex justify-center border border-slate-100 group-hover:bg-white transition-colors">
+                    <svg id={`barcode-${item.id}`} className="max-w-full"></svg>
+                  </div>
+                  
+                  <p className="text-[9px] font-black text-slate-400 mt-4 tracking-[0.2em] uppercase">{item.unit}</p>
                 </div>
               ))}
             </div>
@@ -237,7 +250,6 @@ console.log("ERROR:", error);
         </div>
 
         {/* Hidden Print Area */}
-        {/* We use visibility: hidden instead of display: none to ensure JsBarcode can calculate dimensions */}
         <div style={{ position: 'absolute', top: '-9999px', left: '-9999px' }}>
           <div ref={printAreaRef} className="print-container">
             <style>{`
@@ -245,28 +257,32 @@ console.log("ERROR:", error);
                 .print-container {
                   display: grid;
                   grid-template-columns: repeat(3, 1fr);
-                  gap: 10px;
-                  padding: 10px;
+                  gap: 15px;
+                  padding: 20px;
+                  background: white;
                 }
                 .print-card {
-                  border: 1px solid #000;
+                  border: 0.5pt solid #2b2652;
                   padding: 15px;
                   text-align: center;
                   page-break-inside: avoid;
                   display: flex;
                   flex-direction: column;
                   align-items: center;
+                  font-family: sans-serif;
                 }
+                .brand-label { font-size: 10pt; font-weight: 900; color: #2b2652; text-transform: uppercase; margin-bottom: 2pt; }
+                .name-label { font-size: 8pt; font-weight: 700; color: #000; margin-bottom: 5pt; text-transform: uppercase; }
+                .unit-label { font-size: 7pt; font-weight: 900; color: #666; margin-top: 5pt; text-transform: uppercase; }
                 svg { max-width: 100%; height: auto; }
               }
             `}</style>
             {generatedItems.map((item) => (
               <div key={`print-card-${item.id}`} className="print-card">
-                <p style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 5px 0' }}>Swaadha</p>
-                <p style={{ fontSize: '10px', margin: '0 0 5px 0' }}>{item.name}</p>
-                {/* UNIQUE PRINT ID */}
+                <p className="brand-label">Swaadha</p>
+                <p className="name-label">{item.name}</p>
                 <svg id={`print-barcode-${item.id}`}></svg>
-                <p style={{ fontSize: '9px', marginTop: '5px' }}>{item.unit}</p>
+                <p className="unit-label">{item.unit}</p>
               </div>
             ))}
           </div>

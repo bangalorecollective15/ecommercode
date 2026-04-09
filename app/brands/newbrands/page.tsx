@@ -3,7 +3,16 @@
 import { useState } from "react";
 import Image from "next/image";
 import { createClient } from "@supabase/supabase-js";
-import { Upload, X, CheckCircle2, AlertCircle, RefreshCcw, LayoutPanelLeft, ShieldCheck, Globe } from "lucide-react";
+import { 
+  Upload, 
+  X, 
+  CheckCircle2, 
+  AlertCircle, 
+  RefreshCcw, 
+  LayoutPanelLeft, 
+  ShieldCheck, 
+  Globe 
+} from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 
 const supabase = createClient(
@@ -87,67 +96,64 @@ export default function AddBrand() {
   };
 
   return (
-    <div className="max-w-8xl mx-auto p-6 md:p-12 min-h-screen">
+    <div className="max-w-8xl mx-auto p-6 md:p-12 min-h-screen bg-[#FBFBFC] selection:bg-brand-gold selection:text-brand-blue">
       <Toaster position="top-center" />
 
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 border-b border-slate-100 pb-8">
-        <div className="flex items-center gap-5">
-          <div className="w-14 h-14 bg-black rounded-2xl flex items-center justify-center shadow-xl shadow-slate-200">
-            <ShieldCheck className="text-white w-7 h-7" />
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16 border-b border-slate-100 pb-10">
+        <div className="flex items-center gap-6">
+          <div className="w-16 h-16 bg-brand-blue rounded-2xl flex items-center justify-center shadow-2xl shadow-brand-blue/20">
+            <ShieldCheck className="text-brand-gold w-8 h-8" />
           </div>
           <div>
-            <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">Brand Registry</h2>
-            <p className="text-slate-400 text-sm font-medium mt-1 uppercase tracking-widest">New Asset Onboarding</p>
+            <h2 className="text-4xl font-black text-brand-blue tracking-tighter uppercase leading-none">Brand <span className="text-brand-gold italic">Registry</span></h2>
+            <p className="text-slate-400 text-[10px] font-black mt-2 uppercase tracking-[0.3em]">Protocol: Asset Onboarding</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-full border border-slate-100">
-          <Globe size={14} className="text-slate-400" />
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Global Directory v4.0</span>
+        <div className="flex items-center gap-3 px-5 py-2.5 bg-white rounded-full border border-slate-100 shadow-sm">
+          <Globe size={14} className="text-brand-gold" />
+          <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Node Directory v4.2</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
 
         {/* FORM COLUMN */}
-        <div className="lg:col-span-7 space-y-8">
-          <div className="bg-white rounded-[2rem] border border-slate-200 p-8 md:p-10">
-            <div className="space-y-8">
+        <div className="lg:col-span-7 space-y-10">
+          <div className="bg-white rounded-[3rem] border border-slate-100 p-8 md:p-12 shadow-2xl shadow-brand-blue/5">
+            <div className="space-y-10">
 
               {/* BRAND NAME */}
-              <div className="space-y-3">
-                <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">
+              <div className="space-y-4">
+                <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 ml-2">
                   Brand Identity (EN)
                 </label>
                 <input
                   type="text"
                   value={form.brandName}
-                  onChange={(e) => setForm({ ...form, brandName: e.target.value })}
-                  placeholder="e.g. BALENCIAGA"
-                  className={`w-full px-6 py-4 rounded-2xl border text-sm font-bold tracking-tight transition-all outline-none 
-                    ${errors.brandName ? "border-red-500 ring-4 ring-red-50" : "border-slate-100 bg-slate-50 focus:bg-white focus:border-black focus:ring-4 focus:ring-slate-100"}`}
+                  onChange={(e) => setForm({ ...form, brandName: e.target.value.toUpperCase() })}
+                  placeholder="e.g. LUXURY ENTITY"
+                  className={`w-full px-8 py-5 rounded-[1.5rem] border text-xs font-black tracking-widest transition-all outline-none uppercase
+                    ${errors.brandName ? "border-red-500 ring-4 ring-red-50" : "border-slate-100 bg-slate-50 focus:bg-white focus:border-brand-gold focus:ring-4 focus:ring-brand-gold/5"}`}
                 />
                 {errors.brandName && (
-                  <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ml-1">
+                  <p className="text-red-500 text-[9px] font-black uppercase tracking-widest flex items-center gap-2 ml-2">
                     <AlertCircle className="w-3 h-3" /> {errors.brandName}
                   </p>
                 )}
               </div>
 
-              {/* ALT TEXT */}
-
-
               {/* IMAGE UPLOAD */}
-              <div className="space-y-3">
-                <label className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">
-                  Logo Asset (1:1)
+              <div className="space-y-4">
+                <label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 ml-2">
+                  Logo Asset Profile (1:1)
                 </label>
                 <div className="relative group">
-                  <label className={`group border-2 border-dashed rounded-3xl w-full h-56 flex flex-col items-center justify-center cursor-pointer transition-all duration-300
-                    ${imageFile ? "bg-slate-50 border-black" : "bg-slate-50 border-slate-200 hover:border-black hover:bg-white"}`}>
+                  <label className={`group border-2 border-dashed rounded-[2.5rem] w-full h-64 flex flex-col items-center justify-center cursor-pointer transition-all duration-500
+                    ${imageFile ? "bg-slate-50 border-brand-blue shadow-inner" : "bg-slate-50 border-slate-100 hover:border-brand-gold hover:bg-white hover:shadow-xl"}`}>
 
                     {imageFile ? (
-                      <div className="relative w-36 h-36 rounded-2xl overflow-hidden shadow-2xl border border-white">
+                      <div className="relative w-40 h-40 rounded-3xl overflow-hidden shadow-2xl border-4 border-white animate-in zoom-in duration-500">
                         <Image
                           src={URL.createObjectURL(imageFile)}
                           alt="Preview"
@@ -156,18 +162,18 @@ export default function AddBrand() {
                         />
                         <button
                           onClick={(e) => { e.preventDefault(); setImageFile(null); }}
-                          className="absolute top-2 right-2 bg-black text-white p-1.5 rounded-full hover:bg-red-600 transition-colors shadow-lg"
+                          className="absolute top-2 right-2 bg-brand-blue text-brand-gold p-2 rounded-full hover:bg-red-600 hover:text-white transition-all shadow-lg active:scale-90"
                         >
-                          <X className="w-3 h-3" />
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
                     ) : (
-                      <div className="text-center group-hover:scale-105 transition-transform duration-300">
-                        <div className="mx-auto w-14 h-14 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 border border-slate-100">
-                          <Upload className="text-slate-900 w-6 h-6" />
+                      <div className="text-center group-hover:scale-105 transition-transform duration-500">
+                        <div className="mx-auto w-16 h-16 bg-white rounded-3xl shadow-sm flex items-center justify-center mb-5 border border-slate-100 group-hover:bg-brand-gold transition-colors">
+                          <Upload className="text-brand-blue w-7 h-7" />
                         </div>
-                        <p className="text-xs font-black uppercase tracking-widest text-slate-900">Upload Visual</p>
-                        <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-tighter">SVG, PNG or JPG (Max 2MB)</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-blue">Initialize Asset</p>
+                        <p className="text-[9px] text-slate-400 mt-2 font-bold uppercase tracking-tighter italic">SVG / PNG (Max 2MB)</p>
                       </div>
                     )}
                     <input type="file" accept="image/*" className="hidden" onChange={handleUploadImage} />
@@ -176,20 +182,20 @@ export default function AddBrand() {
               </div>
 
               {/* ACTIONS */}
-              <div className="flex items-center justify-end gap-4 pt-8 border-t border-slate-50">
+              <div className="flex items-center justify-end gap-5 pt-10 border-t border-slate-50">
                 <button
                   onClick={handleReset}
-                  className="px-8 py-4 rounded-2xl border border-slate-200 text-slate-400 font-black text-[10px] uppercase tracking-[0.2em] hover:bg-slate-50 hover:text-black transition-all flex items-center gap-2"
+                  className="px-8 py-5 rounded-2xl border border-slate-200 text-slate-400 font-black text-[10px] uppercase tracking-[0.3em] hover:bg-slate-50 hover:text-brand-blue transition-all flex items-center gap-3 active:scale-95"
                 >
-                  <RefreshCcw className="w-3 h-3" /> Reset
+                  <RefreshCcw className="w-3.5 h-3.5" /> Reset
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={loading}
-                  className="px-10 py-4 rounded-2xl bg-black text-white font-black text-[10px] uppercase tracking-[0.2em] hover:bg-slate-800 shadow-2xl shadow-slate-200 disabled:opacity-30 transition-all flex items-center gap-2"
+                  className="px-12 py-5 rounded-2xl bg-brand-blue text-brand-gold font-black text-[10px] uppercase tracking-[0.3em] hover:bg-brand-gold hover:text-brand-blue shadow-2xl shadow-brand-blue/20 disabled:opacity-30 transition-all flex items-center gap-3 active:scale-95"
                 >
                   {loading ? "Processing..." : (
-                    <> <CheckCircle2 className="w-4 h-4" /> Save Brand </>
+                    <> <CheckCircle2 className="w-4 h-4" /> Sync Asset </>
                   )}
                 </button>
               </div>
@@ -198,63 +204,64 @@ export default function AddBrand() {
         </div>
 
         {/* PREVIEW COLUMN */}
-        <div className="lg:col-span-5 space-y-6">
+        <div className="lg:col-span-5 space-y-8">
           <div className="sticky top-32">
             <div className="mb-6 flex items-center justify-between">
-              <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]">Live Render</h3>
-              <div className="flex gap-1">
-                <div className="w-2 h-2 rounded-full bg-slate-200"></div>
-                <div className="w-2 h-2 rounded-full bg-slate-200"></div>
+              <h3 className="text-[10px] font-black text-brand-blue uppercase tracking-[0.3em]">Live Architecture</h3>
+              <div className="flex gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-brand-gold/30"></div>
+                <div className="w-2 h-2 rounded-full bg-brand-gold"></div>
               </div>
             </div>
 
             {/* LUXURY PREVIEW CARD */}
-            <div className="bg-slate-950 rounded-[2.5rem] p-10 flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
-
-              <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl p-8 w-full aspect-square flex items-center justify-center mb-8 overflow-hidden relative group">
+            <div className="bg-brand-blue rounded-[3.5rem] p-12 flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden group">
+              {/* Decorative Glow */}
+              <div className="absolute -top-24 -right-24 w-64 h-64 bg-brand-gold/10 rounded-full blur-[80px]" />
+              
+              <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-10 w-full aspect-square flex items-center justify-center mb-10 overflow-hidden relative shadow-inner">
                 {imageFile ? (
                   <img
                     src={URL.createObjectURL(imageFile)}
                     alt="Preview"
-                    className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700"
+                    className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-1000 ease-out"
                   />
                 ) : (
-                  <div className="text-white/20 flex flex-col items-center gap-4">
-                    <LayoutPanelLeft className="w-16 h-16 stroke-[1]" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Waiting for Asset</span>
+                  <div className="text-white/10 flex flex-col items-center gap-5">
+                    <LayoutPanelLeft className="w-20 h-20 stroke-[1]" />
+                    <span className="text-[9px] font-black uppercase tracking-[0.4em]">Signal Pending</span>
                   </div>
                 )}
               </div>
 
-              <div className="space-y-1 w-full">
-                <h4 className="text-white text-3xl font-black uppercase tracking-[0.1em] truncate px-4">
-                  {form.brandName || "NO NAME"}
+              <div className="space-y-3 w-full relative z-10">
+                <h4 className="text-white text-4xl font-black uppercase tracking-tighter truncate px-4 leading-tight italic">
+                  {form.brandName || "ENTITY NULL"}
                 </h4>
-                <div className="flex items-center justify-center gap-2 mt-4">
-                  <div className="h-[1px] w-8 bg-white/20"></div>
-                  <p className="text-white/40 text-[9px] font-black uppercase tracking-[0.3em]">
-                    Verified Brand
+                <div className="flex items-center justify-center gap-3 mt-6">
+                  <div className="h-[1px] w-10 bg-brand-gold/20"></div>
+                  <p className="text-brand-gold text-[9px] font-black uppercase tracking-[0.4em]">
+                    Verified Node
                   </p>
-                  <div className="h-[1px] w-8 bg-white/20"></div>
+                  <div className="h-[1px] w-10 bg-brand-gold/20"></div>
                 </div>
               </div>
             </div>
 
-            {/* TIPS */}
-            <div className="mt-8 bg-white border border-slate-100 rounded-3xl p-6">
-              <h5 className="text-black font-black text-[10px] tracking-[0.2em] flex items-center gap-2 mb-4 uppercase">
-                <AlertCircle className="w-3 h-3" /> System Requirements
+            {/* REQUIREMENTS */}
+            <div className="mt-10 bg-white border border-slate-100 rounded-[2rem] p-8 shadow-sm">
+              <h5 className="text-brand-blue font-black text-[10px] tracking-[0.3em] flex items-center gap-3 mb-6 uppercase">
+                <AlertCircle className="w-4 h-4 text-brand-gold" /> Registry Standards
               </h5>
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {[
-                  "Visuals must be high-contrast for modern UI rendering.",
-                  "Square aspect ratios are preferred for grid consistency.",
-                  "Transparent backgrounds (PNG/SVG) are recommended."
+                  "Visuals must utilize high-contrast palette for rendering.",
+                  "Perfect 1:1 aspect ratio required for grid alignment.",
+                  "Transparent SVG/PNG preferred for boutique aesthetic."
                 ].map((tip, i) => (
-                  <div key={i} className="flex gap-3 items-start">
-                    <div className="w-1.5 h-1.5 rounded-full bg-black mt-1.5 shrink-0" />
-                    <p className="text-slate-500 text-[11px] font-bold leading-relaxed">{tip}</p>
+                  <div key={i} className="flex gap-4 items-start">
+                    <div className="w-2 h-2 rounded-full bg-brand-gold mt-1.5 shrink-0 shadow-[0_0_5px_rgba(196,161,116,0.5)]" />
+                    <p className="text-slate-500 text-[11px] font-bold leading-relaxed tracking-tight">{tip}</p>
                   </div>
                 ))}
               </div>

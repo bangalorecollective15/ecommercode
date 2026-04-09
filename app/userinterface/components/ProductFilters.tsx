@@ -3,14 +3,15 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { 
   ChevronRight, RotateCcw, ChevronDown, 
-  Calendar, ShieldCheck 
+  Calendar, ShieldCheck, Filter 
 } from "lucide-react";
 
-export default function ProductFilters({ categories, brands, filters = {}, setFilters }: any) {
+export default function ProductFilters({ categories, brands, lifestyleTags, filters = {}, setFilters }: any) {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const { category_id, subcategory_id, sub_subcategory_id, brand_id, sort } = filters;
+  const { category_id, subcategory_id, sub_subcategory_id, brand_id, lifestyle_tag_id, sort } = filters;
   const menuRef = useRef<HTMLDivElement>(null);
-
+console.log("Selected Filter:", filters.lifestyle_tag_id);
+  // Close dropdowns on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -42,28 +43,29 @@ export default function ProductFilters({ categories, brands, filters = {}, setFi
   };
 
   const sortOptions = [
-    { id: 'latest', label: 'Newest' },
-    { id: 'oldest', label: 'Oldest' },
-    { id: 'alpha', label: 'A-Z' },
+    { id: 'latest', label: 'Newest Arrivals' },
+    { id: 'oldest', label: 'Archive' },
+    { id: 'alpha', label: 'Alphabetical' },
   ];
 
   return (
-    <div className="w-full flex justify-center py-6 px-4">
-      <div className="inline-flex items-center gap-1 p-2 bg-white border border-slate-200 shadow-2xl rounded-full z-[60] transition-all duration-500 ease-in-out">
+    <div className="w-full flex flex-col items-center py-8 px-4 space-y-4">
+      {/* --- LAYER 1: THE COMMAND BAR (Sort, Brand, Main Categories) --- */}
+      <div className="flex flex-wrap justify-center items-center gap-2 p-2 bg-white/80 backdrop-blur-xl border border-slate-200 shadow-[0_20px_50px_rgba(43,38,82,0.05)] rounded-[2rem] z-[60]">
         
-        {/* 1. SORTING DROPDOWN */}
-        <div className="relative border-r border-slate-100 pr-2 shrink-0">
+        {/* SORT BUTTON */}
+        <div className="relative border-r border-slate-100 pr-2">
           <button 
             onClick={() => setActiveMenu(activeMenu === 'sort' ? null : 'sort')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-all font-bold text-[13px] uppercase tracking-tighter ${activeMenu === 'sort' ? 'bg-slate-50' : ''}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all font-black text-[11px] uppercase tracking-widest ${activeMenu === 'sort' ? 'text-brand-gold bg-slate-50' : 'text-brand-blue hover:bg-slate-50'}`}
           >
-            <Calendar size={15} className="text-slate-400" />
-            <span className="text-slate-900">{sortOptions.find(o => o.id === sort)?.label || "Sort"}</span>
-            <ChevronDown size={14} className={`transition-transform duration-300 ${activeMenu === 'sort' ? 'rotate-180' : ''}`} />
+            <Calendar size={14} />
+            <span>{sortOptions.find(o => o.id === sort)?.label || "Sort"}</span>
+            <ChevronDown size={12} className={`transition-transform duration-300 ${activeMenu === 'sort' ? 'rotate-180' : ''}`} />
           </button>
 
           {activeMenu === 'sort' && (
-            <div ref={menuRef} className="absolute top-[125%] left-0 w-44 bg-white border border-slate-100 shadow-2xl rounded-2xl p-2 z-[100] animate-in fade-in zoom-in-95">
+            <div ref={menuRef} className="absolute top-[130%] left-0 w-48 bg-white border border-slate-100 shadow-2xl rounded-2xl p-2 z-[100] animate-in fade-in slide-in-from-top-2">
               {sortOptions.map((opt) => (
                 <button 
                   key={opt.id}
@@ -71,7 +73,7 @@ export default function ProductFilters({ categories, brands, filters = {}, setFi
                     setFilters({...filters, sort: opt.id});
                     setActiveMenu(null);
                   }}
-                  className={`w-full text-left px-4 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all ${sort === opt.id ? 'bg-slate-900 text-white' : 'hover:bg-slate-50 text-slate-500'}`}
+                  className={`w-full text-left px-4 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${sort === opt.id ? 'bg-brand-blue text-white' : 'hover:bg-slate-50 text-slate-400 hover:text-brand-blue'}`}
                 >
                   {opt.label}
                 </button>
@@ -80,96 +82,136 @@ export default function ProductFilters({ categories, brands, filters = {}, setFi
           )}
         </div>
 
-        {/* 2. BRAND DROPDOWN (New Addition) */}
-        <div className="relative border-r border-slate-100 pr-2 shrink-0">
+        {/* BRAND BUTTON */}
+        <div className="relative border-r border-slate-100 pr-2">
           <button 
             onClick={() => setActiveMenu(activeMenu === 'brand' ? null : 'brand')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-all font-bold text-[13px] uppercase tracking-tighter ${brand_id ? 'bg-orange-50 text-orange-600' : 'text-slate-900 hover:bg-slate-50'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all font-black text-[11px] uppercase tracking-widest ${brand_id ? 'text-brand-gold' : 'text-brand-blue hover:bg-slate-50'}`}
           >
-            <ShieldCheck size={15} className={brand_id ? 'text-orange-500' : 'text-slate-400'} />
-            <span>{activeBrandName || "Brand"}</span>
-            <ChevronDown size={14} className={`transition-transform duration-300 ${activeMenu === 'brand' ? 'rotate-180' : ''}`} />
+            <ShieldCheck size={14} />
+            <span>{activeBrandName || "Designer"}</span>
           </button>
 
           {activeMenu === 'brand' && (
-            <div ref={menuRef} className="absolute top-[125%] left-0 w-56 bg-white border border-slate-100 shadow-2xl rounded-2xl p-2 z-[100] animate-in fade-in zoom-in-95 max-h-[300px] overflow-y-auto custom-scrollbar">
-              <p className="px-4 py-2 text-[10px] font-black text-slate-300 tracking-[0.2em] uppercase">Select Maison</p>
-              {brands?.filter((b: any) => b.status).map((brand: any) => (
+            <div ref={menuRef} className="absolute top-[130%] left-0 w-64 bg-white border border-slate-100 shadow-2xl rounded-2xl p-2 z-[100] animate-in fade-in slide-in-from-top-2 max-h-[400px] overflow-y-auto no-scrollbar">
+              <div className="px-4 py-2 text-[9px] font-black text-slate-300 tracking-[0.3em] uppercase border-b border-slate-50 mb-1">Curation By Maison</div>
+              {brands?.map((brand: any) => (
                 <button 
                   key={brand.id}
                   onClick={() => {
                     setFilters({...filters, brand_id: brand.id});
                     setActiveMenu(null);
                   }}
-                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[11px] font-black uppercase transition-all ${Number(brand_id) === Number(brand.id) ? 'bg-slate-900 text-white' : 'hover:bg-slate-50 text-slate-500'}`}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${Number(brand_id) === Number(brand.id) ? 'bg-brand-gold text-white' : 'hover:bg-brand-blue/5 text-brand-blue'}`}
                 >
                   {brand.name_en}
-                  {brand.image_url && <img src={brand.image_url} alt="" className="w-4 h-4 rounded-full grayscale" />}
                 </button>
               ))}
             </div>
           )}
         </div>
+        {/* LIFESTYLE BUTTON */}
+<div className="relative border-r border-slate-100 pr-2">
+  <button 
+    onClick={() => setActiveMenu(activeMenu === 'lifestyle' ? null : 'lifestyle')}
+    className={`flex items-center gap-2 px-4 py-2 rounded-full font-black text-[11px] uppercase tracking-widest ${
+      lifestyle_tag_id ? 'text-brand-gold' : 'text-brand-blue hover:bg-slate-50'
+    }`}
+  >
+    <Filter size={14} />
+    <span>
+      {lifestyleTags?.find((l:any)=>Number(l.id)===Number(lifestyle_tag_id))?.name || "Lifestyle"}
+    </span>
+  </button>
 
-        {/* 3. MAIN CATEGORIES */}
-        <div className="flex items-center gap-1 px-2 shrink-0">
+  {activeMenu === 'lifestyle' && (
+    <div ref={menuRef} className="absolute top-[130%] left-0 w-56 bg-white border shadow-xl rounded-2xl p-2 z-[100]">
+      {lifestyleTags?.map((tag:any)=>(
+        <button
+          key={tag.id}
+          onClick={()=>{
+            setFilters({...filters, lifestyle_tag_id: tag.id});
+            setActiveMenu(null);
+          }}
+          className={`w-full text-left px-4 py-2 text-[10px] font-black uppercase ${
+            Number(lifestyle_tag_id)===Number(tag.id)
+              ? 'bg-brand-blue text-white'
+              : 'hover:bg-slate-50'
+          }`}
+        >
+          {tag.name}
+        </button>
+      ))}
+    </div>
+  )}
+</div>
+
+        {/* MAIN CATEGORIES */}
+        <div className="flex items-center gap-1 px-2">
           {categories?.map((cat: any) => (
             <button 
               key={cat.id} 
               onClick={() => handleCatSelect(cat.id)}
-              className={`px-5 py-2.5 rounded-full transition-all whitespace-nowrap font-bold text-[13px] uppercase tracking-widest ${Number(category_id) === Number(cat.id) ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
+              className={`px-6 py-2 rounded-full transition-all font-black text-[11px] uppercase tracking-widest ${Number(category_id) === Number(cat.id) ? 'bg-brand-blue text-white shadow-xl' : 'text-slate-400 hover:text-brand-blue hover:bg-slate-50'}`}
             >
               {cat.name}
             </button>
           ))}
         </div>
 
-        {/* 4. SUB-CATEGORIES */}
-        {activeCategory && (
-          <div className="flex items-center gap-2 animate-in slide-in-from-left-2 fade-in duration-500 border-l border-slate-100 pl-3 shrink-0">
-            <ChevronRight size={18} className="text-orange-500" />
-            <div className="flex items-center gap-1">
-              {activeCategory.subcategories?.map((sub: any) => (
-                <button 
-                  key={sub.id} 
-                  onClick={() => setFilters({...filters, subcategory_id: sub.id, sub_subcategory_id: null})}
-                  className={`px-4 py-2 rounded-full text-[12px] font-black uppercase tracking-widest whitespace-nowrap transition-all border ${Number(subcategory_id) === Number(sub.id) ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-100 text-slate-400 hover:text-slate-900 hover:border-slate-300'}`}
-                >
-                  {sub.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 5. SUB-SUB-CATEGORIES */}
-        {activeSubCategory && activeSubCategory.sub_subcategories?.length > 0 && (
-          <div className="flex items-center gap-2 animate-in slide-in-from-left-2 duration-500 border-l border-slate-100 pl-3 pr-2 shrink-0">
-             <ChevronRight size={18} className="text-orange-500" />
-            <div className="flex items-center gap-1.5">
-              {activeSubCategory.sub_subcategories.map((ss: any) => (
-                <button 
-                  key={ss.id} 
-                  onClick={() => setFilters({...filters, sub_subcategory_id: ss.id})}
-                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase transition-all whitespace-nowrap ${Number(sub_subcategory_id) === Number(ss.id) ? 'text-white bg-slate-600' : 'text-slate-400 hover:text-slate-800 bg-slate-50'}`}
-                >
-                  {ss.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* RESET BUTTON */}
-        {(category_id || brand_id || sort !== 'latest') && (
+        {/* RESET ACTION */}
+        {(category_id || brand_id || lifestyle_tag_id || sort !== 'latest') && (
           <button 
-            onClick={() => setFilters({category_id:null, subcategory_id:null, sub_subcategory_id:null, brand_id:null, sort:'latest'})} 
-            className="ml-2 mr-1 p-2.5 text-slate-300 hover:text-orange-600 hover:bg-orange-50 rounded-full transition-all shrink-0"
+            onClick={() => setFilters({
+  category_id:null,
+  subcategory_id:null,
+  sub_subcategory_id:null,
+  brand_id:null,
+  lifestyle_tag_id:null,
+  sort:'latest'
+})} 
+            className="ml-2 p-2 bg-brand-gold/10 text-brand-gold hover:bg-brand-gold hover:text-white rounded-full transition-all active:scale-90"
           >
-            <RotateCcw size={18} />
+            <RotateCcw size={16} />
           </button>
         )}
       </div>
+
+      {/* --- LAYER 2: SUBCATEGORY WRAPPER (No Scroll, Grid-based) --- */}
+      {activeCategory && (
+        <div className="flex flex-wrap justify-center gap-2 max-w-4xl animate-in fade-in zoom-in-95 duration-500">
+          <div className="flex items-center gap-2 px-3 py-1 bg-brand-gold text-white rounded-full text-[9px] font-black uppercase tracking-widest mr-2">
+            <Filter size={10} /> Refining
+          </div>
+          {activeCategory.subcategories?.map((sub: any) => (
+            <button 
+              key={sub.id} 
+              onClick={() => setFilters({...filters, subcategory_id: sub.id, sub_subcategory_id: null})}
+              className={`px-5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border-2 ${Number(subcategory_id) === Number(sub.id) ? 'bg-brand-blue border-brand-blue text-white' : 'bg-transparent border-slate-100 text-slate-400 hover:border-brand-gold hover:text-brand-gold'}`}
+            >
+              {sub.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* --- LAYER 3: SUB-SUB-CATEGORIES (Minimalist Links) --- */}
+      {activeSubCategory && activeSubCategory.sub_subcategories?.length > 0 && (
+        <div className="flex flex-wrap justify-center items-center gap-4 pt-2 animate-in slide-in-from-bottom-2 duration-500">
+          {activeSubCategory.sub_subcategories.map((ss: any) => (
+            <button 
+              key={ss.id} 
+              onClick={() => setFilters({...filters, sub_subcategory_id: ss.id})}
+              className={`group flex flex-col items-center gap-1 transition-all ${Number(sub_subcategory_id) === Number(ss.id) ? 'scale-110' : 'opacity-60 hover:opacity-100'}`}
+            >
+              <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${Number(sub_subcategory_id) === Number(ss.id) ? 'text-brand-blue' : 'text-slate-400'}`}>
+                {ss.name}
+              </span>
+              <div className={`h-1 w-1 rounded-full transition-all ${Number(sub_subcategory_id) === Number(ss.id) ? 'bg-brand-gold w-4' : 'bg-transparent'}`} />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

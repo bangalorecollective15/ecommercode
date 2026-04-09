@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { createClient } from "@supabase/supabase-js";
 import { 
   Instagram, 
   Facebook, 
@@ -11,11 +12,34 @@ import {
   Share2
 } from "lucide-react";
 
+// Initialize Supabase (Same as Header)
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+interface Category {
+  id: number;
+  name: string;
+}
+
 export default function Footer() {
   const [year, setYear] = useState<number | string>("");
+  const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
     setYear(new Date().getFullYear());
+
+    // Fetch Categories for Footer
+    const fetchCategories = async () => {
+      const { data } = await supabase
+        .from("categories")
+        .select("id, name")
+        .order('priority', { ascending: true });
+      if (data) setCategories(data);
+    };
+
+    fetchCategories();
   }, []);
 
   const SnapchatIcon = () => (
@@ -25,24 +49,23 @@ export default function Footer() {
   );
 
   return (
-    <footer className="bg-[#080808] text-white border-t border-white/5 pt-16 pb-8">
+    <footer className="bg-gradient-to-b from-[#c4a174] to-[#8a6d3b] text-white border-t border-black/10 pt-16 pb-8">
       <div className="max-w-7xl mx-auto px-6 lg:px-12">
         
-        {/* Main Grid - Reduced bottom margin from mb-24 to mb-12 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
           
           {/* 1. Brand Identity */}
-          <div className="space-y-6">
+          <div className="space-y-6 col-span-1 md:col-span-1">
             <div className="relative w-40 h-12">
               <Image 
                 src="/banglorecollectivelogo.jpg" 
                 alt="Bangalore Collective" 
                 fill
-                className="object-contain brightness-200"
+                className="object-contain brightness-0 invert"
               />
             </div>
-            <p className="text-white/40 text-[13px] leading-relaxed font-light max-w-xs">
-              A narrative of elegance through curated fashion, redefining the modern Bangalore aesthetic at the intersection of heritage and urban living.
+            <p className="text-white/80 text-[12px] leading-relaxed font-medium max-w-xs">
+              Curating elegance through fashion, redefining the modern Bangalore aesthetic.
             </p>
             <div className="flex flex-wrap gap-3">
               {[
@@ -53,57 +76,78 @@ export default function Footer() {
                 { icon: <MessageCircle size={16} />, href: "https://chat.whatsapp.com/BjHcvhyeckqDR304Q5SniW" },
                 { icon: <Share2 size={16} />, href: "https://share.google/Ir6IhvGLTuzXYCEod" }
               ].map((social, i) => (
-                <a key={i} href={social.href} target="_blank" className="p-2.5 bg-white/5 rounded-full hover:bg-white hover:text-black transition-all">
+                <a key={i} href={social.href} target="_blank" rel="noopener noreferrer" className="p-2 bg-black/10 rounded-full hover:bg-white hover:text-[#8a6d3b] transition-all">
                   {social.icon}
                 </a>
               ))}
             </div>
           </div>
 
-          {/* 2. Navigation */}
-          <div className="md:pl-12">
-            <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-white/30 mb-6">Curations</h3>
-            <ul className="grid grid-cols-2 gap-y-3 gap-x-4">
-              {["New Arrivals", "Women", "Men", "Unisex", "Gallery", "Stories"].map((item) => (
-                <li key={item}>
-                  <Link href="#" className="text-[12px] font-medium text-white/50 hover:text-white transition-all">
-                    {item}
-                  </Link>
-                </li>
-              ))}
+          {/* 2. Maison Navigation (Static) */}
+          <div className="md:pl-4">
+            <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-black/40 mb-6">Maison</h3>
+            <ul className="space-y-3">
+              <li>
+                <Link href="/userinterface/home" className="text-[12px] font-bold text-white/70 hover:text-black transition-all uppercase tracking-widest">Home</Link>
+              </li>
+              <li>
+                <Link href="/userinterface/Gproducts" className="text-[12px] font-bold text-white/70 hover:text-black transition-all uppercase tracking-widest">Product Gallery</Link>
+              </li>
+              <li>
+                <Link href="/userinterface/about" className="text-[12px] font-bold text-white/70 hover:text-black transition-all uppercase tracking-widest">About Us</Link>
+              </li>
             </ul>
           </div>
 
-          {/* 3. Contact */}
+          {/* 3. Dynamic Categories (From Supabase) */}
+          <div>
+            <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-black/40 mb-6">Collections</h3>
+            <ul className="space-y-3">
+              {categories.map((cat) => (
+                <li key={cat.id}>
+                  <Link 
+                    href={`/userinterface/Gproducts/category/${cat.id}`} 
+                    className="text-[12px] font-bold text-white/70 hover:text-black transition-all uppercase tracking-widest"
+                  >
+                    {cat.name}
+                  </Link>
+                </li>
+              ))}
+              {/* Optional Static Link */}
+              
+            </ul>
+          </div>
+
+          {/* 4. Contact */}
           <div className="space-y-6">
-            <h3 className="text-[9px] font-black uppercase tracking-[0.4em] text-white/30 mb-6">Concierge</h3>
+            <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-black/40 mb-6">Concierge</h3>
             <div className="space-y-4">
               <div className="group">
-                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-white/20 mb-1">Call</p>
-                <a href="tel:+919060889995" className="text-[14px] text-white/70 group-hover:text-white transition-colors">+91 9060889995</a>
+                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-black/30 mb-1">Call</p>
+                <a href="tel:+919060889995" className="text-[14px] font-bold text-white group-hover:text-black transition-colors">+91 9060889995</a>
               </div>
               <div className="group">
-                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-white/20 mb-1">Email</p>
-                <a href="mailto:bangalorecollective15@gmail.com" className="text-[14px] text-white/70 group-hover:text-white transition-colors">bangalorecollective15@gmail.com</a>
+                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-black/30 mb-1">Email</p>
+                <a href="mailto:bangalorecollective15@gmail.com" className="text-[14px] font-bold text-white group-hover:text-black transition-colors underline-offset-4 hover:underline">bangalorecollective15@gmail.com</a>
               </div>
               <div>
-                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-white/20 mb-1">The Atelier</p>
-                <p className="text-[13px] text-white/50 leading-tight">7th Block, Jayanagar, Bengaluru</p>
+                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-black/30 mb-1">The Atelier</p>
+                <p className="text-[12px] font-medium text-white/80 leading-tight">7th Block, Jayanagar, Bengaluru, Karnataka 560070</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Bottom Credits - Reduced top padding from pt-12 to pt-8 */}
-        <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex gap-8 items-center text-white/20 text-[9px] font-black uppercase tracking-[0.3em]">
+        {/* Bottom Credits */}
+        <div className="pt-8 border-t border-black/10 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex flex-wrap justify-center gap-6 items-center text-black/40 text-[9px] font-black uppercase tracking-[0.3em]">
             <p>© {year} Bangalore Collective</p>
-            <Link href="#" className="hover:text-white transition-colors">Privacy</Link>
-            <Link href="#" className="hover:text-white transition-colors">Terms</Link>
+            <Link href="/userinterface/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link>
+            <Link href="/userinterface/terms-and-conditions" className="hover:text-white transition-colors">Terms & Conditions</Link>
           </div>
           
-          <p className="text-white/20 text-[9px] font-black uppercase tracking-[0.3em]">
-            Developed by <a href="https://rakvih.in/" target="_blank" className="text-white/40 hover:text-orange-500 transition-colors">Rakvih</a>
+          <p className="text-black/40 text-[9px] font-black uppercase tracking-[0.3em]">
+            Developed by <a href="https://rakvih.in/" target="_blank" rel="noopener noreferrer" className="text-white hover:text-black transition-colors">Rakvih</a>
           </p>
         </div>
       </div>

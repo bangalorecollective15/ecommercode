@@ -141,29 +141,29 @@ export default function BulkUploadProducts() {
     });
   };
 
-  return (
-    <div className="min-h-screen bg-[#fafafa] text-black font-sans p-6 lg:p-12">
+return (
+    <div className="min-h-screen bg-[#FBFBFC] text-[#2b2652] font-sans p-6 lg:p-12 selection:bg-[#c4a174] selection:text-white">
       <Toaster position="bottom-right" />
       
       <div className="max-w-7xl mx-auto">
         {/* HEADER SECTION */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
-          <div className="space-y-2">
+          <div className="space-y-4">
             <button 
               onClick={() => router.back()} 
-              className="flex items-center gap-2 text-gray-400 hover:text-black transition-all text-[10px] font-black uppercase tracking-widest"
+              className="flex items-center gap-2 text-slate-400 hover:text-[#c4a174] transition-all text-[10px] font-black uppercase tracking-[0.2em]"
             >
               <ArrowLeft size={14} /> Back to Hub
             </button>
-            <h1 className="text-6xl font-black tracking-tighter uppercase leading-none">
-              Bulk Import
+            <h1 className="text-7xl font-black tracking-tighter uppercase leading-none text-[#2b2652]">
+              Bulk <span className="text-[#c4a174] italic">Import</span>
             </h1>
           </div>
 
-          <div className="flex gap-3 w-full md:w-auto">
+          <div className="flex gap-4 w-full md:w-auto">
             <button 
               onClick={downloadSampleExcel} 
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 border-2 border-black px-8 py-4 rounded-full font-black text-[10px] uppercase tracking-tighter hover:bg-black hover:text-white transition-all shadow-sm"
+              className="flex-1 md:flex-none flex items-center justify-center gap-3 border-2 border-[#2b2652] px-8 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#2b2652] hover:text-[#c4a174] transition-all shadow-sm active:scale-95"
             >
               <Download size={14} /> Download Sample
             </button>
@@ -171,7 +171,7 @@ export default function BulkUploadProducts() {
               <button 
                 onClick={handleBulkSubmit} 
                 disabled={uploading}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-black text-white px-10 py-4 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-xl"
+                className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-[#2b2652] text-[#c4a174] px-10 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-[#1a1733] transition-all shadow-xl shadow-[#2b2652]/20 active:scale-95"
               >
                 {uploading ? <Loader2 className="animate-spin" size={16} /> : `Finalize ${parsedData.length} Items`}
               </button>
@@ -179,35 +179,39 @@ export default function BulkUploadProducts() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           {/* LEFT: CONTROLS */}
-          <div className="lg:col-span-4 space-y-6">
+          <div className="lg:col-span-4 space-y-8">
             <div 
               onClick={() => fileInputRef.current?.click()}
-              className="border-4 border-dashed border-gray-200 rounded-[3rem] p-16 flex flex-col items-center justify-center cursor-pointer hover:border-black hover:bg-white transition-all group bg-gray-50/50"
+              className="border-2 border-dashed border-slate-200 rounded-[3rem] p-16 flex flex-col items-center justify-center cursor-pointer hover:border-[#c4a174] hover:bg-white transition-all group bg-white shadow-sm"
             >
-              <Upload size={48} className="mb-4 text-gray-300 group-hover:text-black group-hover:-translate-y-1 transition-all" />
-              <p className="text-[10px] font-black uppercase tracking-[0.2em]">Upload Source</p>
+              <div className="p-6 bg-slate-50 rounded-full mb-6 group-hover:bg-[#c4a174]/10 transition-colors">
+                <Upload size={40} className="text-slate-300 group-hover:text-[#c4a174] group-hover:-translate-y-1 transition-all" />
+              </div>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#2b2652]">Upload Source</p>
+              <p className="text-[9px] text-slate-400 mt-2 font-bold uppercase">Supported: .CSV / UTF-8</p>
               <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={onFileLoad} />
             </div>
 
-            <div className="bg-black text-white rounded-[2.5rem] p-8 shadow-2xl">
-              <h3 className="text-[11px] font-black uppercase text-emerald-400 border-b border-gray-800 pb-4 flex items-center gap-2">
+            <div className="bg-[#2b2652] text-white rounded-[2.5rem] p-10 shadow-2xl shadow-[#2b2652]/20 relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-24 h-24 bg-[#c4a174]/10 rounded-full -mr-12 -mt-12 blur-2xl"></div>
+              
+              <h3 className="text-[11px] font-black uppercase tracking-widest text-[#c4a174] border-b border-white/5 pb-5 flex items-center gap-3">
                 <Layers size={14} /> Mapping Logic
               </h3>
-              <div className="space-y-4 mt-6 opacity-80">
-                <div className="flex justify-between items-start">
-                  <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">Category Path:</span>
-                  <span className="text-[9px] font-black uppercase">Delimited by '{'>'}'</span>
-                </div>
-                <div className="flex justify-between items-start">
-                  <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">Price Auto-Calc:</span>
-                  <span className="text-[9px] font-black uppercase">MRP vs Sale</span>
-                </div>
-                <div className="flex justify-between items-start">
-                  <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">Images:</span>
-                  <span className="text-[9px] font-black uppercase">Single URL String</span>
-                </div>
+              
+              <div className="space-y-5 mt-8">
+                {[
+                    { label: "Category Path", value: "Delimited by '>'" },
+                    { label: "Price Auto-Calc", value: "MRP vs Sale" },
+                    { label: "Asset Fetching", value: "Remote URL Strings" }
+                ].map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-start border-b border-white/5 pb-3">
+                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">{item.label}:</span>
+                        <span className="text-[9px] font-black uppercase text-white/90">{item.value}</span>
+                    </div>
+                ))}
               </div>
             </div>
           </div>
@@ -215,54 +219,60 @@ export default function BulkUploadProducts() {
           {/* RIGHT: DATA TABLE */}
           <div className="lg:col-span-8">
             {parsedData.length > 0 ? (
-              <div className="bg-white border-2 border-gray-100 rounded-[3.5rem] overflow-hidden shadow-sm">
-                <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/30">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em]">Staging Engine</span>
-                  <div className="flex gap-2">
-                     <span className="px-3 py-1 bg-black text-white text-[8px] font-black rounded-full uppercase">CSV Verified</span>
+              <div className="bg-white border border-slate-100 rounded-[3.5rem] overflow-hidden shadow-2xl shadow-[#2b2652]/5">
+                <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/30">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-[#c4a174] rounded-full animate-pulse"></div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#2b2652]">Staging Engine Active</span>
                   </div>
+                  <span className="px-4 py-1.5 bg-[#2b2652] text-[#c4a174] text-[8px] font-black rounded-full uppercase tracking-widest">
+                    Verification Passed
+                  </span>
                 </div>
+                
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
-                    <thead className="bg-gray-50/50">
+                    <thead className="bg-slate-50/50">
                       <tr>
-                        <th className="p-8 text-[9px] font-black uppercase text-gray-400">Entry Details</th>
-                        <th className="p-8 text-[9px] font-black uppercase text-gray-400">Stock & Color</th>
-                        <th className="p-8 text-[9px] font-black uppercase text-gray-400">Valuation</th>
+                        <th className="px-8 py-6 text-[9px] font-black uppercase text-slate-400 tracking-widest">Entry Details</th>
+                        <th className="px-8 py-6 text-[9px] font-black uppercase text-slate-400 tracking-widest">Stock & Profile</th>
+                        <th className="px-8 py-6 text-[9px] font-black uppercase text-slate-400 tracking-widest">Valuation</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50">
+                    <tbody className="divide-y divide-slate-50">
                       {parsedData.slice(0, 8).map((row, i) => (
-                        <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                          <td className="p-8">
-                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0">
+                        <tr key={i} className="hover:bg-[#c4a174]/5 transition-colors group">
+                          <td className="px-8 py-6">
+                            <div className="flex items-center gap-5">
+                              <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0 border border-slate-100 group-hover:border-[#c4a174]/30 transition-all">
                                 {row.Images ? (
                                   <img src={row.Images} alt="preview" className="w-full h-full object-cover" />
                                 ) : (
-                                  <ImageIcon size={18} className="text-gray-300" />
+                                  <ImageIcon size={20} className="text-slate-200" />
                                 )}
                               </div>
                               <div>
-                                <p className="text-[12px] font-black italic tracking-tighter uppercase leading-tight truncate max-w-[200px]">{row.name}</p>
-                                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{row.brand || 'No Brand'}</p>
+                                <p className="text-[13px] font-black tracking-tighter uppercase leading-tight text-[#2b2652] group-hover:text-[#c4a174] transition-colors line-clamp-1 max-w-[180px]">{row.name}</p>
+                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">{row.brand || 'Private Label'}</p>
                               </div>
                             </div>
                           </td>
-                          <td className="p-8">
-                            <div className="flex items-center gap-2">
-                              <Package size={12} className="text-gray-300" />
-                              <span className="text-[10px] font-black uppercase">{row.Stock || 0} Units</span>
-                            </div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Tags size={12} className="text-gray-300" />
-                              <span className="text-[9px] font-bold text-gray-400 uppercase italic">{row.colors || 'Standard'}</span>
+                          <td className="px-8 py-6">
+                            <div className="space-y-1.5">
+                                <div className="flex items-center gap-2">
+                                    <Package size={12} className="text-[#c4a174]" />
+                                    <span className="text-[10px] font-black uppercase text-[#2b2652]">{row.Stock || 0} Units</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Tags size={12} className="text-slate-300" />
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase italic">{row.colors || 'Default Color'}</span>
+                                </div>
                             </div>
                           </td>
-                          <td className="p-8">
-                            <p className="text-[12px] font-black tracking-tighter">₹{row["Sale price"] || row["Regular price"]}</p>
+                          <td className="px-8 py-6">
+                            <p className="text-sm font-black tracking-tighter text-[#2b2652]">₹{row["Sale price"] || row["Regular price"]}</p>
                             {row["Sale price"] && (
-                              <p className="text-[8px] font-bold text-gray-300 line-through">₹{row["Regular price"]}</p>
+                              <p className="text-[9px] font-bold text-slate-300 line-through mt-0.5">₹{row["Regular price"]}</p>
                             )}
                           </td>
                         </tr>
@@ -270,22 +280,28 @@ export default function BulkUploadProducts() {
                     </tbody>
                   </table>
                 </div>
+
                 {parsedData.length > 8 && (
-                  <div className="p-8 text-center border-t border-gray-50 bg-gray-50/20">
-                    <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">+ {parsedData.length - 8} more items in queue</p>
+                  <div className="p-10 text-center border-t border-slate-50 bg-slate-50/20">
+                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em]">
+                      + {parsedData.length - 8} additional items in secure queue
+                    </p>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="h-full min-h-[550px] border-4 border-dashed border-gray-100 rounded-[3.5rem] flex flex-col items-center justify-center text-gray-200 bg-white/40 group">
-                <FileSpreadsheet size={64} className="mb-6 opacity-10 group-hover:scale-110 transition-transform duration-500" />
-                <p className="text-[11px] font-black uppercase tracking-[0.4em] text-gray-300">Staging Area Active</p>
-                <p className="text-[9px] uppercase mt-2 text-gray-200">Load a valid .CSV to begin processing</p>
+              <div className="h-full min-h-[600px] border-2 border-dashed border-slate-100 rounded-[4rem] flex flex-col items-center justify-center text-slate-200 bg-white/50 group transition-all hover:bg-white">
+                <div className="relative">
+                    <div className="absolute inset-0 bg-[#c4a174]/20 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+                    <FileSpreadsheet size={80} className="relative mb-8 opacity-20 group-hover:opacity-40 group-hover:text-[#c4a174] transition-all duration-500" />
+                </div>
+                <p className="text-[12px] font-black uppercase tracking-[0.5em] text-slate-300 group-hover:text-[#2b2652] transition-colors">Staging Area Active</p>
+                <p className="text-[9px] uppercase mt-3 font-bold text-slate-200 tracking-widest">Connect a manifest to begin indexing</p>
               </div>
             )}
           </div>
         </div>
       </div>
     </div>
-  );
+);
 }

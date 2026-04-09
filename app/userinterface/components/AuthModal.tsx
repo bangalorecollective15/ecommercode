@@ -62,114 +62,148 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl animate-in fade-in duration-500">
       
-      {/* COMPACT WHITE GLASS BOX */}
-      <div className="relative w-full max-w-[380px] bg-white/70 backdrop-blur-3xl border border-white/60 shadow-[0_32px_64px_rgba(0,0,0,0.15)] rounded-[40px] overflow-hidden">
+      {/* MASTER CONTAINER */}
+      <div className="relative w-full max-w-[900px] h-fit md:h-[600px] bg-white rounded-[40px] overflow-hidden flex flex-col md:flex-row shadow-[0_40px_80px_rgba(0,0,0,0.4)]">
         
-        {/* LIGHT REFRACTION STRETCH (Subtle Orange) */}
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-orange-500/50 to-transparent" />
-
-        <div className="p-8">
-          {/* HEADER & CLOSE */}
-          <div className="flex justify-between items-start mb-6">
-            {/* LOGO REPLACEMENT */}
-            <div className="w-16 h-16 rounded-3xl overflow-hidden border border-white shadow-lg bg-white p-1">
-               <img 
-                 src="/banglorecollectivelogo.jpg" 
-                 alt="Bangalore Collective Logo" 
-                 className="w-full h-full object-contain"
-               />
-            </div>
-            <button onClick={onClose} className="p-2 text-slate-400 hover:text-orange-600 transition-all bg-white rounded-full border border-slate-100 shadow-sm">
-              <X size={16} />
-            </button>
-          </div>
-
-          {/* WHITE GLASS TAB SWITCHER */}
-          <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/50 mb-8">
-            <button 
-              onClick={() => setIsLogin(true)}
-              className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${isLogin ? 'bg-white text-slate-950 shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}
-            >
-              Login
-            </button>
-            <button 
-              onClick={() => setIsLogin(false)}
-              className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${!isLogin ? 'bg-white text-slate-950 shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}
-            >
-              Register
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="relative group">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-orange-500" size={14} />
-              <input
-                type="email"
-                placeholder="EMAIL"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-[10px] font-black tracking-widest text-slate-950 focus:ring-2 focus:ring-orange-200 outline-none placeholder:text-slate-300 transition-all"
-              />
-            </div>
-
-            {!isLogin && (
-              <div className="relative group animate-in slide-in-from-top-2">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-orange-500" size={14} />
-                <input
-                  type="tel"
-                  placeholder="PHONE"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-[10px] font-black tracking-widest text-slate-950 focus:ring-2 focus:ring-orange-200 outline-none transition-all"
-                />
-              </div>
-            )}
-
-            <div className="relative group">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-orange-500" size={14} />
-              <input
-                type="password"
-                placeholder="PASSWORD"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-[10px] font-black tracking-widest text-slate-950 focus:ring-2 focus:ring-orange-200 outline-none transition-all"
-              />
-            </div>
-
-            {!isLogin && (
-              <div className="relative group animate-in slide-in-from-top-2">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-orange-500" size={14} />
-                <input
-                  type="password"
-                  placeholder="CONFIRM"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-[10px] font-black tracking-widest text-slate-950 focus:ring-2 focus:ring-orange-200 outline-none transition-all"
-                />
-              </div>
-            )}
-
-            {errors.auth && (
-              <p className="text-[8px] font-black text-red-500 uppercase tracking-widest text-center py-2">{errors.auth}</p>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-4 bg-slate-950 text-white hover:bg-orange-600 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 mt-4 group"
-            >
-              {loading ? "..." : isLogin ? "Authorize" : "Confirm"}
-              <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-            </button>
-          </form>
+        {/* LEFT SIDE: LIFESTYLE & BRAND */}
+        <div className="relative w-full md:w-1/2 h-[200px] md:h-full bg-brand-blue overflow-hidden">
+          {/* Background Lifestyle Image */}
+          <img 
+            src="https://images.unsplash.com/photo-1511556820780-d912e42b4980?auto=format&fit=crop&q=80&w=1200" 
+            alt="Lifestyle"
+            className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-60 scale-105 hover:scale-100 transition-transform duration-1000"
+          />
           
-          <div className="flex items-center justify-center gap-2 mt-6 opacity-60">
-            <ShieldCheck size={12} className="text-slate-400" />
-            <p className="text-[7px] text-black font-black uppercase tracking-[0.4em]">
-              Security Handshake Protocol
-            </p>
+          {/* Overlay Gradient */}
+          <div className="absolute inset-0 bg-gradient-to-tr from-brand-blue via-brand-blue/40 to-transparent" />
+
+          {/* Brand Content */}
+          <div className="relative h-full p-10 flex flex-col justify-between">
+            <div className="w-24 h-24 bg-white rounded-2xl p-3 shadow-2xl flex items-center justify-center transition-transform hover:scale-105">
+  <img 
+    src="/banglorecollectivelogo.jpg" 
+    alt="Logo" 
+    className="w-full h-full object-contain" 
+  />
+</div>
+            
+            <div className="hidden md:block">
+              <h2 className="text-3xl font-black text-white leading-none tracking-tighter mb-4">
+                THE <br /> <span className="text-brand-gold">COLLECTIVE</span> <br /> EXPERIENCE
+              </h2>
+              <p className="text-white/60 text-[10px] font-bold uppercase tracking-[0.3em]">Curated Living • Bangalore</p>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT SIDE: AUTH FORM */}
+        <div className="w-full md:w-1/2 bg-white p-8 md:p-12 flex flex-col">
+          {/* Close Button */}
+          <button onClick={onClose} className="self-end p-2 text-slate-300 hover:text-black transition-colors mb-4 md:mb-0">
+            <X size={20} />
+          </button>
+
+          <div className="flex-1 flex flex-col justify-center">
+            {/* Tab Selector */}
+            <div className="flex gap-8 mb-10">
+              <button 
+                onClick={() => setIsLogin(true)}
+                className={`text-[11px] font-black uppercase tracking-[0.3em] transition-all pb-2 border-b-2 ${isLogin ? 'border-brand-gold text-black' : 'border-transparent text-slate-300'}`}
+              >
+                Login
+              </button>
+              <button 
+                onClick={() => setIsLogin(false)}
+                className={`text-[11px] font-black uppercase tracking-[0.3em] transition-all pb-2 border-b-2 ${!isLogin ? 'border-brand-gold text-black' : 'border-transparent text-slate-300'}`}
+              >
+                Register
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Email */}
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Identity (Email)</label>
+                <div className="relative group">
+                  <Mail className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-gold transition-colors" size={14} />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-7 pr-4 py-3 border-b border-slate-100 focus:border-brand-gold bg-transparent text-[12px] font-bold outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Phone (Register Only) */}
+              {!isLogin && (
+                <div className="space-y-1 animate-in fade-in slide-in-from-left-4">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Contact</label>
+                  <div className="relative group">
+                    <Phone className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-gold transition-colors" size={14} />
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full pl-7 pr-4 py-3 border-b border-slate-100 focus:border-brand-gold bg-transparent text-[12px] font-bold outline-none transition-all"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Password */}
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Secret Access</label>
+                <div className="relative group">
+                  <Lock className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-gold transition-colors" size={14} />
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-7 pr-4 py-3 border-b border-slate-100 focus:border-brand-gold bg-transparent text-[12px] font-bold outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Confirm Password (Register Only) */}
+              {!isLogin && (
+                <div className="space-y-1 animate-in fade-in slide-in-from-left-4">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Verify Password</label>
+                  <div className="relative group">
+                    <ShieldCheck className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-brand-gold transition-colors" size={14} />
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full pl-7 pr-4 py-3 border-b border-slate-100 focus:border-brand-gold bg-transparent text-[12px] font-bold outline-none transition-all"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {errors.auth && (
+                <p className="text-[9px] font-black text-red-500 uppercase tracking-widest py-2 italic">{errors.auth}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-5 bg-black text-white hover:bg-brand-blue rounded-full font-black uppercase tracking-[0.4em] text-[10px] shadow-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-3 mt-8"
+              >
+                {loading ? "PROCESSING..." : isLogin ? "AUTHORIZE" : "CREATE ACCOUNT"}
+                <ArrowRight size={14} className="text-brand-gold" />
+              </button>
+            </form>
+          </div>
+
+          {/* Footer Footer */}
+          <div className="mt-8 pt-6 border-t border-slate-50 flex items-center justify-between opacity-40">
+            <p className="text-[7px] font-black uppercase tracking-[0.3em]">Secure Node 01</p>
+            <ShieldCheck size={12} />
           </div>
         </div>
       </div>

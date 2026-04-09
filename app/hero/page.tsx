@@ -3,16 +3,9 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import toast, { Toaster } from "react-hot-toast";
-import { 
-  PencilIcon, 
-  Trash, 
-  Plus, 
-  X, 
-  Image as ImageIcon, 
-  CheckCircle2, 
-  ChevronLeft, 
-  ChevronRight,
-  UploadCloud
+import {
+  PencilIcon, Trash, Plus, X, Layout,
+  UploadCloud, Loader2, ImageIcon, Eye, Tag
 } from "lucide-react";
 
 const supabase = createClient(
@@ -23,48 +16,81 @@ const supabase = createClient(
 interface Hero {
   id: string;
   images: string[];
+  title: string;
+  description: string;
+  button_text: string;
+  lifestyle_tag: string; // New field
   active: boolean;
   created_at: string;
 }
 
+interface Attribute {
+  id: number;
+  name: string;
+  type: string;
+}
+
 export default function HeroSettings() {
   const [heroes, setHeroes] = useState<Hero[]>([]);
+  const [lifestyleTags, setLifestyleTags] = useState<Attribute[]>([]);
   const [selectedHero, setSelectedHero] = useState<Hero | null>(null);
+  const [viewHero, setViewHero] = useState<Hero | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  // Pagination
   const [page, setPage] = useState(1);
   const pageSize = 5;
-  const [totalHeroes, setTotalHeroes] = useState(0);
 
-  const fetchHeroes = async () => {
-    const { data, count, error } = await supabase
+  const fetchData = async () => {
+    // Fetch Banners
+    const { data: heroData } = await supabase
       .from("hero_section")
-      .select("*", { count: "exact" })
+      .select("*")
       .order("created_at", { ascending: false })
       .range((page - 1) * pageSize, page * pageSize - 1);
+    
+    setHeroes(heroData || []);
 
-    if (error) toast.error("Failed to fetch heroes");
-    else {
-      setHeroes(data || []);
-      setTotalHeroes(count || 0);
-    }
+    // Fetch Lifestyle Tags from Attributes table
+    const { data: attrData } = await supabase
+      .from("attributes")
+      .select("*")
+      .eq("type", "lifestyle_tag");
+    
+    setLifestyleTags(attrData || []);
   };
 
-  useEffect(() => {
-    fetchHeroes();
-  }, [page]);
+  useEffect(() => { fetchData(); }, [page]);
 
-  const openCreateModal = () => {
-    setSelectedHero({
-      id: "",
-      images: [],
-      active: true,
-      created_at: new Date().toISOString(),
-    });
+  const handleFileUpload = async (files: FileList) => {
+    if (!selectedHero) return;
+    setUploading(true);
+    const newUrls: string[] = [];
+
+    for (const file of Array.from(files)) {
+      try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `banners/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('hero-images')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('hero-images')
+          .getPublicUrl(filePath);
+
+        newUrls.push(publicUrl);
+      } catch (error: any) {
+        toast.error(`Error: ${error.message}`);
+      }
+    }
+
+    setSelectedHero({ ...selectedHero, images: [...selectedHero.images, ...newUrls] });
+    setUploading(false);
   };
 
   const saveHero = async () => {
@@ -74,265 +100,212 @@ export default function HeroSettings() {
     setLoading(true);
 
     try {
-      // If setting this one to active, deactivate others
-      if (selectedHero.active) {
-        await supabase
-          .from("hero_section")
-          .update({ active: false })
-          .neq("id", selectedHero.id || '00000000-0000-0000-0000-000000000000');
-      }
+      const payload = {
+        images: selectedHero.images,
+        title: selectedHero.title,
+        description: selectedHero.description,
+        button_text: selectedHero.button_text,
+        lifestyle_tag: selectedHero.lifestyle_tag,
+        active: selectedHero.active
+      };
 
-      if (selectedHero.id) {
-        await supabase
-          .from("hero_section")
-          .update({ images: selectedHero.images, active: selectedHero.active })
-          .eq("id", selectedHero.id);
-        toast.success("Slider updated!");
-      } else {
-        await supabase.from("hero_section").insert({
-          images: selectedHero.images,
-          active: selectedHero.active,
-        });
-        toast.success("New slider created!");
-      }
+      const { error: saveError } = selectedHero.id
+        ? await supabase.from("hero_section").update(payload).eq("id", selectedHero.id)
+        : await supabase.from("hero_section").insert(payload);
 
-      fetchHeroes();
+      if (saveError) throw saveError;
+
+      toast.success("Banner deployed successfully!");
+      fetchData(); 
       setSelectedHero(null);
-    } catch (err) {
-      toast.error("Error saving slider");
+    } catch (err: any) {
+      toast.error("Error: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const deleteHero = async () => {
-    if (!deleteId) return;
-    const { error } = await supabase.from("hero_section").delete().eq("id", deleteId);
-    if (error) toast.error("Failed to delete");
-    else {
-      toast.success("Deleted successfully");
-      fetchHeroes();
+  const toggleActive = async (id: string, currentStatus: boolean) => {
+    const { error } = await supabase
+      .from("hero_section")
+      .update({ active: !currentStatus })
+      .eq("id", id);
+
+    if (!error) {
+      toast.success("Status Updated");
+      fetchData();
     }
-    setShowDeleteModal(false);
-    setDeleteId(null);
-  };
-
-  const handleFileUpload = async (files: FileList) => {
-    if (!selectedHero) return;
-    setUploading(true);
-    const urls: string[] = [];
-
-    for (const file of Array.from(files)) {
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
-      urls.push(base64);
-    }
-
-    setSelectedHero({ ...selectedHero, images: [...selectedHero.images, ...urls] });
-    setUploading(false);
-  };
-
-  const removeImage = (index: number) => {
-    if (!selectedHero) return;
-    setSelectedHero({ 
-      ...selectedHero, 
-      images: selectedHero.images.filter((_, i) => i !== index) 
-    });
   };
 
   return (
-    <div className="p-6 md:p-10 min-h-screen bg-gray-50 space-y-8">
+    <div className="p-6 md:p-10 min-h-screen bg-[#FBFBFC] space-y-10">
       <Toaster position="top-right" />
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold text-blacktracking-tight">Hero Management</h1>
-          <p className="text-gray-500">Update and organize your homepage banner sliders.</p>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#2b2652] flex items-center justify-center shadow-lg">
+              <Layout className="text-[#c4a174] w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">Website Interface</span>
+          </div>
+          <h1 className="text-5xl font-black tracking-tighter uppercase leading-none text-[#2b2652]">
+            Hero <span className="text-[#c4a174] italic">Management</span>
+          </h1>
         </div>
+
         <button
-          onClick={openCreateModal}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-blacktext-white rounded-xl font-bold hover:bg-blackshadow-lg shadow-black transition-all active:scale-95"
+          onClick={() => setSelectedHero({ 
+            id: "", images: [], title: "", description: "", 
+            button_text: "Shop Now", lifestyle_tag: "", active: true, created_at: "" 
+          })}
+          className="group flex items-center gap-3 px-8 py-4 bg-[#2b2652] text-[#c4a174] rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-[#1a1733] transition-all"
         >
           <Plus size={20} />
-          Create New Slider
+          New Banner
         </button>
       </div>
 
-      {/* Table Section */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-gray-50/50 border-b border-gray-100 text-gray-400 text-xs uppercase tracking-widest font-bold">
-              <tr>
-                <th className="px-6 py-4">Slider Gallery</th>
-                <th className="px-6 py-4 text-center">Status</th>
-                <th className="px-6 py-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {heroes.map((hero) => (
-                <tr key={hero.id} className="hover:bg-orange-50/20 transition">
-                  <td className="px-6 py-4">
-                    <div className="flex gap-2 overflow-hidden">
-                      {hero.images.slice(0, 4).map((img, i) => (
-                        <img
-                          key={i}
-                          src={img}
-                          className="w-14 h-10 object-cover rounded-lg border border-gray-100 shadow-sm"
-                        />
-                      ))}
-                      {hero.images.length > 4 && (
-                        <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-xs font-bold text-gray-400">
-                          +{hero.images.length - 4}
-                        </div>
-                      )}
+      {/* Table */}
+      <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-[#2b2652]/5 border border-slate-100 overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50/50 text-slate-400 text-[9px] uppercase tracking-[0.3em] font-black">
+            <tr>
+              <th className="px-10 py-7">Banner Details</th>
+              <th className="px-10 py-7">Lifestyle Tag</th>
+              <th className="px-10 py-7 text-center">Status</th>
+              <th className="px-10 py-7 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {heroes.map((hero) => (
+              <tr key={hero.id} className="group hover:bg-[#c4a174]/5 transition-colors">
+                <td className="px-10 py-7">
+                  <div className="flex items-center gap-6">
+                    <img src={hero.images[0]} className="h-16 w-24 rounded-xl object-cover" alt="Thumb" />
+                    <div>
+                      <h4 className="font-black text-[#2b2652] uppercase text-sm">{hero.title || "No Title"}</h4>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-widest">{hero.button_text}</p>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 text-center">
+                  </div>
+                </td>
+                <td className="px-10 py-7">
+                  <span className="px-3 py-1 bg-slate-100 text-[#2b2652] rounded-lg text-[10px] font-bold uppercase tracking-wider">
+                    {hero.lifestyle_tag || "General"}
+                  </span>
+                </td>
+                <td className="px-10 py-7 text-center">
+                  <button onClick={() => toggleActive(hero.id, hero.active)}>
                     {hero.active ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-black uppercase tracking-tighter">
-                        <CheckCircle2 size={12} /> Active
-                      </span>
+                      <span className="text-[#c4a174] text-[9px] font-black tracking-widest uppercase">● Live</span>
                     ) : (
-                      <span className="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-400 rounded-full text-[10px] font-black uppercase tracking-tighter">
-                        Inactive
-                      </span>
+                      <span className="text-slate-300 text-[9px] font-black tracking-widest uppercase">Draft</span>
                     )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-end gap-2">
-                      <button onClick={() => setSelectedHero(hero)} className="p-2 text-gray-400 hover:text-blacktransition">
-                        <PencilIcon size={18} />
-                      </button>
-                      <button onClick={() => { setDeleteId(hero.id); setShowDeleteModal(true); }} className="p-2 text-gray-400 hover:text-red-600 transition">
-                        <Trash size={18} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        
-        {/* Pagination Footer */}
-        <div className="px-6 py-4 bg-gray-50/50 flex items-center justify-between border-t border-gray-100">
-          <button 
-            disabled={page === 1} 
-            onClick={() => setPage(p => p - 1)}
-            className="p-2 bg-white rounded-lg border border-gray-200 disabled:opacity-30 hover:shadow-sm transition"
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
-            Page {page} / {Math.ceil(totalHeroes / pageSize) || 1}
-          </span>
-          <button 
-            disabled={page >= Math.ceil(totalHeroes / pageSize)} 
-            onClick={() => setPage(p => p + 1)}
-            className="p-2 bg-white rounded-lg border border-gray-200 disabled:opacity-30 hover:shadow-sm transition"
-          >
-            <ChevronRight size={18} />
-          </button>
-        </div>
+                  </button>
+                </td>
+                <td className="px-10 py-7 text-right">
+                  <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => setViewHero(hero)} className="p-2 hover:text-[#c4a174]"><Eye size={18} /></button>
+                    <button onClick={() => setSelectedHero(hero)} className="p-2 hover:text-[#c4a174]"><PencilIcon size={18} /></button>
+                    <button onClick={() => {/* Delete logic */}} className="p-2 hover:text-red-500"><Trash size={18} /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* CREATE/EDIT MODAL */}
+      {/* Editor Modal */}
       {selectedHero && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0">
-              <div>
-                <h3 className="text-xl font-black text-gray-800 uppercase tracking-tight">
-                  {selectedHero.id ? "Edit Slider" : "New Slider"}
-                </h3>
-                <p className="text-xs text-gray-500">Manage images and visibility for this slider.</p>
-              </div>
-              <button onClick={() => setSelectedHero(null)} className="p-2 hover:bg-gray-100 rounded-full transition">
-                <X size={24} className="text-gray-400" />
-              </button>
+        <div className="fixed inset-0 bg-[#2b2652]/60 backdrop-blur-lg z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-4xl overflow-hidden">
+            <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-[#FBFBFC]">
+              <h3 className="text-2xl font-black text-[#2b2652] uppercase tracking-tighter">Banner Visual Designer</h3>
+              <button onClick={() => setSelectedHero(null)}><X className="text-slate-400" /></button>
             </div>
 
-            <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
-              {/* Image Upload Grid */}
-              <div className="space-y-3">
-                <label className="text-sm font-bold text-gray-700 uppercase tracking-tight">Slider Images</label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {selectedHero.images.map((img, i) => (
-                    <div key={i} className="group relative aspect-video rounded-2xl overflow-hidden border border-gray-100 bg-gray-50">
-                      <img src={img} className="w-full h-full object-cover" />
-                      <button
-                        onClick={() => removeImage(i)}
-                        className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition shadow-lg"
+            <div className="p-10 grid md:grid-cols-2 gap-10 max-h-[70vh] overflow-y-auto">
+              {/* Left Side: Content */}
+              <div className="space-y-6">
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black uppercase text-[#c4a174] tracking-[0.2em]">Banner Text Content</label>
+                  <input
+                    placeholder="Headline"
+                    className="w-full h-14 px-6 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-[#c4a174]/20 font-bold"
+                    value={selectedHero.title}
+                    onChange={e => setSelectedHero({ ...selectedHero, title: e.target.value })}
+                  />
+                  <textarea
+                    placeholder="Description"
+                    className="w-full p-6 bg-slate-50 rounded-xl outline-none h-32 font-medium text-sm"
+                    value={selectedHero.description}
+                    onChange={e => setSelectedHero({ ...selectedHero, description: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-[#c4a174] tracking-[0.2em]">Button Label</label>
+                    <input
+                      placeholder="Shop Now"
+                      className="w-full h-12 px-4 bg-slate-50 rounded-xl font-bold text-xs"
+                      value={selectedHero.button_text}
+                      onChange={e => setSelectedHero({ ...selectedHero, button_text: e.target.value })}
+                    />
+                  </div>
+                  
+                  {/* LIFESTYLE TAG DROPDOWN */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-[#c4a174] tracking-[0.2em]">Lifestyle Tag</label>
+                    <div className="relative">
+                      <select 
+                        className="w-full h-12 px-4 bg-[#2b2652] text-[#c4a174] rounded-xl font-black text-[10px] uppercase tracking-widest appearance-none outline-none cursor-pointer"
+                        value={selectedHero.lifestyle_tag}
+                        onChange={e => setSelectedHero({ ...selectedHero, lifestyle_tag: e.target.value })}
                       >
-                        <X size={14} />
+                        <option value="">No Collection</option>
+                        {lifestyleTags.map(tag => (
+                          <option key={tag.id} value={tag.name}>{tag.name}</option>
+                        ))}
+                      </select>
+                      <Tag size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#c4a174] pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Side: Media */}
+              <div className="space-y-6">
+                <label className="text-[10px] font-black uppercase text-[#c4a174] tracking-[0.2em]">Media Assets</label>
+                <div className="grid grid-cols-2 gap-4">
+                  {selectedHero.images.map((img, i) => (
+                    <div key={i} className="relative aspect-video rounded-xl overflow-hidden group border border-slate-100">
+                      <img src={img} className="w-full h-full object-cover" />
+                      <button 
+                        onClick={() => setSelectedHero({...selectedHero, images: selectedHero.images.filter((_, idx) => idx !== i)})}
+                        className="absolute inset-0 bg-red-500/80 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                      >
+                        <Trash size={16} />
                       </button>
                     </div>
                   ))}
-                  <label className="aspect-video border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-orange-500 hover:bg-orange-50/50 transition-all text-gray-400 hover:text-orange-600">
-                    <UploadCloud size={28} />
-                    <span className="text-[10px] font-bold uppercase mt-1">Upload</span>
-                    <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e.target.files!)} />
+                  <label className="aspect-video border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50">
+                    {uploading ? <Loader2 className="animate-spin text-[#c4a174]" /> : <UploadCloud className="text-slate-300" />}
+                    <input type="file" multiple className="hidden" onChange={e => handleFileUpload(e.target.files!)} />
                   </label>
                 </div>
-                {uploading && <p className="text-blacktext-[10px] font-bold animate-pulse">Processing images...</p>}
-              </div>
-
-              {/* Toggle Switch */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
-                <div>
-                  <p className="text-sm font-bold text-gray-800">Active Status</p>
-                  <p className="text-[10px] text-gray-500 uppercase font-medium">Show this slider on the homepage</p>
-                </div>
-                <button
-                  onClick={() => setSelectedHero({ ...selectedHero, active: !selectedHero.active })}
-                  className={`w-12 h-6 rounded-full transition-colors relative ${selectedHero.active ? 'bg-orange-600' : 'bg-gray-300'}`}
-                >
-                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${selectedHero.active ? 'left-7' : 'left-1'}`} />
-                </button>
               </div>
             </div>
 
-            <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-3">
-              <button
-                onClick={saveHero}
-                disabled={loading}
-                className="flex-1 py-4 bg-blacktext-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blackshadow-lg shadow-black transition-all disabled:opacity-50"
+            <div className="p-8 bg-[#FBFBFC] border-t flex gap-4">
+              <button onClick={() => setSelectedHero(null)} className="flex-1 py-4 font-black text-[10px] uppercase tracking-widest text-slate-400">Cancel</button>
+              <button 
+                onClick={saveHero} 
+                className="flex-[2] py-4 bg-[#2b2652] text-[#c4a174] rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg"
               >
-                {loading ? "Processing..." : "Save Configuration"}
-              </button>
-              <button
-                onClick={() => setSelectedHero(null)}
-                className="px-8 py-4 bg-white text-gray-500 border border-gray-200 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-gray-50 transition-all"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-8 w-full max-w-sm text-center shadow-2xl animate-in zoom-in-95">
-            <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Trash size={28} />
-            </div>
-            <h2 className="text-xl font-black text-gray-800 uppercase tracking-tight mb-2">Delete Slider?</h2>
-            <p className="text-sm text-gray-500 mb-8 font-medium ">
-              "This action is permanent and will remove these images from your carousel."
-            </p>
-            <div className="flex gap-3">
-              <button onClick={deleteHero} className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition">
-                Delete
-              </button>
-              <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition">
-                Keep
+                Deploy Configuration
               </button>
             </div>
           </div>

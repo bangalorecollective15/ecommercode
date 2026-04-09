@@ -13,7 +13,9 @@ import {
   Clock, 
   CheckCircle2, 
   Package,
-  Calendar
+  Calendar,
+  Loader2,
+  FileText
 } from "lucide-react";
 
 const supabase = createClient(
@@ -38,7 +40,7 @@ export default function OrderReport() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"order_date" | "total_price" | "grand_total">("order_date");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 12;
 
   useEffect(() => {
     fetchOrders();
@@ -54,13 +56,9 @@ export default function OrderReport() {
       .from("orders")
       .select("id, full_name, phone_number, total_price, grand_total, status, order_date")
       .order("order_date", { ascending: false })
-      .limit(200);
+      .limit(500);
 
-    if (error) {
-      setOrders([]);
-    } else {
-      setOrders(data as Order[]);
-    }
+    if (!error) setOrders(data as Order[]);
     setLoading(false);
   };
 
@@ -89,13 +87,11 @@ export default function OrderReport() {
     setSortBy("order_date");
   };
 
-  // Stats Calculations
   const totalOrders = orders.length;
   const pendingOrders = orders.filter((o) => o.status === "pending").length;
   const deliveredOrders = orders.filter((o) => o.status === "delivered").length;
   const totalRevenue = orders.reduce((sum, o) => sum + Number(o.grand_total), 0);
 
-  // Pagination
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const paginatedOrders = filteredOrders.slice(
     (currentPage - 1) * itemsPerPage,
@@ -105,117 +101,123 @@ export default function OrderReport() {
   const exportToExcel = () => {
     const worksheet = XLSX.utils.json_to_sheet(filteredOrders);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Orders Report");
-    XLSX.writeFile(workbook, `Swaadha_Orders_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Swaadha_Master_Log");
+    XLSX.writeFile(workbook, `Swaadha_Analytics_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-[#FBFBFC] gap-4">
+       <Loader2 className="w-12 h-12 text-[#c4a174] animate-spin" />
+       <span className="text-[10px] font-black uppercase tracking-[0.4em] text-[#2b2652]">Generating Intelligence...</span>
     </div>
   );
 
   return (
-    <div className="p-4 md:p-8 bg-[#F9FAFB] min-h-screen text-slate-900">
-      <div className="max-w-8xl mx-auto">
+    <div className="min-h-screen bg-[#FBFBFC] text-[#2b2652] font-sans selection:bg-[#c4a174] selection:text-white p-6 md:p-10">
+      <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900">ORDER REPORTS</h1>
-            <p className="text-slate-500 font-medium">Monitor your sales performance and order statuses.</p>
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#2b2652] flex items-center justify-center shadow-lg shadow-[#2b2652]/20">
+                <FileText className="text-[#c4a174] w-5 h-5" />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">Financial Ledger</span>
+            </div>
+            <h1 className="text-5xl font-black tracking-tighter uppercase leading-none">
+              Order <span className="text-[#c4a174] italic">Analytics</span>
+            </h1>
           </div>
+          
           <button
             onClick={exportToExcel}
-            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl font-bold shadow-lg shadow-emerald-100 transition-all active:scale-95"
+            className="h-14 px-8 bg-white text-[#2b2652] border border-slate-100 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:border-[#c4a174] transition-all flex items-center gap-3 shadow-sm active:scale-95 group"
           >
-            <Download size={20} /> Export Excel
+            <Download size={18} className="text-[#c4a174] group-hover:-translate-y-0.5 transition-transform" />
+            Export Archive
           </button>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          <StatCard title="Total Orders" value={totalOrders} icon={<Package size={24}/>} variant="blue" />
-          <StatCard title="Placed" value={pendingOrders} icon={<Clock size={24}/>} variant="yellow" />
-          <StatCard title="Delivered" value={deliveredOrders} icon={<CheckCircle2 size={24}/>} variant="green" />
-          <StatCard title="Net Revenue" value={totalRevenue} icon={<TrendingUp size={24}/>} variant="orange" isCurrency />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard title="Total Volume" value={totalOrders} icon={<Package size={22}/>} variant="brand" />
+          <StatCard title="Active Queues" value={pendingOrders} icon={<Clock size={22}/>} variant="gold" />
+          <StatCard title="Fulfilled" value={deliveredOrders} icon={<CheckCircle2 size={22}/>} variant="brand" />
+          <StatCard title="Gross Revenue" value={totalRevenue} icon={<TrendingUp size={22}/>} variant="gold" isCurrency />
         </div>
 
-        {/* Filters & Search Section */}
-        <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100 mb-6">
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="relative flex-grow">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by customer name or phone..."
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-500 font-medium text-slate-700 transition-all"
-              />
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-3">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="bg-slate-50 border-none rounded-2xl px-6 py-4 font-bold text-slate-600 focus:ring-2 focus:ring-orange-500"
-              >
-                <option value="order_date">Newest First</option>
-                <option value="total_price">Total Price</option>
-                <option value="grand_total">Grand Total</option>
-              </select>
-
-              <button
-                onClick={clearFilters}
-                className="flex items-center gap-2 px-6 py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-bold transition-colors"
-              >
-                <FilterX size={18} /> Reset
-              </button>
-            </div>
+        {/* Search & Filter Bar */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center bg-white p-4 rounded-[1.8rem] border border-slate-100 shadow-sm">
+          <div className="lg:col-span-7 relative group">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#c4a174] transition-colors" size={18} />
+            <input
+              type="text"
+              placeholder="SEARCH BY CLIENT OR CONTACT..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full h-14 pl-14 pr-6 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-[#c4a174]/20 text-xs font-black uppercase tracking-widest transition-all"
+            />
           </div>
+          
+          <div className="lg:col-span-3">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="w-full h-14 px-6 bg-slate-50 border-none rounded-xl outline-none font-black text-[10px] uppercase tracking-widest text-[#2b2652] cursor-pointer"
+            >
+              <option value="order_date">Newest Entries</option>
+              <option value="total_price">Subtotal Value</option>
+              <option value="grand_total">Gross Value</option>
+            </select>
+          </div>
+
+          <button
+            onClick={clearFilters}
+            className="lg:col-span-2 h-14 flex items-center justify-center gap-2 bg-slate-100 text-slate-500 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#c4a174] hover:text-[#2b2652] transition-all"
+          >
+            <FilterX size={16} /> Reset Filters
+          </button>
         </div>
 
-        {/* Orders Table */}
-        <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+        {/* Table Content */}
+        <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-[#2b2652]/5 border border-slate-100 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50/50">
-                  <Th>ID</Th>
-                  <Th>Customer Details</Th>
-                  <Th>Amount</Th>
-                  <Th>Status</Th>
-                  <Th>Order Date</Th>
+                <tr className="bg-slate-50/50 border-b border-slate-50">
+                  <Th>Registry ID</Th>
+                  <Th>Client Credentials</Th>
+                  <Th>Financials</Th>
+                  <Th>Log Status</Th>
+                  <Th>Timestamp</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {paginatedOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-slate-50/50 transition-colors group">
+                  <tr key={order.id} className="group hover:bg-[#c4a174]/5 transition-colors">
                     <Td>
-                      <span className="font-mono text-xs text-slate-400 font-bold">#{order.id}</span>
+                      <span className="font-black text-[10px] text-[#c4a174] bg-[#c4a174]/10 px-3 py-1 rounded-lg">#{order.id}</span>
                     </Td>
                     <Td>
                       <div className="flex flex-col">
-                        <span className="font-bold text-slate-800">{order.full_name}</span>
-                        <span className="text-xs text-slate-500">{order.phone_number}</span>
+                        <span className="font-black text-sm text-[#2b2652] uppercase tracking-tight group-hover:text-[#c4a174] transition-colors">{order.full_name}</span>
+                        <span className="text-[10px] text-slate-400 font-bold tracking-widest mt-0.5">{order.phone_number}</span>
                       </div>
                     </Td>
                     <Td>
                       <div className="flex flex-col">
-                        <span className="font-black text-slate-900">₹{order.grand_total.toLocaleString()}</span>
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Sub: ₹{order.total_price}</span>
+                        <span className="font-black text-[#2b2652]">₹{order.grand_total.toLocaleString()}</span>
+                        <span className="text-[9px] text-[#c4a174] font-black uppercase tracking-tighter">Sub: ₹{order.total_price}</span>
                       </div>
                     </Td>
                     <Td>
                       <StatusBadge status={order.status} />
                     </Td>
                     <Td>
-                      <div className="flex items-center gap-2 text-slate-500">
-                        <Calendar size={14} />
-                        <span className="text-sm font-medium">
-                          {new Date(order.order_date).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
-                        </span>
+                      <div className="flex items-center gap-2 text-[#2b2652] font-black text-[10px] uppercase">
+                        <Calendar size={12} className="text-[#c4a174]" />
+                        {new Date(order.order_date).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
                       </div>
                     </Td>
                   </tr>
@@ -224,33 +226,25 @@ export default function OrderReport() {
             </table>
           </div>
 
-          {/* Empty State */}
           {filteredOrders.length === 0 && (
-            <div className="py-20 text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-full mb-4">
-                <Search className="text-slate-400" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-800">No orders found</h3>
-              <p className="text-slate-500">Try adjusting your filters or search term.</p>
+            <div className="py-32 text-center text-slate-300 font-black text-[10px] uppercase tracking-[0.5em] italic">
+              No matching records found in archive
             </div>
           )}
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-8 py-6 bg-slate-50/50 border-t border-slate-50">
-              <p className="text-sm text-slate-500 font-medium">
-                Showing <span className="font-bold text-slate-900">{paginatedOrders.length}</span> of {filteredOrders.length}
+            <div className="flex items-center justify-between px-10 py-8 bg-slate-50/50 border-t border-slate-100">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">
+                Page {currentPage} <span className="text-[#c4a174]">/</span> {totalPages}
               </p>
               
-              <div className="flex items-center gap-2">
-                <PaginationButton 
-                  onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} 
-                  disabled={currentPage === 1}
-                >
+              <div className="flex items-center gap-3">
+                <PaginationBtn onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>
                   <ChevronLeft size={18} />
-                </PaginationButton>
+                </PaginationBtn>
 
-                <div className="flex gap-1">
+                <div className="flex gap-2">
                   {[...Array(totalPages)].map((_, idx) => {
                     const p = idx + 1;
                     if (p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1)) {
@@ -258,26 +252,24 @@ export default function OrderReport() {
                         <button
                           key={p}
                           onClick={() => setCurrentPage(p)}
-                          className={`w-10 h-10 rounded-xl font-bold transition-all ${
+                          className={`w-10 h-10 rounded-xl font-black text-[10px] transition-all ${
                             p === currentPage 
-                            ? "bg-orange-500 text-white shadow-lg shadow-orange-100" 
-                            : "text-slate-500 hover:bg-white"
+                            ? "bg-[#2b2652] text-[#c4a174] shadow-lg shadow-[#2b2652]/20 scale-110" 
+                            : "text-slate-400 hover:text-[#2b2652]"
                           }`}
                         >
-                          {p}
+                          {p.toString().padStart(2, '0')}
                         </button>
                       );
                     }
+                    if (p === 2 || p === totalPages - 1) return <span key={p} className="text-slate-300 text-xs">...</span>;
                     return null;
                   })}
                 </div>
 
-                <PaginationButton 
-                  onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} 
-                  disabled={currentPage === totalPages}
-                >
+                <PaginationBtn onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}>
                   <ChevronRight size={18} />
-                </PaginationButton>
+                </PaginationBtn>
               </div>
             </div>
           )}
@@ -287,34 +279,28 @@ export default function OrderReport() {
   );
 }
 
-// Custom Components
+// Reusable UI components
 function Th({ children }: { children: React.ReactNode }) {
   return (
-    <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-[0.15em]">
+    <th className="px-10 py-7 text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">
       {children}
     </th>
   );
 }
 
-function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return (
-    <td className={`px-8 py-5 text-sm ${className}`}>
-      {children}
-    </td>
-  );
+function Td({ children }: { children: React.ReactNode }) {
+  return <td className="px-10 py-6 text-sm">{children}</td>;
 }
 
 function StatusBadge({ status }: { status: string }) {
   const configs: Record<string, string> = {
-    pending: "bg-amber-100 text-amber-700",
-    confirmed: "bg-blue-100 text-blue-700",
-    processing: "bg-indigo-100 text-indigo-700",
-    "out of delivery": "bg-orange-100 text-black",
-    delivered: "bg-emerald-100 text-emerald-700",
+    pending: "bg-slate-100 text-[#2b2652]",
+    delivered: "bg-[#c4a174]/10 text-[#c4a174] border-[#c4a174]/20",
+    "out of delivery": "bg-[#2b2652] text-white",
   };
 
   return (
-    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${configs[status] || "bg-slate-100 text-slate-700"}`}>
+    <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border border-transparent ${configs[status] || "bg-slate-100 text-slate-500"}`}>
       {status}
     </span>
   );
@@ -322,31 +308,29 @@ function StatusBadge({ status }: { status: string }) {
 
 function StatCard({ title, value, icon, variant, isCurrency }: any) {
   const styles: any = {
-    blue: "bg-blue-50 text-blue-600",
-    yellow: "bg-amber-50 text-amber-600",
-    green: "bg-emerald-50 text-emerald-600",
-    orange: "bg-orange-50 text-black",
+    brand: "bg-[#2b2652] text-[#c4a174]",
+    gold: "bg-[#c4a174] text-[#2b2652]",
   };
 
   return (
-    <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-      <div className={`w-12 h-12 ${styles[variant]} rounded-2xl flex items-center justify-center mb-4`}>
+    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+      <div className={`w-14 h-14 ${styles[variant]} rounded-2xl flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 transition-transform`}>
         {icon}
       </div>
-      <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">{title}</p>
-      <h2 className="text-3xl font-black text-slate-900 mt-1">
+      <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em] mb-1">{title}</p>
+      <h2 className="text-3xl font-black text-[#2b2652] tracking-tighter">
         {isCurrency ? "₹" : ""}{value.toLocaleString()}
       </h2>
     </div>
   );
 }
 
-function PaginationButton({ children, disabled, onClick }: any) {
+function PaginationBtn({ children, disabled, onClick }: any) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className="w-10 h-10 flex items-center justify-center bg-white border border-slate-100 rounded-xl text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors shadow-sm"
+      className="w-10 h-10 flex items-center justify-center bg-white border border-slate-100 rounded-xl text-[#2b2652] disabled:opacity-20 hover:border-[#c4a174] transition-all"
     >
       {children}
     </button>

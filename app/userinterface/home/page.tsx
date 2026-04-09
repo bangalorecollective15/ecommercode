@@ -14,137 +14,121 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// Define Interface for Hero Data
+// Updated Interface
+interface HeroData {
+  id: string;
+  images: string[];
+  title: string;
+  description: string;
+  button_text: string;
+}
+
+
 export default function HomePage() {
-  const [heroImages, setHeroImages] = useState<string[]>([]);
   const [brands, setBrands] = useState<any[]>([]);
   const [lifestyleSections, setLifestyleSections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [instagramLinks, setInstagramLinks] = useState<any[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [latestProducts, setLatestProducts] = useState<any[]>([]);
-  // 1. Add the missing state at the top
-  const [igLinks, setIgLinks] = useState<any[]>([]);
-  // Inside your HomePage function
   const [currentSlide, setCurrentSlide] = useState(0);
+  // Inside your HomePage function, update the state:
+  const [heroSections, setHeroSections] = useState<HeroData[]>([]); // Note: Changed to Array
 
-  // Add this useEffect for the auto-play banner
+  // Auto-play Slider Logic
   useEffect(() => {
-    if (heroImages.length <= 1) return;
-
+    if (heroSections.length <= 1) return; // Watch the array length
     const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % heroImages.length);
-    }, 5000); // Changes every 5 seconds
-
+      setCurrentSlide((prev) => (prev + 1) % heroSections.length);
+    }, 5000);
     return () => clearInterval(interval);
-  }, [heroImages]);
-  // 2. Combine into ONE single parallel fetch
+  }, [heroSections]); // Update dependency
+
   useEffect(() => {
-    // Inside your useEffect
-   async function fetchData() {
-  try {
-    const [
-      hero,
-      brandData,
-      session,
-      tagsData,
-      latestData,
-      instagramData
-    ] = await Promise.all([
-      supabase.from("hero_section").select("images").eq("active", true).limit(1).maybeSingle(),
-      supabase.from("brands").select("*").eq("status", true).limit(10),
-      supabase.auth.getSession(),
-      supabase.from("attributes").select("id, name").eq("type", "lifestyle_tag"),
-      // 1. UPDATED QUERY FOR LATEST PRODUCTS
-      supabase.from("products")
-        .select(`
-          *, 
-          product_variations(*, attributes:size_id(name)), 
-          product_images(image_url)
-        `)
-        .eq("active", true)
-        .order("created_at", { ascending: false })
-        .limit(4),
-      supabase.from("instagram_links")
-        .select("url")
-        .eq("published", true)
-        .order("created_at", { ascending: false })
-    ]);
-
-    if (instagramData.data) setInstagramLinks(instagramData.data);
-    setUserId(session.data.session?.user?.id || null);
-    if (hero.data?.images) setHeroImages(hero.data.images);
-    if (brandData.data) setBrands(brandData.data);
-
-    // 2. MAPPING LATEST PRODUCTS WITH SIZES
-    if (latestData.data) {
-      setLatestProducts(latestData.data.map(p => ({
-        ...p,
-        price: p.product_variations?.[0]?.price || 0,
-        image: p.product_images?.[0]?.image_url,
-        // Extracting unique size names
-        availableSizes: Array.from(new Set(
-          p.product_variations?.map((v: any) => v.attributes?.name).filter(Boolean)
-        ))
-      })));
-    }
-
-    // 3. UPDATED QUERY FOR LIFESTYLE SECTIONS
-    if (tagsData.data) {
-      const sections = await Promise.all(
-        tagsData.data.map(async (tag) => {
-          const { data: products } = await supabase
-            .from("products")
-            .select(`
-              *, 
-              product_variations(*, attributes:size_id(name)), 
-              product_images(image_url)
-            `)
-            .eq("lifestyle_tag_id", tag.id)
+    async function fetchData() {
+      try {
+        // Inside your useEffect / fetchData function:
+        const [heroData, brandData, session, tagsData, latestData, instagramData] = await Promise.all([
+          // REMOVED .limit(1).maybeSingle() to get all active banners
+          supabase.from("hero_section").select("*").eq("active", true).order("created_at", { ascending: false }),
+          supabase.from("brands").select("*").eq("status", true).limit(10),
+          supabase.auth.getSession(),
+          supabase.from("attributes").select("id, name").eq("type", "lifestyle_tag"),
+          supabase.from("products")
+            .select(`*, product_variations(*, attributes:size_id(name)), product_images(image_url)`)
             .eq("active", true)
-            .limit(4);
+            .order("created_at", { ascending: false })
+            .limit(4),
+          supabase.from("instagram_links").select("url").eq("published", true).order("created_at", { ascending: false })
+        ]);
 
-          return {
-            tagName: tag.name,
-            products: products?.map(p => ({
-              ...p,
-              price: p.product_variations?.[0]?.price || 0,
-              image: p.product_images?.[0]?.image_url,
-              // Extracting unique size names
-              availableSizes: Array.from(new Set(
-                p.product_variations?.map((v: any) => v.attributes?.name).filter(Boolean)
-              ))
-            })) || []
-          };
-        })
-      );
-      setLifestyleSections(sections.filter(s => s.products.length > 0));
+        if (heroData.data) setHeroSections(heroData.data);
+
+        if (instagramData.data) setInstagramLinks(instagramData.data);
+        setUserId(session.data.session?.user?.id || null);
+        if (brandData.data) setBrands(brandData.data);
+
+        // Map Products
+        if (latestData.data) {
+          setLatestProducts(latestData.data.map(p => ({
+            ...p,
+            price: p.product_variations?.[0]?.price || 0,
+            image: p.product_images?.[0]?.image_url,
+            availableSizes: Array.from(new Set(p.product_variations?.map((v: any) => v.attributes?.name).filter(Boolean)))
+          })));
+        }
+
+        // Map Lifestyle Sections
+        if (tagsData.data) {
+          const sections = await Promise.all(
+            tagsData.data.map(async (tag) => {
+              const { data: products } = await supabase
+                .from("products")
+                .select(`*, product_variations(*, attributes:size_id(name)), product_images(image_url)`)
+                .eq("lifestyle_tag_id", tag.id).eq("active", true).limit(4);
+              return {  tagId: tag.id, 
+                tagName: tag.name,
+                products: products?.map(p => ({
+                  ...p,
+                  price: p.product_variations?.[0]?.price || 0,
+                  image: p.product_images?.[0]?.image_url,
+                  availableSizes: Array.from(new Set(p.product_variations?.map((v: any) => v.attributes?.name).filter(Boolean)))
+                })) || []
+              };
+            })
+          );
+          setLifestyleSections(sections.filter(s => s.products.length > 0));
+        }
+      } catch (err) {
+        console.error("Fetch Error:", err);
+      } finally {
+        setLoading(false);
+      }
     }
-  } catch (err) {
-    console.error("Fetch Error:", err);
-  } finally {
-    setLoading(false);
-  }
-}
     fetchData();
   }, []);
 
-  // Instagram Script Logic
-  // Instagram Script Logic
-  useEffect(() => {
-    if (!instagramLinks.length) return;
-    if ((window as any).instgrm) {
-      (window as any).instgrm.Embeds.process();
-    } else {
-      const script = document.createElement("script");
-      script.src = "https://www.instagram.com/embed.js";
-      script.async = true;
-      script.onload = () => (window as any).instgrm.Embeds.process();
-      document.body.appendChild(script);
+  const categories = [
+    {
+      title: "Men's Footwear",
+      description: "Find luxury men's footwear crafted for comfort, style, and lasting quality. Each pair blends classic design with fine craftsmanship.",
+      image: "/path-to-your-men-image.jpg",
+    },
+    {
+      title: "Ladies Handbags",
+      description: "Explore our range of stylish ladies' handbags from premium brands, made with fine materials and timeless designs.",
+      image: "/path-to-your-bag-image.jpg",
+    },
+    {
+      title: "Premium Stoles",
+      description: "Wrap yourself in pure comfort with our cashmere wool stoles and shawls. Soft, warm, and elegant for any look.",
+      image: "/path-to-your-stole-image.jpg",
     }
-  }, [instagramLinks]);
+  ];
 
   if (loading) return (
-    <div className="h-screen flex items-center justify-center">
+    <div className="h-screen flex items-center justify-center bg-[#050505]">
       <Loader2 className="animate-spin text-orange-600" size={40} />
     </div>
   );
@@ -152,300 +136,412 @@ export default function HomePage() {
   return (
     <div className="bg-[#fcfcfc] min-h-screen font-sans selection:bg-orange-100">
 
-      {/* 1. HERO SECTION */}
-      {/* --- LUXURY PROMO BANNER: THE GLASS INLAY --- */}
-      <section className="max-w-[1400px] mx-auto px-6 py-20">
-        <div className="relative h-[500px] md:h-[600px] w-full rounded-[4rem] overflow-hidden group shadow-2xl shadow-orange-950/20">
+      {/* 1. FULL-WIDTH EDITORIAL HERO */}
+      <section className="w-full bg-[#fcfcfc]">
+        <div className="relative h-[550px] md:h-[700px] w-full overflow-hidden bg-[#0a0a0a]">
 
-          {/* 1. Background Image - Multi-Photo Slider */}
-          <div className="absolute inset-0 w-full h-full">
-            {heroImages.length > 0 ? (
-              heroImages.map((img, index) => (
-                <div
-                  key={index}
-                  className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentSlide ? "opacity-100 z-0" : "opacity-0"
-                    }`}
-                >
-                  <img
-                    src={img}
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-[10s] scale-110 group-hover:scale-100"
-                    alt={`Luxury Banner ${index + 1}`}
-                  />
-                </div>
-              ))
-            ) : (
+          {/* The Slider Track */}
+          {heroSections.map((hero, index) => (
+            <div
+              key={hero.id}
+              className={`absolute inset-0 transition-all duration-[1.2s] ease-in-out ${index === currentSlide ? "opacity-100 z-10" : "opacity-0 z-0"
+                }`}
+            >
+              {/* Background Image - Reduced Zoom for smaller height */}
               <img
-                src="https://images.unsplash.com/photo-1441984908747-d4125f2670bf?q=80&w=2070"
-                className="absolute inset-0 w-full h-full object-cover"
-                alt="Fallback Banner"
+                src={hero.images[0]}
+                className={`w-full h-full object-cover transition-transform duration-[8s] ${index === currentSlide ? "scale-105" : "scale-100"
+                  }`}
+                alt={hero.title}
               />
-            )}
 
-            {/* Optional: Slide Indicators (Bottom Dots) */}
-            {heroImages.length > 1 && (
-              <div className="absolute bottom-8 right-12 z-30 flex gap-2">
-                {heroImages.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setCurrentSlide(idx)}
-                    className={`h-1 transition-all duration-500 rounded-full ${idx === currentSlide ? "w-8 bg-orange-500" : "w-2 bg-white/30"
-                      }`}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
+              {/* Gradient Overlay - Darker on left for text readability */}
+              <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/30 to-transparent" />
 
-          {/* 2. Gradient Overlays for Depth */}
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/40 to-transparent z-10" />
-          <div className="absolute inset-0 bg-gradient-to-t from-orange-600/20 via-transparent to-transparent z-10" />
+              {/* Content Overlay - Aligned to max-width container but section is full-width */}
+              <div className="absolute inset-0 flex items-center">
+                <div className="max-w-[1400px] mx-auto w-full px-6 md:px-12">
+                  <div className="max-w-3xl">
 
-          {/* 3. Floating Glassmorphism Content Card */}
-          <div className="absolute inset-0 z-20 flex items-center px-10 md:px-20">
-            <div className="max-w-2xl backdrop-blur-2xl bg-white/5 border border-white/10 p-10 md:p-16 rounded-[3.5rem] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] transform transition-transform duration-700 group-hover:-translate-y-2">
+                    {/* Animated Line + Tagline */}
+                    <div className={`flex items-center gap-4 mb-6 transition-all duration-700 delay-300 ${index === currentSlide ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+                      }`}>
+                      <div className="h-[2px] w-12 bg-orange-600" />
+                      <span className="text-orange-500 text-[10px] font-black uppercase tracking-[0.4em]">
+                        New Season Arrival
+                      </span>
+                    </div>
 
-              {/* Animated Badge */}
-              <div className="flex items-center gap-3 mb-8">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500"></span>
-                </span>
-                <span className="text-[10px] font-black uppercase tracking-[0.5em] text-white/80">Limited Access Edition</span>
-              </div>
+                    {/* Title - Reduced font size for smaller height */}
+                    <h2 className={`text-5xl md:text-8xl font-black text-white tracking-tighter leading-[0.9] uppercase mb-6 transition-all duration-1000 delay-500 ${index === currentSlide ? "translate-x-0 opacity-100" : "-translate-x-10 opacity-0"
+                      }`}>
+                      {hero.title.split(' ')[0]} <br />
+                      <span
+                        className="text-transparent"
+                        style={{ WebkitTextStroke: '1px rgba(255,255,255,0.4)' }}
+                      >
+                        {hero.title.split(' ').slice(1).join(' ')}
+                      </span>
+                    </h2>
 
-              <h2 className="text-5xl md:text-7xl font-black text-white tracking-tighter leading-[0.85] mb-8">
-                REFINING <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-200">THE UNKNOWN.</span>
-              </h2>
+                    {/* Description - Shorter line height */}
+                    <p className={`text-white/50 text-sm md:text-base font-medium leading-relaxed max-w-sm mb-10 transition-all duration-700 delay-700 ${index === currentSlide ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
+                      }`}>
+                      {hero.description}
+                    </p>
 
-              <p className="text-white/60 text-lg font-medium leading-relaxed max-w-md mb-10 border-l-2 border-orange-500/50 pl-6">
-                Experience the 2026 Collection — where avant-garde silhouettes meet the serenity of minimalist craft.
-              </p>
+                    {/* Action Button */}
+                    <div className={`transition-all duration-700 delay-1000 ${index === currentSlide ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
+                      }`}>
+<Link
+  href={
+    hero.lifestyle_tag
+      ? `/userinterface/Gproducts?tag=${hero.lifestyle_tag}`
+      : "/userinterface/Gproducts"
+  }
+  className="group flex items-center gap-4 w-fit"
+>
+  <div className="px-8 py-4 bg-white text-black rounded-full text-[10px] font-black uppercase tracking-widest group-hover:bg-orange-600 group-hover:text-white transition-all shadow-xl">
+    
+    {/* Dynamic Button Name */}
+    {hero.lifestyle_tag
+      ? "View Products"
+      : (hero.button_text || "Shop Now")}
+      
+  </div>
 
-              {/* Action Button */}
-              <div className="flex flex-wrap gap-6">
-                <Link
-                  href="/userinterface/Gproducts"
-                  className="px-10 py-5 bg-orange-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-slate-900 transition-all duration-500 shadow-xl"
-                >
-                  Access the Vault
-                </Link>
-                <Link
-                  href="/userinterface/about/">
-                  <button className="flex items-center gap-3 text-white/80 hover:text-orange-400 transition-colors py-4">
-                    <span className="text-[10px] font-black uppercase tracking-widest">Inquiry Only</span>
-                    <ArrowUpRight size={18} />
-                  </button></Link>
-              </div>
-            </div>
-          </div>
-
-          {/* 4. Decorative Elements */}
-          <div className="absolute top-12 right-12 z-20 hidden lg:block">
-            <div className="w-24 h-24 rounded-full border border-white/20 flex items-center justify-center backdrop-blur-md animate-spin-slow">
-              <Sparkles className="text-white/20" size={32} />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* --- 2. THE MINI MAISON GRID (Compact Luxury with Local Assets) --- */}
-      <section className="max-w-[1200px] mx-auto px-6 pb-20 pt-8 bg-[#fcfcfc]">
-
-        {/* Compact Section Header */}
-        <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4 text-center md:text-left">
-          <div className="space-y-2">
-            <div className="flex items-center justify-center md:justify-start gap-2">
-              <span className="w-8 h-[1px] bg-orange-500"></span>
-              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-orange-600">Maison 2026</span>
-            </div>
-            <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-slate-950">
-              The Noir <span className="text-black italic font-serif font-light">Edit.</span>
-            </h2>
-          </div>
-          <p className="text-slate-400 text-[11px] max-w-[240px] leading-relaxed font-medium">
-            A curated selection featuring local aesthetics and global silhouettes from <span className="text-slate-900 font-bold">Coach</span> & <span className="text-slate-900 font-bold">LV</span>.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-5 auto-rows-[220px]">
-
-          {/* 1. PRIMARY FEATURE - Using banner.png */}
-          <div className="md:col-span-7 row-span-2 relative rounded-[3rem] overflow-hidden group shadow-xl">
-            <img
-              src="/banner.png"
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-[3s] group-hover:scale-110"
-              alt="Main Collection Banner"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-transparent" />
-
-            {/* Floating Glass Card */}
-            <div className="absolute bottom-6 left-6 right-6 backdrop-blur-xl bg-white/10 border border-white/20 p-6 rounded-[2rem]">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-orange-400 text-[9px] font-black uppercase tracking-widest mb-1">LV Heritage</p>
-                  <h3 className="text-2xl font-black text-white tracking-tight">Monogram Series</h3>
+</Link>
+                    </div>
+                  </div>
                 </div>
-                <button className="p-3 bg-white text-slate-900 rounded-full hover:bg-orange-500 hover:text-white transition-all shadow-lg">
-                  <ArrowUpRight size={18} />
+              </div>
+            </div>
+          ))}
+
+          {/* Minimalist Navigation Bar - Positioned at the very bottom edge */}
+          <div className="absolute bottom-0 left-0 w-full z-30 flex justify-between items-center px-6 md:px-12 py-8 bg-gradient-to-t from-black/50 to-transparent">
+
+            {/* Slide Indicators */}
+            <div className="flex items-center gap-2">
+              {heroSections.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentSlide(idx)}
+                  className="group py-2"
+                >
+                  <div className={`h-[3px] transition-all duration-500 rounded-full ${idx === currentSlide ? "w-16 bg-orange-600" : "w-6 bg-white/20 group-hover:bg-white/40"
+                    }`} />
                 </button>
-              </div>
+              ))}
             </div>
-          </div>
 
-          {/* 2. COMPACT COACH CARD */}
-          <div className="md:col-span-5 row-span-1 bg-white border border-slate-100 rounded-[2.5rem] p-8 flex flex-col justify-between group hover:border-orange-200 transition-all shadow-sm">
-            <div className="flex justify-between items-start">
-              <div className="w-12 h-12 rounded-xl bg-slate-950 flex items-center justify-center text-white">
-                <ShieldCheck size={22} />
-              </div>
-              <span className="text-[9px] font-black text-slate-300 tracking-widest">1941</span>
-            </div>
-            <div>
-              <h4 className="text-lg font-black text-slate-950">Coach Signature</h4>
-              <p className="text-slate-400 text-[10px] font-medium leading-tight mt-1">NYC leathercraft reimagined for the collection.</p>
-            </div>
-          </div>
-
-          {/* 3. SECONDARY VISUAL - Using ban.png */}
-          <div className="md:col-span-5 row-span-1 relative rounded-[2.5rem] overflow-hidden group">
-            <img
-              src="/ban.png"
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-              alt="Lifestyle Visual"
-            />
-            {/* Smoked Glass Overlay */}
-            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px] group-hover:backdrop-blur-md transition-all flex items-center justify-center">
-              <div className="text-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <Instagram className="text-white mx-auto mb-2" size={20} />
-                <p className="text-white text-[8px] font-black uppercase tracking-[0.3em]">Bangalore Fashion</p>
-              </div>
+            {/* Numeric Counter */}
+            <div className="flex items-center gap-4 font-mono text-[10px] tracking-[0.3em] text-white/40">
+              <span className="text-white">0{currentSlide + 1}</span>
+              <div className="w-8 h-px bg-white/20" />
+              <span>0{heroSections.length}</span>
             </div>
           </div>
 
         </div>
       </section>
 
-      {/* Optional: Thin minimalist divider between sections */}
-      <div className="max-w-[1400px] mx-auto px-6">
-        <div className="h-px w-full bg-slate-100"></div>
-      </div>
+      {/* 2. catory images and descoptions*/}
+      <section className="py-24 bg-[#E5DDD3]">
+        <div className="max-w-7xl mx-auto px-6">
+
+          {/* Header Section */}
+          <div className="text-center mb-16">
+            <span className="text-brand-gold font-bold tracking-[0.3em] text-xs uppercase">Quality First</span>
+            <h2 className="mt-4 text-4xl md:text-5xl font-serif text-slate-900 leading-tight">
+              Elevated Style, Made Effortless <br /> & Affordable
+            </h2>
+            <p className="mt-6 text-slate-600 max-w-xl mx-auto text-lg">
+              Carefully selected pieces made to fit seamlessly into modern life.
+            </p>
+          </div>
+
+          {/* Categories Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+            {categories.map((cat, index) => (
+              <div key={index} className="group cursor-pointer">
+                {/* Image Container */}
+                <div className="relative overflow-hidden rounded-2xl aspect-[4/5] shadow-xl">
+                  <img
+                    src={cat.image}
+                    alt={cat.title}
+                    className="object-cover w-full h-full transition-transform duration-700 group-hover:scale-110"
+                  />
+                  {/* Gradient Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
+
+                  {/* Label on Image */}
+                  <div className="absolute bottom-6 left-6">
+                    <h3 className="text-white text-2xl font-serif">{cat.title}</h3>
+                  </div>
+                </div>
+
+                {/* Text Content */}
+                <div className="mt-6 px-2 text-center md:text-left">
+                  <p className="text-slate-600 leading-relaxed text-sm">
+                    {cat.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* --- 3. PRODUCT SHOWCASE (Infinite Luxury Marquee) --- */}
-      <section className="max-w-full mx-auto py-12 bg-[#fdfdfd] overflow-hidden">
+      {/* --- 3. PRODUCT SHOWCASE (Luxury Runway Marquee) --- */}
+      <section className="max-w-full mx-auto py-4 bg-[#ffffff] overflow-hidden">
 
-        {/* Minimalist Header */}
-        <div className="max-w-[1400px] mx-auto px-6 flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="w-6 h-[1px] bg-orange-600"></span>
-              <span className="text-orange-600 text-[10px] font-black tracking-[0.5em] uppercase">The Runway</span>
+        {/* Refined Luxury Header */}
+        <div className="max-w-[1400px] mx-auto px-6 flex flex-col md:flex-row md:items-end justify-between mb-16 gap-8">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-[2px] bg-brand-gold"></div>
+              <span className="text-brand-gold text-[11px] font-black tracking-[0.6em] uppercase">The Runway</span>
             </div>
-            <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-slate-950 uppercase italic">
-              Essential Drops.
+            <h2 className="text-5xl md:text-7xl font-black tracking-tighter text-brand-blue uppercase leading-none">
+              Essential <br />
+              <span className="text-transparent" style={{ WebkitTextStroke: '1.5px #2b2652' }}>Drops.</span>
             </h2>
           </div>
 
-          <Link href="/userinterface/Gproducts" className="group flex items-center gap-2 text-[10px] font-black tracking-[0.2em] border-b-2 border-slate-900 pb-2 hover:text-orange-600 hover:border-orange-600 transition-all">
-            VIEW ALL PIECES
-            <MoveRight size={14} className="group-hover:translate-x-1 transition-transform" />
+          <Link
+            href="/userinterface/Gproducts"
+            className="group flex items-center gap-4 text-[11px] font-black tracking-[0.3em] text-brand-blue transition-all"
+          >
+            <span className="border-b-2 border-brand-gold pb-1 group-hover:border-brand-blue transition-colors">
+              EXPLORE THE ARCHIVE
+            </span>
+            <div className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center group-hover:bg-brand-blue group-hover:text-white transition-all">
+              <MoveRight size={16} className="group-hover:translate-x-1 transition-transform" />
+            </div>
           </Link>
         </div>
 
         {/* MARQUEE CONTAINER */}
-        <div className="relative flex overflow-hidden group">
-          {/* The Scrolling Track (Duplicated for Seamless Loop) */}
-          <div className="flex animate-marquee whitespace-nowrap gap-10 py-10 group-hover:[animation-play-state:paused]">
+       {/* MARQUEE CONTAINER */}
+<div className="relative flex group">
+  {/* Changed gap-12 to gap-6 for tighter spacing */}
+  <div className="flex animate-marquee whitespace-nowrap gap-6 py-10">
+    {[...latestProducts, ...latestProducts].map((p, idx) => (
+      <div
+        key={`${p.id}-${idx}`}
+        /* Match the width to your ProductCard's max-width (300px) */
+        className="relative w-[280px] md:w-[300px] shrink-0 group/card"
+      >
+        {/* Subtle Numbering */}
+        <span className="absolute -top-4 left-6 text-[40px] font-black text-slate-100 group-hover/card:text-brand-gold/20 transition-colors z-0">
+          0{(idx % latestProducts.length) + 1}
+        </span>
 
-            {/* First Set of Products + Second Set for Loop */}
-            {[...latestProducts, ...latestProducts].map((p, idx) => (
-              <div
-                key={`${p.id}-${idx}`}
-                className="relative w-[280px] md:w-[350px] shrink-0 group/card transition-all duration-700 hover:scale-[1.02]"
-              >
-                {/* LUXURY PRODUCT TAGS */}
-                <div className="absolute top-6 left-6 z-20 flex flex-col gap-2 pointer-events-none">
-                  {p.tags?.map((tag: string) => (
-                    <span
-                      key={tag}
-                      className="px-4 py-1.5 bg-white/10 backdrop-blur-xl text-[8px] font-black uppercase tracking-[0.3em] text-white rounded-full border border-white/20 inline-block w-fit group-hover/card:bg-orange-600 group-hover/card:border-orange-600 transition-all duration-300"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-
-                {/* Product Card Wrapper with Glassmorphism shadow */}
-                <div className="relative overflow-hidden rounded-[3rem] shadow-sm hover:shadow-2xl hover:shadow-orange-500/10 transition-all duration-500">
-                  <ProductCard product={p} userId={userId} />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Elegant Side Fades (Creates the "Floating" look) */}
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-[#fdfdfd] to-transparent z-10" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-[#fdfdfd] to-transparent z-10" />
+        {/* Luxury Tags Container */}
+        <div className="absolute top-6 left-6 z-20 flex flex-col gap-2 pointer-events-none">
+          {p.tags?.map((tag: string) => (
+            <span
+              key={tag}
+              className="px-4 py-1.5 bg-brand-blue/90 backdrop-blur-md text-[8px] font-black uppercase tracking-[0.3em] text-white rounded-full inline-block w-fit shadow-lg border border-white/10"
+            >
+              {tag}
+            </span>
+          ))}
         </div>
+
+        {/* The Card Wrapper */}
+        <div className="group/card relative transition-all duration-700">
+          <ProductCard product={p} userId={userId} />
+          
+          {/* Overlay - Adjusted opacity and radius to match card */}
+          <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-brand-blue/5 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity pointer-events-none rounded-[1.5rem]" />
+        </div>
+      </div>
+    ))}
+  </div>
+
+  {/* Elegant Fade Edges */}
+  <div className="pointer-events-none absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-white via-white/40 to-transparent z-20" />
+  <div className="pointer-events-none absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-white via-white/40 to-transparent z-20" />
+</div>
       </section>
 
-      {/* --- 4. SECTION: COMPACT BLACK ROSTER (Zero-Waste Luxury) --- */}
-      <section className="bg-[#050505] py-10 px-6 overflow-hidden relative border-y border-white/5">
 
-        {/* Minimalist Top & Bottom Glow Lines */}
-        <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-orange-500/20 to-transparent" />
-        <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent" />
+      {/* --- 2. THE MINI MAISON GRID (Compact Luxury with Local Assets) --- */}
+      {/* --- 2. THE NOIR EDIT (Luxury Bento Grid) --- */}
+      <section className="w-full py-24 bg-[#E5DDD3] overflow-hidden">
+        <div className="max-w-[1400px] mx-auto px-6">
 
-        <div className="max-w-[1400px] mx-auto relative z-10">
-
-          {/* TIGHT VERTICAL HEADER */}
-          <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-1 h-8 bg-orange-600 rounded-full" />
-              <h2 className="text-3xl md:text-4xl font-black tracking-tighter text-white uppercase ">
-                Iconic Roster.
+          {/* Section Header: Minimalist & Elegant */}
+          <div className="flex flex-col md:flex-row items-end justify-between mb-16 gap-8">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <span className="w-12 h-px bg-brand-gold"></span>
+                <span className="text-[11px] font-black uppercase tracking-[0.5em] text-brand-gold">Maison 2026</span>
+              </div>
+              <h2 className="text-5xl md:text-7xl font-black tracking-tighter text-brand-blue leading-[0.8]">
+                Modern Essentials · Premium Touch · Accessible Luxury <br />
+                <span className="text-black font-serif font-light"></span>
               </h2>
             </div>
-
-            <p className="text-slate-500 text-[9px] font-black uppercase tracking-[0.4em] md:text-right">
-              Global Heritage • Modern Craft
+            <p className="text-slate-500 text-sm max-w-[320px] leading-relaxed font-medium border-l border-slate-200 pl-6">
+              A curated selection of local aesthetics and global silhouettes featuring <span className="text-brand-blue font-bold">Coach</span> & <span className="text-brand-blue font-bold">LV</span> heritage pieces.
             </p>
           </div>
 
-          {/* COMPACT CIRCLE GRID - Reduced Gaps and Size */}
-          <div className="flex flex-wrap justify-center items-center gap-6 md:gap-12">
-            {brands.map((brand, idx) => (
-              <div
-                key={brand.id}
-                className="relative group cursor-pointer transition-all duration-500"
-              >
-                {/* THE CIRCLE FRAME - Scaled down for zero-spacing feel */}
-                <div className={`
-            relative aspect-square rounded-full overflow-hidden border border-white/10
-            bg-[#111] transition-all duration-500 ease-in-out
-            group-hover:scale-110 group-hover:border-orange-500/50
-            ${idx % 2 === 0 ? 'w-24 h-24 md:w-32 md:h-32' : 'w-20 h-20 md:w-28 md:h-28'}
-          `}>
-                  <img
-                    src={brand.image_url}
-                    alt={brand.name_en}
-                    className="w-full h-full object-cover opacity-50  group-hover:opacity-100 group-hover:grayscale-0 transition-all duration-700"
-                  />
-                  {/* Inner Depth Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
+          {/* The Bento Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 auto-rows-[300px]">
 
-                {/* MINIMALIST LABEL - Appears only on hover to save space */}
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none">
-                  <span className="text-[8px] font-black uppercase tracking-widest text-orange-500 whitespace-nowrap bg-black/80 px-2 py-0.5 rounded border border-orange-500/20">
-                    {brand.name_en}
-                  </span>
+            {/* 1. PRIMARY FEATURE (LV Heritage) - Spans 7 columns, 2 rows */}
+            <div className="md:col-span-7 md:row-span-2 relative rounded-[4rem] overflow-hidden group shadow-2xl shadow-brand-blue/5">
+              <img
+                src="/2ndbanner.jpg"
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-[4s] ease-out group-hover:scale-110"
+                alt="LV Heritage Monogram"
+              />
+              {/* Deep Blue Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-brand-blue/90 via-brand-blue/20 to-transparent opacity-80" />
+
+              {/* Floating Luxury Badge */}
+              <div className="absolute top-8 left-8">
+                <div className="px-5 py-2 backdrop-blur-md bg-white/10 border border-white/20 rounded-full">
+                  <span className="text-white text-[10px] font-black uppercase tracking-widest">Global Silhouette</span>
                 </div>
               </div>
-            ))}
+
+              {/* Bottom Glass Content Card */}
+              <div className="absolute bottom-8 left-8 right-8 backdrop-blur-2xl bg-white/[0.03] border border-white/10 p-8 rounded-[3rem] transition-all duration-500 group-hover:bg-white/[0.08]">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-brand-gold text-[10px] font-black uppercase tracking-[0.3em] mb-2">Heritage Collection</p>
+                    <h3 className="text-3xl font-black text-white tracking-tight">Monogram Series</h3>
+                  </div>
+                  <button className="w-14 h-14 bg-white text-brand-blue rounded-full flex items-center justify-center hover:bg-brand-gold hover:text-white transition-all transform group-hover:rotate-45 shadow-lg">
+                    <ArrowUpRight size={24} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. COMPACT COACH CARD - Spans 5 columns, 1 row */}
+            <div className="md:col-span-5 md:row-span-1 bg-brand-blue rounded-[3.5rem] p-10 flex flex-col justify-between group relative overflow-hidden">
+              {/* Subtle Background Pattern/Glow */}
+              <div className="absolute -top-24 -right-24 w-64 h-64 bg-brand-gold/10 rounded-full blur-[80px]" />
+
+              <div className="flex justify-between items-start relative z-10">
+                <div className="w-14 h-14 rounded-2xl bg-brand-gold/20 backdrop-blur-md border border-brand-gold/30 flex items-center justify-center text-brand-gold">
+                  <ShieldCheck size={28} />
+                </div>
+                <span className="text-[11px] font-black text-brand-gold/50 tracking-[0.4em]">SINCE 2023</span>
+              </div>
+
+              <div className="relative z-10">
+                <h4 className="text-2xl font-black text-white mb-2">It’s Live! Your Luxury Just Launched</h4>
+                <p className="text-white/50 text-[12px] font-medium leading-relaxed max-w-[290px]">
+                  Celebrate our grand launch with irresistible offers on designer handbags, shoes, and more. Limited-time deals. Unlimited style. Shop now before it’s gone!
+                </p>
+              </div>
+            </div>
+
+            {/* 3. LIFESTYLE VISUAL - Spans 5 columns, 1 row */}
+            <div className="md:col-span-5 md:row-span-1 relative rounded-[3.5rem] overflow-hidden group">
+              <img
+                src="/banner01.jpg"
+                className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110"
+                alt="Lifestyle Feed"
+              />
+              {/* Glassmorphic Overlay with Gold Border on Hover */}
+              <div className="absolute inset-0 bg-brand-blue/40 opacity-0 group-hover:opacity-100 backdrop-blur-md transition-all duration-500 flex flex-col items-center justify-center">
+                <div className="w-16 h-16 rounded-full bg-white/10 border border-brand-gold flex items-center justify-center mb-4 transform translate-y-4 group-hover:translate-y-0 transition-transform">
+                  <Instagram className="text-white" size={24} />
+                </div>
+                <p className="text-white text-[10px] font-black uppercase tracking-[0.4em] transform translate-y-4 group-hover:translate-y-0 transition-transform delay-75">
+                  Street Style Feed
+                </p>
+              </div>
+
+              {/* Permanent Minimal Label */}
+              <div className="absolute bottom-6 right-8 text-white/80 group-hover:opacity-0 transition-opacity">
+                <p className="text-[10px] font-black uppercase tracking-widest">© BLR 2026</p>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
+
+      {/* --- 4. SECTION: THE BOUTIQUE ROSTER (Creme & Gold - Refined Compact) --- */}
+      <section className="bg-[#fcfaf7] py-8 px-6 relative overflow-hidden">
+
+        <div className="max-w-[1200px] mx-auto">
+
+          {/* Tightened Header */}
+          <div className="flex items-end justify-between mb-10 border-b border-[#c4a174]/20 pb-3">
+            <h2 className="text-3xl md:text-5xl font-black tracking-tighter text-[#2b2652] uppercase">
+              The <span className="text-[#c4a174]">Roster</span>
+            </h2>
+            <p className="text-[#c4a174] text-[8px] font-black uppercase tracking-[0.5em] hidden md:block opacity-70">
+              Official Partners • 2026
+            </p>
+          </div>
+
+          {/* Small-Scale Horizontal Gallery (Always Visible & Staggered) */}
+          <div className="flex flex-wrap md:flex-nowrap gap-4 md:gap-6 justify-center">
+            {brands.map((brand, idx) => (
+              <div
+                key={brand.id}
+                className={`relative group flex-none w-[140px] md:w-full max-w-[180px] transition-all duration-700 ${idx % 2 === 0 ? "mt-0" : "mt-6"
+                  }`}
+              >
+                {/* Compact Image Card */}
+                {/* --- 4. THE REFINED COMPACT BRAND CARD --- */}
+                <div className="relative group flex-none w-[120px] md:w-[150px] transition-all duration-700">
+
+                  {/* The Card: Smaller Fixed Aspect Ratio */}
+                  <div className="relative aspect-square bg-white border border-[#c4a174]/20 p-6 shadow-sm group-hover:shadow-[0_10px_30px_rgba(196,161,116,0.15)] group-hover:-translate-y-1.5 transition-all duration-500 flex items-center justify-center overflow-hidden">
+
+                    {/* Micro Index Number */}
+                    <span className="absolute top-2 left-2 text-[7px] font-mono text-[#c4a174]/50">
+                      0{idx + 1}
+                    </span>
+
+                    {/* Logo Container: Ensures the image fits without touching borders */}
+                    <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+                      <img
+                        src={brand.image_url}
+                        alt={brand.name_en}
+                        /* - h-full w-full + object-contain: Makes it fit the box 
+                           - group-hover:scale-110: Makes it feel alive on hover
+                        */
+                        className="h-full w-full object-contain opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-700 ease-in-out"
+                      />
+                    </div>
+
+                    {/* Decorative Gold Corner - Adds a premium touch */}
+                    <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-[#c4a174]/0 group-hover:border-[#c4a174]/40 transition-all duration-500" />
+
+                    {/* Bottom Accent Line */}
+                    <div className="absolute bottom-0 left-0 w-full h-[1.5px] bg-[#c4a174] scale-x-0 group-hover:scale-x-100 transition-transform origin-center duration-500" />
+                  </div>
+
+                  {/* Brand Name: Elegant & Small */}
+                  <div className="mt-3 text-center">
+                    <p className="text-[9px] font-black uppercase tracking-[0.25em] text-[#2b2652] group-hover:text-[#c4a174] transition-colors">
+                      {brand.name_en}
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+            ))}
+          </div>
+
+
+        </div>
+      </section>
+
 
       {/* --- 5. SOCIAL MOMENTS (Refined & Compact Gallery) --- */}
       <section className="bg-white pb-20 pt-4 overflow-hidden">
@@ -519,70 +615,86 @@ export default function HomePage() {
         </div>
       </section>
 
-    {/* --- 2. DYNAMIC LIFESTYLE SECTIONS (Alternating Deep Black & White) --- */}
-{lifestyleSections.map((section, idx) => (
-  <section 
-    key={idx} 
-    className={`w-full transition-colors duration-500 ${
-      idx % 2 === 0 
-        ? 'bg-[#0a0a0a] text-white border-b border-white/5' 
-        : 'bg-[#ffffff] text-slate-950 border-b border-slate-100'
-    }`}
-  >
-    <div className="max-w-[1400px] mx-auto px-6 py-12">
-      
-      {/* COMPACT ARCHITECTURAL HEADER (No Italics) */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <div className={`h-[2px] w-6 ${idx % 2 === 0 ? 'bg-orange-500' : 'bg-slate-900'}`} />
-            <span className={`text-[9px] font-black tracking-[0.4em] uppercase ${
-              idx % 2 === 0 ? 'text-orange-500' : 'text-slate-500'
-            }`}>
-              Section 0{idx + 1}
-            </span>
-          </div>
-          
-          <h2 className="text-4xl md:text-5xl font-black tracking-tighter uppercase leading-none">
-            {section.tagName} <span className={idx % 2 === 0 ? 'text-white/20' : 'text-slate-200'}>COLLECTION</span>
-          </h2>
-        </div>
+      {/* --- 2. DYNAMIC LIFESTYLE SECTIONS (Alternating Gold, Grey & White) --- */}
+      {lifestyleSections.map((section, idx) => {
+        // Logic to alternate between Brand Gold, Soft Grey, and White
+        const bgStyles = [
+          'bg-[#fcfaf7] border-[#c4a174]/10', // Section 1: Warm White/Creme
+          'bg-[#f2f2f2] border-slate-200',    // Section 2: Soft Architectural Grey
+          'bg-white border-[#c4a174]/10',     // Section 3: Pure White
+        ][idx % 3];
 
-        <Link
-          href={`/userinterface/Gproducts?tag=${section.tagName}`}
-          className={`group flex items-center gap-2 text-[9px] font-black tracking-[0.3em] border-b-2 pb-1.5 transition-all ${
-            idx % 2 === 0 
-              ? 'border-orange-500 text-orange-500 hover:text-white hover:border-white' 
-              : 'border-slate-950 text-slate-950 hover:text-orange-600 hover:border-orange-600'
-          }`}
-        >
-          VIEW ALL PIECES
-          <MoveRight size={14} className="group-hover:translate-x-1 transition-transform" />
-        </Link>
-      </div>
-
-      {/* COMPACT PRODUCT GRID */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6">
-        {section.products.map((p: any) => (
-          <div 
-            key={p.id} 
-            className="relative group transition-all duration-500 hover:-translate-y-1"
+        return (
+          <section
+            key={idx}
+            className={`w-full py-16 border-b transition-all duration-700 ${bgStyles}`}
           >
-            {/* Subtle Backdrop Glow for Black Sections */}
-            {idx % 2 === 0 && (
-              <div className="absolute -inset-1 bg-white/5 rounded-[2rem] blur-md opacity-0 group-hover:opacity-100 transition-opacity" />
-            )}
-            
-            <div className="relative overflow-hidden rounded-[2rem] shadow-sm border border-transparent group-hover:border-orange-500/30 transition-all">
-               <ProductCard product={p} userId={userId} />
-            </div>
-          </div>
-        ))}
-      </div>
+            <div className="max-w-[1400px] mx-auto px-6">
 
-    </div>
-  </section>
-))}
+              {/* ELEGANT MINIMALIST HEADER */}
+              <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-[1px] w-10 bg-[#c4a174]" />
+                    <span className="text-[10px] font-black tracking-[0.5em] uppercase text-[#c4a174]">
+                      Collection 0{idx + 1}
+                    </span>
+                  </div>
+
+                  <h2 className="text-5xl md:text-6xl font-black tracking-tighter uppercase leading-[0.85] text-[#2b2652]">
+  {section.tagName}
+  {' '} {/* This adds the space */}
+  <span
+    className="text-transparent"
+    style={{ WebkitTextStroke: '1px #c4a174' }}
+  >
+    Series.
+  </span>
+</h2>
+                </div>
+
+                <Link
+                  href={`/userinterface/Gproducts?tag=${section.tagName}`}
+                  className="group flex items-center gap-4 text-[10px] font-black tracking-[0.3em] text-[#2b2652] transition-all"
+                >
+                  <span className="border-b border-[#c4a174] pb-1 group-hover:border-[#2b2652]">
+                    DISCOVER MORE
+                  </span>
+                  <div className="w-8 h-8 rounded-full border border-[#c4a174]/30 flex items-center justify-center group-hover:bg-[#c4a174] group-hover:text-white transition-all">
+                    <MoveRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </Link>
+              </div>
+
+              {/* CLEAN PRODUCT GRID */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+                {section.products.map((p: any) => (
+                  <div
+                    key={p.id}
+                    className="relative group"
+                  >
+                    {/* Card Container: Using White background to pop against Grey/Creme sections */}
+                    <div className="relative overflow-hidden rounded-[2.5rem] bg-white shadow-[0_10px_30px_rgba(0,0,0,0.02)] group-hover:shadow-[0_20px_50px_rgba(196,161,116,0.15)] border border-transparent group-hover:border-[#c4a174]/20 transition-all duration-500">
+                      <ProductCard product={p} userId={userId} />
+
+                      {/* Subtle Bottom Gold Bar on Hover */}
+                      <div className="absolute bottom-0 left-0 w-full h-1 bg-[#c4a174] scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-500" />
+                    </div>
+
+                    {/* Tag Label underneath for visual balance */}
+                    <div className="mt-4 px-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                      <p className="text-[8px] font-black text-[#c4a174] uppercase tracking-widest">
+                        Limited Edition • BLR 2026
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+            </div>
+          </section>
+        );
+      })}
 
       {/* --- INSTAGRAM SCROLLER --- */}
       <section className="w-full py-2 bg-white border-t border-slate-100 overflow-hidden">

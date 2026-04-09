@@ -5,9 +5,8 @@ import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import {
-  ArrowLeft, Package, Layers, Tag, Clock,
-  Truck, Droplets, Youtube, ScrollText, ListTree, ArrowRight,
-  ShieldCheck, Info
+  ArrowLeft, Package, ArrowRight,
+  ShieldCheck, Info, Tag, Layers
 } from "lucide-react";
 
 // Swiper v10+
@@ -36,7 +35,6 @@ export default function ProductViewPage({ params }: { params: Promise<{ id: stri
     setLoading(true);
 
     try {
-      // 1. Fetch Product AND related images in ONE call
       const { data: p, error: pErr } = await supabase
         .from("products")
         .select(`
@@ -50,7 +48,6 @@ export default function ProductViewPage({ params }: { params: Promise<{ id: stri
 
       if (pErr || !p) throw new Error("Product not found");
 
-      // 2. Fetch other relations (Brands, Categories, etc.)
       const [brandRes, catRes, subRes, subSubRes, colorRes, sizeRes, varRes] = await Promise.all([
         p.brand_id ? supabase.from("brands").select("name_en").eq("id", p.brand_id).single() : null,
         p.category_id ? supabase.from("categories").select("name").eq("id", p.category_id).single() : null,
@@ -61,7 +58,6 @@ export default function ProductViewPage({ params }: { params: Promise<{ id: stri
         supabase.from("product_variations").select("*").eq("product_id", productId)
       ]);
 
-      // 3. Construct the display object
       setProduct({
         ...p,
         brand_name: brandRes?.data?.name_en || "Independent",
@@ -70,16 +66,13 @@ export default function ProductViewPage({ params }: { params: Promise<{ id: stri
           subRes?.data?.name,
           subSubRes?.data?.name
         ].filter(Boolean).join(" / ") || "General",
-        // MAP THE JOINED DATA HERE:
         display_images: p.product_images?.map((img: any) => img.image_url) || []
       });
 
-      // Inside fetchData, update the mappedVars part:
       const mappedVars = varRes?.data?.map(v => ({
         ...v,
         color_name: colorRes?.data?.find((c: any) => c.id === v.color_id)?.name || "N/A",
         size_name: sizeRes?.data?.find((s: any) => s.id === v.size_id)?.name || "N/A",
-        // Ensure numeric conversion if needed, though * handles it
         price: v.price,
         sale_price: v.sale_price
       })) || [];
@@ -97,64 +90,89 @@ export default function ProductViewPage({ params }: { params: Promise<{ id: stri
   }, [productId]);
 
   if (loading) return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-white">
-      <div className="animate-spin rounded-full h-12 w-12 border-[3px] border-slate-100 border-t-black"></div>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-[#FBFBFC]">
+      <div className="animate-spin rounded-full h-12 w-12 border-[3px] border-[#c4a174]/20 border-t-[#2b2652]"></div>
     </div>
   );
 
   if (!product) return (
-    <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
-      <div className="bg-slate-50 p-6 rounded-full text-slate-400">
-        <Package size={40} />
+    <div className="flex flex-col items-center justify-center min-h-screen space-y-6 bg-[#FBFBFC]">
+      <div className="bg-white p-8 rounded-[2.5rem] shadow-xl text-[#c4a174]">
+        <Package size={48} />
       </div>
-      <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Product record not found</p>
-      <button onClick={() => router.back()} className="px-8 py-3 bg-black text-white rounded-xl font-black text-xs uppercase tracking-widest">
-        Return to Registry
+      <p className="text-slate-400 font-black uppercase tracking-[0.4em] text-[10px]">Registry entry missing</p>
+      <button onClick={() => router.back()} className="px-10 py-4 bg-[#2b2652] text-[#c4a174] rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-2xl shadow-[#2b2652]/20 transition-all active:scale-95">
+        Return to Fleet
       </button>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-white p-6 md:p-12 text-black">
+    <div className="min-h-screen bg-[#FBFBFC] p-6 md:p-12 text-[#2b2652] selection:bg-[#c4a174] selection:text-white">
       <Toaster position="top-right" />
 
       <div className="max-w-7xl mx-auto space-y-12">
         {/* Navigation Bar */}
-        <div className="flex justify-between items-center border-b pb-8">
-          <button onClick={() => router.back()} className="flex items-center gap-2 text-slate-400 hover:text-black font-black text-[10px] tracking-widest transition-all">
-            <ArrowLeft size={16} /> BACK TO COLLECTION
+        <div className="flex justify-between items-center border-b border-slate-100 pb-10">
+          <button onClick={() => router.back()} className="flex items-center gap-3 text-slate-400 hover:text-[#c4a174] font-black text-[10px] tracking-[0.3em] uppercase transition-all group">
+            <ArrowLeft size={16} className="group-hover:-translate-x-2 transition-transform" /> Back to Registry
           </button>
           <div className="flex items-center gap-4">
-            <span className="text-[10px] font-black uppercase tracking-widest px-4 py-2 bg-slate-50 rounded-full border border-slate-100">
-              Status: <span className="text-green-600 ml-1">Live</span>
+            <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-5 py-2.5 rounded-full border ${product.active ? 'bg-[#c4a174]/10 border-[#c4a174]/20 text-[#c4a174]' : 'bg-slate-100 border-slate-200 text-slate-400'}`}>
+              Status: <span className="ml-1 uppercase">{product.active ? 'Public / Live' : 'Archived'}</span>
             </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-20">
 
+          {/* Left: Premium Swiper Display */}
           {/* Left: Premium Swiper Display */}
           <div className="lg:col-span-5">
             <div className="sticky top-12">
               <div className="relative group">
+                <div className="absolute -inset-4 bg-[#c4a174]/5 rounded-[3.5rem] -z-10 blur-2xl"></div>
                 {product.display_images.length > 0 ? (
                   <Swiper
                     modules={[Navigation, Pagination, Autoplay]}
                     navigation
                     pagination={{ clickable: true }}
-                    autoplay={{ delay: 4000 }}
-                    className="rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-2xl shadow-slate-200/50"
+                    autoplay={{ delay: 5000, disableOnInteraction: false }}
+                    className="rounded-[3rem] overflow-hidden border border-white shadow-2xl shadow-[#2b2652]/10 product-swiper"
                   >
-                    {product.display_images.map((url: string, i: number) => (
-                      <SwiperSlide key={i}>
-                        <img src={url} alt="Product display" className="w-full aspect-[4/5] object-cover" />
-                      </SwiperSlide>
-                    ))}
+                    {product.display_images.map((url: string, i: number) => {
+                      // Logic to detect if the URL is a video
+                      const isVideo = url.match(/\.(mp4|webm|ogg|mov)$/i);
+
+                      return (
+                        <SwiperSlide key={i}>
+                          <div className="w-full aspect-[4/5] bg-black">
+                            {isVideo ? (
+                              <video
+                                src={url}
+                                className="w-full h-full object-cover"
+                                controls
+                                autoPlay
+                                muted
+                                loop
+                                playsInline
+                              />
+                            ) : (
+                              <img
+                                src={url}
+                                alt={`Product display ${i}`}
+                                className="w-full h-full object-cover"
+                              />
+                            )}
+                          </div>
+                        </SwiperSlide>
+                      );
+                    })}
                   </Swiper>
                 ) : (
-                  <div className="w-full aspect-[4/5] bg-slate-50 flex flex-col items-center justify-center rounded-[2.5rem] text-slate-300 border-2 border-dashed border-slate-100">
-                    <Package size={64} strokeWidth={1} />
-                    <span className="text-[10px] font-black uppercase mt-4 tracking-widest text-slate-400">No Assets Provided</span>
+                  <div className="w-full aspect-[4/5] bg-white flex flex-col items-center justify-center rounded-[3rem] text-slate-200 border border-slate-50 shadow-inner">
+                    <Package size={80} strokeWidth={1} />
+                    <span className="text-[10px] font-black uppercase mt-6 tracking-[0.4em] text-slate-300">No Visual Assets</span>
                   </div>
                 )}
               </div>
@@ -162,83 +180,92 @@ export default function ProductViewPage({ params }: { params: Promise<{ id: stri
           </div>
 
           {/* Right: Modern Product Details */}
-          <div className="lg:col-span-7 space-y-10">
-            <div className="space-y-8">
-              <div className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  <span className="px-4 py-1.5 bg-black text-white text-[9px] font-black uppercase tracking-[0.2em] rounded-full">
+          <div className="lg:col-span-7 space-y-12">
+            <div className="space-y-10">
+              <div className="space-y-6">
+                <div className="flex flex-wrap gap-3">
+                  <span className="px-5 py-2 bg-[#2b2652] text-[#c4a174] text-[9px] font-black uppercase tracking-[0.2em] rounded-xl shadow-lg shadow-[#2b2652]/10">
                     {product.brand_name}
                   </span>
-                  <span className="px-4 py-1.5 bg-slate-100 text-slate-500 text-[9px] font-black uppercase tracking-[0.2em] rounded-full">
+                  <span className="px-5 py-2 bg-white text-slate-400 text-[9px] font-black uppercase tracking-[0.2em] rounded-xl border border-slate-100">
                     {product.category_path}
                   </span>
                 </div>
-                <h1 className="text-5xl font-black text-slate-900 leading-[1.1] uppercase tracking-tighter">{product.name}</h1>
-                <div className="flex items-center gap-4 text-slate-400">
-                  <p className="text-[10px] font-bold tracking-[0.2em] uppercase">ID: {productId}</p>
-                  <span className="h-1 w-1 bg-slate-200 rounded-full"></span>
-                  <p className="text-[10px] font-bold tracking-[0.2em] uppercase font-mono">SKU: {product.sku}</p>
+
+                <h1 className="text-6xl font-black text-[#2b2652] leading-[0.9] uppercase tracking-tighter">
+                  {product.name}
+                </h1>
+
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-[#c4a174]"></div>
+                    <p className="text-[10px] font-black tracking-[0.2em] uppercase text-slate-400">Ref: {productId}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-slate-200"></div>
+                    <p className="text-[10px] font-black tracking-[0.2em] uppercase text-slate-400 font-mono">SKU: {product.sku}</p>
+                  </div>
                 </div>
               </div>
 
               {/* Description Section */}
               <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Project Narrative</h3>
-                <p className="text-slate-600 text-base leading-relaxed font-medium bg-slate-50/50 p-6 rounded-2xl">
-                  {product.description || "No description provided for this collection item."}
-                </p>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#c4a174]">Manifest & Narrative</h3>
+                <div className="relative">
+                  <div className="absolute left-0 top-0 w-[2px] h-full bg-[#c4a174]/20"></div>
+                  <p className="text-slate-500 text-lg leading-relaxed font-medium pl-8 py-2 italic">
+                    {product.description || "No descriptive manifest provided for this asset."}
+                  </p>
+                </div>
               </div>
 
-              {/* Variations Table - Advanced Level */}
+              {/* Variations Table */}
               <div className="space-y-6">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Stock & Variants</h3>
-                <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#c4a174]">Configuration Matrix</h3>
+                  <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{variations.length} SKUs Identified</span>
+                </div>
+                <div className="bg-white rounded-[2.5rem] border border-slate-50 overflow-hidden shadow-2xl shadow-[#2b2652]/5">
                   <table className="w-full text-left">
-                    <thead className="bg-slate-50/50 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                    <thead className="bg-[#2b2652] text-[9px] font-black text-[#c4a174]/70 uppercase tracking-[0.2em]">
                       <tr>
-                        <th className="px-8 py-5">Color Option</th>
-                        <th className="px-8 py-5">Size Spec</th>
-                        <th className="px-8 py-5 text-center">In Stock</th>
-                        <th className="px-8 py-5 text-right">Market Price</th>
-                        <th className="px-8 py-5 text-right">Sale Price</th> {/* New Column */}
+                        <th className="px-10 py-6">Visual Variant</th>
+                        <th className="px-10 py-6">Size Spec</th>
+                        <th className="px-10 py-6 text-center">Allocation</th>
+                        <th className="px-10 py-6 text-right">Mkt Price</th>
+                        <th className="px-10 py-6 text-right">Sale Val</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-50 font-bold text-slate-800">
+                    <tbody className="divide-y divide-slate-50 font-black text-[#2b2652] text-[11px] uppercase tracking-widest">
                       {variations.length > 0 ? variations.map((v) => (
-                        <tr key={v.id} className="hover:bg-slate-50/50 transition-colors group">
-                          <td className="px-8 py-5 text-xs uppercase">{v.color_name}</td>
-                          <td className="px-8 py-5 text-xs uppercase">{v.size_name}</td>
+                        <tr key={v.id} className="hover:bg-[#c4a174]/5 transition-colors group">
+                          <td className="px-10 py-6">{v.color_name}</td>
+                          <td className="px-10 py-6 text-[#c4a174]">{v.size_name}</td>
 
-                          <td className="px-8 py-5 text-center">
-                            <span className={`text-[10px] px-2 py-1 rounded font-black tracking-widest ${v.stock > 0 ? 'text-emerald-600 bg-emerald-50' : 'text-red-600 bg-red-50'}`}>
+                          <td className="px-10 py-6 text-center">
+                            <span className={`px-3 py-1 rounded-lg text-[9px] font-black ${v.stock > 0 ? 'text-[#c4a174] bg-[#c4a174]/10' : 'text-red-400 bg-red-50'}`}>
                               {v.stock} UNITS
                             </span>
                           </td>
 
-                          {/* Market Price Column */}
-                          <td className="px-8 py-5 text-right">
-                            <span className="text-sm text-black font-black">
-                              ₹{v.price}
-                            </span>
+                          <td className="px-10 py-6 text-right text-slate-400 line-through decoration-[#c4a174]/30">
+                            ₹{v.price}
                           </td>
 
-                          {/* Sale Price Column */}
-                          <td className="px-8 py-5 text-right">
+                          <td className="px-10 py-6 text-right">
                             {v.sale_price && v.sale_price < v.price ? (
-                              <span className="text-emerald-600 font-black text-sm group-hover:scale-110 transition-transform inline-block">
+                              <span className="text-[#2b2652] bg-[#c4a174]/10 px-3 py-1.5 rounded-xl border border-[#c4a174]/20 group-hover:scale-110 transition-transform inline-block">
                                 ₹{v.sale_price}
                               </span>
                             ) : (
-                              <span className="text-slate-300 font-black text-[10px] uppercase tracking-tighter">
-                                No Discount
-                              </span>
+                              <span className="text-slate-200">Standard</span>
                             )}
                           </td>
                         </tr>
                       )) : (
                         <tr>
-                          <td colSpan={5} className="px-8 py-10 text-center text-slate-300 text-[10px] uppercase font-black tracking-widest">
-                            No Variations Registry Found
+                          <td colSpan={5} className="px-10 py-16 text-center text-slate-300 text-[10px] uppercase font-black tracking-[0.5em]">
+                            No Configuration Registry Found
                           </td>
                         </tr>
                       )}
@@ -251,26 +278,36 @@ export default function ProductViewPage({ params }: { params: Promise<{ id: stri
               <div className="pt-8">
                 <button
                   onClick={() => router.push(`/products/listproducts/edit/${product.id}`)}
-                  className="w-full bg-black text-white py-6 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-xs hover:bg-slate-800 transition-all flex items-center justify-center gap-3"
+                  className="w-full bg-[#2b2652] text-[#c4a174] py-7 rounded-[2rem] font-black uppercase tracking-[0.3em] text-[11px] hover:bg-[#1a1733] transition-all flex items-center justify-center gap-4 shadow-2xl shadow-[#2b2652]/20 active:scale-[0.98]"
                 >
-                  Edit Product Listing <ArrowRight size={18} />
+                  Modify Product Architecture <ArrowRight size={18} strokeWidth={3} />
                 </button>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  );
-}
 
-function Detail({ icon, label, value }: any) {
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2 text-black">
-        {icon} <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">{label}</span>
-      </div>
-      <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{value || "—"}</p>
+      {/* Custom styles for Swiper pagination colors to match the brand */}
+      <style jsx global>{`
+        .product-swiper .swiper-pagination-bullet-active {
+          background: #c4a174 !important;
+        }
+        .product-swiper .swiper-button-next, 
+        .product-swiper .swiper-button-prev {
+          color: #2b2652 !important;
+          background: rgba(255,255,255,0.8);
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          backdrop-filter: blur(4px);
+        }
+        .product-swiper .swiper-button-next:after, 
+        .product-swiper .swiper-button-prev:after {
+          font-size: 14px;
+          font-weight: bold;
+        }
+      `}</style>
     </div>
   );
 }

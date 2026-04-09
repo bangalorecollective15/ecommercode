@@ -238,33 +238,39 @@ export default function POSPage() {
     );
   }
 
-  return (
-    <div className="flex flex-col md:flex-row h-screen bg-white overflow-hidden selection:bg-black selection:text-white">
+return (
+    <div className="flex flex-col md:flex-row h-screen bg-[#fcfcfc] overflow-hidden selection:bg-brand-gold selection:text-white">
       <Toaster position="top-right" />
 
       {/* LEFT: Product Catalog */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="px-8 py-6 border-b border-gray-100 bg-white">
+        <header className="px-8 py-6 border-b border-slate-100 bg-white">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div>
-              <h1 className="text-2xl font-black tracking-tighter text-black uppercase">POS</h1>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-2 h-2 rounded-full bg-brand-gold animate-pulse" />
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Terminal 01</span>
+              </div>
+              <h1 className="text-3xl font-black tracking-tighter text-brand-blue uppercase leading-none">
+                Studio <span className="text-brand-gold">POS</span>
+              </h1>
             </div>
 
             <div className="flex flex-1 max-w-xl gap-3">
               <div className="relative flex-1 group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 w-4 h-4 group-focus-within:text-black transition-colors" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-4 h-4 group-focus-within:text-brand-gold transition-colors" />
                 <input
                   type="text"
-                  placeholder="Search products by name..."
+                  placeholder="SEARCH COLLECTION..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-black transition-all text-xs font-bold text-black"
+                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-brand-gold/20 transition-all text-[10px] font-bold text-brand-blue uppercase placeholder:text-slate-300"
                 />
               </div>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(Number(e.target.value) || "")}
-                className="bg-gray-50 border-none rounded-xl px-4 py-3 text-xs font-black uppercase tracking-wider outline-none focus:ring-2 focus:ring-black text-black cursor-pointer min-w-[150px]"
+                className="bg-brand-blue border-none rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-brand-gold/50 text-white cursor-pointer min-w-[160px] transition-all"
               >
                 <option value="">All Categories</option>
                 {categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
@@ -273,7 +279,7 @@ export default function POSPage() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-8 no-scrollbar bg-white">
+        <main className="flex-1 overflow-y-auto p-8 no-scrollbar bg-[#fcfcfc]">
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 gap-6">
             {filteredProducts.map((p) => {
               const variations = p.product_variations || [];
@@ -281,30 +287,30 @@ export default function POSPage() {
               const hasVariations = variations.length > 1;
 
               return (
-                <div key={p.id} className="group relative flex flex-col justify-between p-5 bg-white border border-gray-100 rounded-2xl hover:border-black hover:shadow-[0_20px_50px_rgba(0,0,0,0.05)] transition-all duration-500">
+                <div key={p.id} className="group relative flex flex-col justify-between p-6 bg-white border border-slate-100 rounded-[2rem] hover:border-brand-gold/50 hover:shadow-2xl hover:shadow-brand-blue/5 transition-all duration-500">
                   <div>
                     <div className="flex justify-between items-start mb-4">
-                      <span className="text-[8px] font-black uppercase tracking-widest text-gray-400 bg-gray-50 px-2 py-1 rounded">
-                        {categories.find(c => c.id === p.category_id)?.name || 'General'}
+                      <span className="text-[8px] font-black uppercase tracking-widest text-brand-gold bg-brand-gold/5 px-2.5 py-1 rounded-lg">
+                        {categories.find(c => c.id === p.category_id)?.name || 'Studio'}
                       </span>
-                      <Hash className="w-3 h-3 text-gray-200" />
+                      <Hash className="w-3 h-3 text-slate-200" />
                     </div>
-                    <h3 className="text-sm font-black text-black uppercase leading-tight mb-3 line-clamp-2">{p.name}</h3>
+                    <h3 className="text-[11px] font-black text-brand-blue uppercase leading-tight mb-4 tracking-wider line-clamp-2 h-8">{p.name}</h3>
 
                     {singleVar ? (
-                      <div className="space-y-1">
+                      <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-bold text-gray-400">{singleVar.unit_value} {singleVar.unit_type}</span>
-                          <span className={`text-[9px] font-black ${singleVar.stock > 0 ? 'text-green-500' : 'text-red-400'}`}>
+                          <span className="text-[9px] font-bold text-slate-400">{singleVar.unit_value} {singleVar.unit_type}</span>
+                          <span className={`text-[8px] font-black px-2 py-0.5 rounded ${singleVar.stock > 0 ? 'text-emerald-500 bg-emerald-50' : 'text-rose-400 bg-rose-50'}`}>
                             {singleVar.stock} IN STOCK
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <p className="text-xl font-black text-black tracking-tighter">
+                          <p className="text-2xl font-black text-brand-blue tracking-tighter">
                             ₹{(singleVar.sale_price && singleVar.sale_price > 0) ? singleVar.sale_price : singleVar.price}
                           </p>
                           {singleVar.sale_price && singleVar.sale_price > 0 && (
-                            <p className="text-xs font-bold text-gray-300 line-through">₹{singleVar.price}</p>
+                            <p className="text-xs font-bold text-slate-300 line-through">₹{singleVar.price}</p>
                           )}
                         </div>
                       </div>
@@ -313,37 +319,34 @@ export default function POSPage() {
                         <select
                           value={selectedVariations[p.id] || ""}
                           onChange={(e) => setSelectedVariations({ ...selectedVariations, [p.id]: Number(e.target.value) })}
-                          className="w-full text-[10px] font-black uppercase tracking-widest border-b border-gray-100 py-2 outline-none focus:border-black text-black bg-transparent"
+                          className="w-full text-[9px] font-black uppercase tracking-widest border-b-2 border-slate-50 py-2 outline-none focus:border-brand-gold text-brand-blue bg-transparent transition-colors"
                         >
                           <option value="">Select Variation</option>
                           {variations.map((v: any) => {
-                            const colorName = v.color?.name;
-                            const sizeName = v.size?.name;
-                            const label = [colorName, sizeName].filter(Boolean).join(" / ");
+                            const label = [v.color?.name, v.size?.name].filter(Boolean).join(" / ");
                             const displayPrice = (v.sale_price && v.sale_price > 0) ? v.sale_price : v.price;
-
                             return (
                               <option key={v.id} value={v.id}>
-                                {label || `Variation #${v.id}`} — ₹{displayPrice}
+                                {label || `Item #${v.id}`} — ₹{displayPrice}
                               </option>
                             );
                           })}
                         </select>
                       </div>
                     ) : (
-                      <div className="space-y-1">
+                      <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-bold text-gray-400">Standard</span>
-                          <span className={`text-[9px] font-black ${p.stock > 0 ? 'text-green-500' : 'text-red-400'}`}>
+                          <span className="text-[9px] font-bold text-slate-400">Standard</span>
+                          <span className={`text-[8px] font-black px-2 py-0.5 rounded ${p.stock > 0 ? 'text-emerald-500 bg-emerald-50' : 'text-rose-400 bg-rose-50'}`}>
                             {p.stock} IN STOCK
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <p className="text-xl font-black text-black tracking-tighter">
+                          <p className="text-2xl font-black text-brand-blue tracking-tighter">
                             ₹{(p.sale_price && p.sale_price > 0) ? p.sale_price : p.price}
                           </p>
                           {p.sale_price && p.sale_price > 0 && (
-                            <p className="text-xs font-bold text-gray-300 line-through">₹{p.price}</p>
+                            <p className="text-xs font-bold text-slate-300 line-through">₹{p.price}</p>
                           )}
                         </div>
                       </div>
@@ -353,9 +356,9 @@ export default function POSPage() {
                   <button
                     onClick={() => addToCart(p)}
                     disabled={singleVar ? singleVar.stock === 0 : (!hasVariations && p.stock === 0)}
-                    className="w-full mt-6 py-3 bg-black text-white rounded-xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-gray-800 disabled:bg-gray-100 disabled:text-gray-300 transition-all active:scale-95"
+                    className="w-full mt-6 py-4 bg-brand-blue text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-brand-gold transition-all active:scale-95 disabled:bg-slate-50 disabled:text-slate-300 shadow-lg shadow-brand-blue/10"
                   >
-                    {singleVar?.stock === 0 || (!hasVariations && p.stock === 0) ? "Sold Out" : "Add to Cart"}
+                    {singleVar?.stock === 0 || (!hasVariations && p.stock === 0) ? "Archive Only" : "Add to Order"}
                   </button>
                 </div>
               );
@@ -365,50 +368,42 @@ export default function POSPage() {
       </div>
 
       {/* RIGHT: Checkout Sidebar */}
-      <div className="w-full md:w-[450px] bg-white flex flex-col border-l border-slate-200 relative shadow-2xl">
-
-        <div className="p-6 flex items-center justify-between bg-white/80 backdrop-blur-md sticky top-0 z-10">
+      <div className="w-full md:w-[450px] bg-white flex flex-col border-l border-slate-100 relative shadow-2xl">
+        <div className="p-8 flex items-center justify-between bg-white/80 backdrop-blur-md sticky top-0 z-10 border-b border-slate-50">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-slate-950 rounded-2xl flex items-center justify-center shadow-lg shadow-slate-200">
-              <ShoppingCart className="w-5 h-5 text-white" />
+            <div className="w-14 h-14 bg-brand-blue rounded-2xl flex items-center justify-center shadow-2xl shadow-brand-blue/20">
+              <ShoppingCart className="w-6 h-6 text-brand-gold" />
             </div>
             <div>
-              <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Checkout</h2>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">ID: #001</p>
+              <h2 className="text-xs font-black text-brand-blue uppercase tracking-[0.2em]">Summary</h2>
+              <p className="text-[10px] text-brand-gold font-black uppercase tracking-widest">Active Draft</p>
             </div>
           </div>
-          <div className="flex flex-col items-end">
-            <span className="bg-slate-100 text-slate-900 px-3 py-1.5 rounded-lg text-[10px] font-black border border-slate-200">
-              {cart.length} ITEMS
-            </span>
-          </div>
+          <span className="bg-slate-50 text-brand-blue px-4 py-2 rounded-xl text-[10px] font-black border border-slate-100 tracking-widest">
+            {cart.length} ITEMS
+          </span>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-2 space-y-3 no-scrollbar bg-slate-50/50">
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 no-scrollbar bg-slate-50/30">
           {cart.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-slate-300">
-              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
-                <ShoppingCart className="w-6 h-6 opacity-20" />
+            <div className="h-full flex flex-col items-center justify-center text-slate-200">
+              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-6 shadow-sm border border-slate-50">
+                <ShoppingCart className="w-8 h-8 opacity-20" />
               </div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 text-center">Your cart <br /> is currently empty</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-400 text-center">Awaiting Collection Items</p>
             </div>
           ) : (
             cart.map((item) => (
-              <div key={item.cid} className="group flex gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300">
+              <div key={item.cid} className="group flex gap-4 bg-white p-5 rounded-[1.5rem] border border-slate-100 shadow-sm hover:border-brand-gold/30 transition-all duration-300">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h4 className="text-[11px] font-black text-slate-900 uppercase leading-tight">{item.name}</h4>
-                    {item.originalPrice > item.price && (
-                      <Tag className="w-3 h-3 text-orange-600" />
-                    )}
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-[10px] font-black text-brand-blue uppercase leading-tight tracking-wider">{item.name}</h4>
+                    {item.originalPrice > item.price && <Tag className="w-3 h-3 text-brand-gold" />}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-slate-900">₹{item.price}</span>
-                    {item.originalPrice > item.price && (
-                      <span className="text-[9px] font-bold text-slate-300 line-through">₹{item.originalPrice}</span>
-                    )}
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] font-black text-brand-blue">₹{item.price}</span>
                     {item.variation && (
-                      <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded font-bold text-slate-500 uppercase">
+                      <span className="text-[8px] bg-brand-blue/5 px-2 py-0.5 rounded-md font-black text-brand-blue uppercase tracking-tighter">
                         {item.variation.unit_value}{item.variation.unit_type}
                       </span>
                     )}
@@ -416,156 +411,105 @@ export default function POSPage() {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center bg-slate-50 rounded-xl p-1 border border-slate-100">
-                    <button onClick={() => updateQty(item.cid, -1)} className="w-6 h-6 flex items-center justify-center hover:bg-white hover:shadow-sm rounded-lg text-slate-400 hover:text-black transition-all"><Minus className="w-3 h-3" /></button>
-                    <span className="w-8 text-center text-xs font-black text-slate-900">{item.qty}</span>
-                    <button onClick={() => updateQty(item.cid, 1)} className="w-6 h-6 flex items-center justify-center hover:bg-white hover:shadow-sm rounded-lg text-slate-400 hover:text-black transition-all"><Plus className="w-3 h-3" /></button>
+                    <button onClick={() => updateQty(item.cid, -1)} className="w-7 h-7 flex items-center justify-center hover:bg-white hover:text-brand-gold transition-all"><Minus size={12} /></button>
+                    <span className="w-8 text-center text-[10px] font-black text-brand-blue">{item.qty}</span>
+                    <button onClick={() => updateQty(item.cid, 1)} className="w-7 h-7 flex items-center justify-center hover:bg-white hover:text-brand-gold transition-all"><Plus size={12} /></button>
                   </div>
-                  <p className="text-xs font-black w-16 text-right text-slate-900 tracking-tighter">₹{item.price * item.qty}</p>
+                  <p className="text-[11px] font-black w-16 text-right text-brand-blue tracking-tighter">₹{item.price * item.qty}</p>
                 </div>
               </div>
             ))
           )}
         </div>
 
-        <div className="p-6 bg-white border-t border-slate-100 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)] space-y-5">
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">
-                <User className="w-3 h-3 text-slate-900" /> Customer
-              </div>
-              <button onClick={fetchData} className="p-1.5 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
-                <RefreshCw className="w-3 h-3 text-slate-400" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl">
-              <button
-                onClick={() => setCustomerType("existing")}
-                className={`py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${customerType === 'existing' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-              >Lookup</button>
-              <button
-                onClick={() => setCustomerType("new")}
-                className={`py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${customerType === 'new' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-              >New Reg</button>
+        <div className="p-8 bg-white border-t border-slate-100 space-y-6">
+          {/* Customer Selection */}
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl">
+              <button onClick={() => setCustomerType("existing")} className={`py-3 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all ${customerType === 'existing' ? 'bg-brand-blue text-white shadow-lg' : 'text-slate-400'}`}>Lookup</button>
+              <button onClick={() => setCustomerType("new")} className={`py-3 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all ${customerType === 'new' ? 'bg-brand-blue text-white shadow-lg' : 'text-slate-400'}`}>New Reg</button>
             </div>
 
             {customerType === "existing" ? (
-              <div className="relative" ref={dropdownRef}>
+              <div className="relative">
                 <input
                   type="text"
-                  placeholder="NAME OR MOBILE..."
+                  placeholder="CLIENT IDENTIFIER..."
                   value={customerSearch}
                   onFocus={() => setIsCustomerDropdownOpen(true)}
                   onChange={(e) => { setCustomerSearch(e.target.value); setIsCustomerDropdownOpen(true); }}
-                  className="w-full text-[10px] font-bold bg-slate-50 border border-slate-100 rounded-xl p-3.5 pl-10 focus:ring-2 focus:ring-slate-950 focus:bg-white transition-all text-slate-900 uppercase"
+                  className="w-full text-[10px] font-bold bg-slate-50 border border-slate-100 rounded-2xl p-4 pl-12 focus:ring-2 focus:ring-brand-gold/30 focus:bg-white transition-all text-brand-blue uppercase tracking-widest placeholder:text-slate-300"
                 />
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300" />
-                {isCustomerDropdownOpen && (
-                  <div className="absolute bottom-full mb-3 z-[60] w-full bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
-                    <div className="max-h-48 overflow-y-auto no-scrollbar">
-                      {filteredCustomers.length > 0 ? (
-                        filteredCustomers.map((c) => (
-                          <div
-                            key={c.id}
-                            onClick={() => { setSelectedCustomerId(c.id); setCustomerSearch(c.name); setIsCustomerDropdownOpen(false); }}
-                            className={`p-4 text-[10px] font-black uppercase cursor-pointer hover:bg-slate-50 flex justify-between items-center border-b border-slate-50 last:border-none ${selectedCustomerId === c.id ? 'bg-slate-50' : 'text-slate-900'}`}
-                          >
-                            <div>
-                              <p className="text-slate-900">{c.name}</p>
-                              <p className="text-[8px] text-slate-400 mt-0.5">{c.phone}</p>
-                            </div>
-                            {selectedCustomerId === c.id && <div className="w-5 h-5 bg-slate-900 rounded-full flex items-center justify-center"><Check className="w-3 h-3 text-white" /></div>}
-                          </div>
-                        ))
-                      ) : (
-                        <div className="p-6 text-[10px] font-black text-slate-300 uppercase text-center">Not found</div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                <input placeholder="FULL NAME" value={newCustomer.name} className="text-[10px] font-bold bg-slate-50 border border-slate-100 rounded-xl p-3.5 focus:ring-2 focus:ring-slate-950 focus:bg-white text-slate-900 uppercase" onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value.toUpperCase() })} />
-                <input placeholder="MOBILE NO" value={newCustomer.phone} className="text-[10px] font-bold bg-slate-50 border border-slate-100 rounded-xl p-3.5 focus:ring-2 focus:ring-slate-950 focus:bg-white text-slate-900" onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })} />
+                <input placeholder="FULL NAME" className="text-[10px] font-bold bg-slate-50 border border-slate-100 rounded-xl p-4 focus:ring-2 focus:ring-brand-gold/30 text-brand-blue uppercase" onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value.toUpperCase() })} />
+                <input placeholder="MOBILE NO" className="text-[10px] font-bold bg-slate-50 border border-slate-100 rounded-xl p-4 focus:ring-2 focus:ring-brand-gold/30 text-brand-blue" onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })} />
               </div>
             )}
           </div>
 
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">
-              <CreditCard className="w-3 h-3 text-slate-900" /> Settlement
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {['Cash', 'Card', 'UPI'].map((method) => (
-                <button
-                  key={method}
-                  onClick={() => setPaymentMethod(method)}
-                  className={`py-3 text-[9px] font-black uppercase tracking-widest rounded-xl border-2 transition-all ${paymentMethod === method ? 'bg-slate-900 border-slate-900 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}
-                >
-                  {method}
-                </button>
-              ))}
-            </div>
+          {/* Payment Method */}
+          <div className="grid grid-cols-3 gap-2">
+            {['Cash', 'Card', 'UPI'].map((method) => (
+              <button
+                key={method}
+                onClick={() => setPaymentMethod(method)}
+                className={`py-4 text-[9px] font-black uppercase tracking-widest rounded-2xl border-2 transition-all ${paymentMethod === method ? 'bg-brand-gold border-brand-gold text-white shadow-xl shadow-brand-gold/20' : 'bg-white border-slate-50 text-slate-400 hover:border-slate-200'}`}
+              >
+                {method}
+              </button>
+            ))}
           </div>
 
-          <div className="pt-4 border-t border-slate-100 space-y-2">
-            <div className="flex justify-between text-[10px] font-bold text-slate-400">
-              <span>SUBTOTAL</span>
-              <span className="text-slate-900">₹{(subtotal || 0).toFixed(2)}</span>
+          <div className="pt-6 border-t border-slate-50 space-y-3">
+            <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <span>Subtotal</span>
+              <span className="text-brand-blue">₹{(subtotal || 0).toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-[10px] font-bold text-slate-400">
-              <button onClick={() => setEditingField('tax')} className="hover:text-slate-900">TAX (GST)</button>
-              <span className="text-slate-900">+ ₹{(taxAmount || 0).toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-[10px] font-bold text-slate-400">
-              <button onClick={() => setEditingField('discount')} className="hover:text-slate-900">ADJUSTMENT</button>
-              <span className="text-emerald-600">- ₹{(discountAmount || 0).toFixed(2)}</span>
-            </div>
-
-            <div className="flex justify-between items-end pt-4">
+            <div className="flex justify-between items-end pt-2">
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Grand Total</p>
-                <h3 className="text-3xl font-black text-slate-900 tracking-tighter">₹{(grandTotal || 0).toFixed(2)}</h3>
+                <p className="text-[10px] font-black text-brand-gold uppercase tracking-[0.3em] mb-1">Grand Settlement</p>
+                <h3 className="text-4xl font-black text-brand-blue tracking-tighter">₹{(grandTotal || 0).toFixed(2)}</h3>
               </div>
               <button
                 onClick={placeOrder}
                 disabled={cart.length === 0 || isPlacing}
-                className="h-14 px-8 bg-slate-900 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] hover:bg-black transition-all active:scale-95 disabled:bg-slate-100 disabled:text-slate-300 shadow-xl shadow-slate-200 flex items-center justify-center gap-3"
+                className="h-16 px-10 bg-brand-blue text-white rounded-[1.5rem] font-black text-[11px] uppercase tracking-[0.3em] hover:bg-brand-gold transition-all active:scale-95 disabled:bg-slate-50 disabled:text-slate-200 shadow-2xl shadow-brand-blue/20 flex items-center justify-center gap-4"
               >
-                {isPlacing ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Authorize"}
+                {isPlacing ? <RefreshCw className="w-4 h-4 animate-spin text-brand-gold" /> : "Authorize Order"}
               </button>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Adjustment Overlay */}
       {editingField && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex justify-center items-center z-[100] p-6">
-          <div className="bg-white p-8 rounded-3xl w-full max-w-sm shadow-2xl border border-white/20">
+        <div className="fixed inset-0 bg-brand-blue/90 backdrop-blur-xl flex justify-center items-center z-[100] p-6">
+          <div className="bg-white p-10 rounded-[3rem] w-full max-w-sm shadow-2xl">
             <div className="flex justify-between items-center mb-8">
-              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-black">Adjust {editingField}</h3>
-              <button onClick={() => setEditingField(null)} className="p-2 bg-gray-50 rounded-full hover:bg-black hover:text-white transition-all"><X className="w-4 h-4" /></button>
+              <h3 className="text-xs font-black uppercase tracking-[0.3em] text-brand-blue">Adjust {editingField}</h3>
+              <button onClick={() => setEditingField(null)} className="p-2 bg-slate-50 rounded-full hover:bg-brand-gold hover:text-white transition-all"><X size={18} /></button>
             </div>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-black text-gray-300">₹</span>
+              <span className="absolute left-6 top-1/2 -translate-y-1/2 text-3xl font-black text-brand-gold opacity-50">₹</span>
               <input
                 type="number"
                 autoFocus
-                value={editingField === "tax" ? (taxAmount || "") : (discountAmount || "")}
+                className="w-full bg-slate-50 border-none rounded-3xl p-8 pl-16 text-5xl font-black text-center focus:ring-0 text-brand-blue outline-none"
                 onChange={(e) => {
                   const val = parseFloat(e.target.value) || 0;
                   editingField === "tax" ? setTaxAmount(val) : setDiscountAmount(val);
                 }}
-                className="w-full bg-gray-50 border-none rounded-2xl p-6 pl-12 text-4xl font-black text-center focus:ring-0 text-black outline-none"
               />
             </div>
             <button
               onClick={() => setEditingField(null)}
-              className="w-full mt-8 py-4 bg-black text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-gray-800 transition-all"
+              className="w-full mt-10 py-5 bg-brand-blue text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] hover:bg-brand-gold transition-all"
             >
-              Apply Adjustments
+              Update Settlement
             </button>
           </div>
         </div>

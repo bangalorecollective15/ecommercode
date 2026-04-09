@@ -44,7 +44,7 @@ const storedRole = localStorage.getItem("userRole") as "admin" | "subadmin" | nu
   if (!mounted) return <html lang="en"><body></body></html>;
 
   const hideLayout =
-    pathname.startsWith("/login") ||
+    pathname.startsWith("/") ||
     pathname.startsWith("/reset-password") ||
     pathname.startsWith("/userinterface");
 

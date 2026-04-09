@@ -10,7 +10,7 @@ import {
   User,
   Phone,
   Mail,
-  CreditCard,
+  CreditCard,ArrowUpRight,
   Package,
   Clock,
   Calendar,
@@ -224,251 +224,233 @@ export default function OrderUpdatePage() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-orange-600"></div></div>;
 
-  return (
-    <div className="min-h-screen bg-[#F8F9FA] p-4 md:p-10 text-slate-900">
-      <div className="max-w-6xl mx-auto">
+return (
+    <div className="min-h-screen bg-[#FBFBFC] p-4 md:p-10 text-brand-blue selection:bg-brand-gold selection:text-white">
+      <div className="max-w-7xl mx-auto">
 
         {/* Top Navigation */}
-        <div className="flex items-center gap-2 text-sm text-gray-400 mb-6 font-bold">
-          <Package size={16} /> <Link href="/orderupdate" className="hover:text-slate-600"><span>ORDERS</span></Link> <ChevronRight size={14} /> <span className="text-orange-600 uppercase tracking-widest">Update Order</span>
+        <div className="flex items-center gap-3 text-[10px] text-slate-400 mb-8 font-black tracking-[0.2em]">
+          <Package size={14} className="text-brand-gold" /> 
+          <Link href="/orders" className="hover:text-brand-blue transition-colors">REGISTRY</Link> 
+          <ChevronRight size={12} /> 
+          <span className="text-brand-gold">ORDER ARCHIVE</span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
 
           {/* Main Content (Left) */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
-              <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+          <div className="lg:col-span-2 space-y-8">
+            <div className="bg-white rounded-[3rem] shadow-2xl shadow-brand-blue/5 border border-slate-100 overflow-hidden">
+              <div className="p-10 border-b border-slate-50 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-slate-50/30">
                 <div>
-                  <h1 className="text-2xl font-black text-slate-900">Order #ORD-{order?.id}</h1>
-                  <span className="flex items-center gap-1 text-xs font-bold text-slate-400">
-                    <Calendar size={14} />
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 rounded-full bg-brand-gold animate-pulse" />
+                    <span className="text-[10px] font-black text-brand-gold uppercase tracking-[0.3em]">Official Statement</span>
+                  </div>
+                  <h1 className="text-3xl font-black text-brand-blue tracking-tighter uppercase">Order <span className="text-brand-gold">#ORD-{order?.id}</span></h1>
+                  <span className="flex items-center gap-2 text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">
+                    <Calendar size={14} className="text-slate-300" />
                     {order?.order_date && new Date(order.order_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
                   </span>
                 </div>
                 <button
                   onClick={printInvoice}
-                  className="flex items-center gap-2 bg-white hover:bg-slate-900 hover:text-white text-slate-900 border-2 border-slate-900 px-6 py-3 rounded-2xl font-black transition-all text-sm"
+                  className="flex items-center gap-3 bg-brand-blue text-brand-gold border border-brand-blue px-8 py-4 rounded-2xl font-black transition-all text-[11px] tracking-widest hover:bg-brand-gold hover:text-brand-blue shadow-lg shadow-brand-blue/10 active:scale-95"
                 >
-                  <Printer size={18} /> PRINT INVOICE
+                  <Printer size={18} /> GENERATE INVOICE
                 </button>
               </div>
 
               <div className="p-0 overflow-x-auto">
                 <table className="w-full min-w-[600px]">
                   <thead>
-                    <tr className="text-[10px] uppercase tracking-[0.15em] text-slate-400 font-black border-b border-slate-50">
-                      <th className="px-8 py-4 text-left">Item Details</th>
-                      <th className="px-8 py-4 text-center">Qty</th>
-                      <th className="px-8 py-4 text-right">Price</th>
-                      <th className="px-8 py-4 text-right">Total</th>
+                    <tr className="text-[9px] uppercase tracking-[0.25em] text-slate-400 font-black border-b border-slate-50 bg-slate-50/20">
+                      <th className="px-10 py-5 text-left">Manifest Items</th>
+                      <th className="px-10 py-5 text-center">Qty</th>
+                      <th className="px-10 py-5 text-right">Unit Price</th>
+                      <th className="px-10 py-5 text-right">Total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {order?.cart_items?.map((item, index) => (
                       <tr key={`${item.productId}-${index}`} className="group hover:bg-slate-50/50 transition-colors">
-                        <td className="px-8 py-6">
-                          <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 bg-slate-100 rounded-2xl overflow-hidden border border-slate-100 flex-shrink-0">
-                              {item.image ? <img src={item.image} alt={item.name} className="w-full h-full object-cover" /> : <Package className="m-auto mt-4 text-slate-300" />}
+                        <td className="px-10 py-8">
+                          <div className="flex items-center gap-6">
+                            <div className="w-16 h-16 bg-white rounded-2xl overflow-hidden border border-slate-100 flex-shrink-0 shadow-sm group-hover:border-brand-gold transition-colors">
+                              {item.image ? <img src={item.image} alt={item.name} className="w-full h-full object-cover" /> : <Package className="m-auto mt-5 text-slate-200" />}
                             </div>
                             <div>
-                              <p className="font-black text-slate-800 text-sm leading-tight">{item.name}</p>
-                              <p className="text-[10px] font-bold text-orange-600 mt-1 uppercase tracking-wider">{item.variation_name || "Standard"}</p>
+                              <p className="font-black text-brand-blue text-sm uppercase tracking-tight leading-tight">{item.name}</p>
+                              <p className="text-[9px] font-black text-brand-gold mt-1.5 uppercase tracking-[0.15em] px-2 py-0.5 bg-brand-gold/10 rounded-full inline-block">
+                                {item.variation_name || "Standard Edition"}
+                              </p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-8 py-6 text-center font-bold text-slate-600">{item.quantity}</td>
-                        <td className="px-8 py-6 text-right font-bold text-slate-600">₹{item.price.toFixed(2)}</td>
-                        <td className="px-8 py-6 text-right font-black text-slate-900">₹{(item.price * item.quantity).toFixed(2)}</td>
+                        <td className="px-10 py-8 text-center font-black text-brand-blue text-sm">{item.quantity}</td>
+                        <td className="px-10 py-8 text-right font-bold text-slate-400 text-sm">₹{item.price.toFixed(2)}</td>
+                        <td className="px-10 py-8 text-right font-black text-brand-blue text-sm">₹{(item.price * item.quantity).toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
 
-              {/* Enhanced Totals Section with GST */}
-              <div className="p-8 bg-slate-50/30 flex justify-end">
-                <div className="w-full max-w-[300px] space-y-3">
-                  <div className="flex justify-between text-sm font-bold text-slate-400">
-                    <span>Subtotal</span> <span className="text-slate-700">₹{order?.total_price.toFixed(2)}</span>
+              {/* Totals Section */}
+              <div className="p-10 bg-brand-blue flex justify-end">
+                <div className="w-full max-w-[320px] space-y-4">
+                  <div className="flex justify-between text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                    <span>Registry Subtotal</span> <span className="text-white">₹{order?.total_price.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-sm font-bold text-slate-400">
-                    <span className="flex items-center gap-1.5">GST <span className="text-[9px] bg-slate-200 px-1.5 py-0.5 rounded-full">18%</span></span> 
-                    <span className="text-slate-700">₹{(order ? order.total_price * 0.18 : 0).toFixed(2)}</span>
+                  <div className="flex justify-between text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                    <span className="flex items-center gap-2">Taxes <span className="text-[8px] bg-brand-gold text-brand-blue px-2 py-0.5 rounded-full">GST 18%</span></span> 
+                    <span className="text-white">₹{(order ? order.total_price * 0.18 : 0).toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-sm font-bold text-slate-400">
-                    <span>Shipping</span> <span className="text-slate-700">₹{order?.shipping_cost.toFixed(2)}</span>
+                  <div className="flex justify-between text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                    <span>Logistics</span> <span className="text-white">₹{order?.shipping_cost.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between items-center pt-4 border-t border-slate-200">
+                  <div className="flex justify-between items-center pt-6 border-t border-white/10">
                     <div className="flex flex-col">
-                      <span className="font-black text-slate-900 leading-none tracking-tighter">GRAND TOTAL</span>
-                      <span className="text-[9px] font-bold text-slate-400 uppercase mt-1">Inclusive of all taxes</span>
+                      <span className="font-black text-brand-gold leading-none tracking-widest text-xs uppercase">Settlement Total</span>
+                      <span className="text-[8px] font-bold text-slate-500 uppercase mt-2">Certified Authentic Transaction</span>
                     </div>
-                    <span className="text-3xl font-black text-orange-600">₹{order?.grand_total.toFixed(2)}</span>
+                    <span className="text-4xl font-black text-white tracking-tighter">₹{order?.grand_total.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Controls (Right Sidebar) */}
-          <div className="space-y-6">
+          {/* Sidebar Controls */}
+          <div className="space-y-8">
 
-            {/* Payment Verification Card */}
-            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
-              <h3 className="flex items-center gap-2 text-sm font-black text-slate-900 uppercase tracking-widest mb-6">
-                <ShieldCheck size={18} className="text-orange-600" /> Payment Verification
+            {/* Payment Verification */}
+            <div className="bg-white rounded-[2.5rem] p-8 shadow-xl shadow-brand-blue/5 border border-slate-100">
+              <h3 className="flex items-center gap-3 text-[10px] font-black text-brand-blue uppercase tracking-[0.3em] mb-8">
+                <ShieldCheck size={18} className="text-brand-gold" /> Verification
               </h3>
 
-              <div className="space-y-4">
-                <div className={`p-4 rounded-2xl flex flex-col gap-2 ${paymentPaid ? 'bg-emerald-50 border border-emerald-100' : 'bg-amber-50 border border-amber-100'}`}>
+              <div className="space-y-6">
+                <div className={`p-5 rounded-2xl flex flex-col gap-3 ${paymentPaid ? 'bg-emerald-50 border border-emerald-100' : 'bg-brand-gold/5 border border-brand-gold/10'}`}>
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black text-slate-400 uppercase">Status</span>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</span>
                     {paymentPaid ? 
-                      <span className="flex items-center gap-1 text-emerald-600 font-black text-[10px]"><CheckCircle2 size={12}/> APPROVED</span> :
-                      <span className="flex items-center gap-1 text-amber-600 font-black text-[10px]"><Clock size={12}/> PENDING</span>
+                      <span className="flex items-center gap-1.5 text-emerald-600 font-black text-[9px] tracking-widest"><CheckCircle2 size={12}/> CLEARED</span> :
+                      <span className="flex items-center gap-1.5 text-brand-gold font-black text-[9px] tracking-widest"><Clock size={12}/> AWAITING</span>
                     }
                   </div>
-                  <p className="text-sm font-bold text-slate-700">
-                    {paymentPaid ? "Payment has been verified." : "Awaiting admin confirmation."}
+                  <p className="text-xs font-bold text-brand-blue leading-relaxed">
+                    {paymentPaid ? "Transaction has been authenticated and funds verified." : "Awaiting manual verification of receipt."}
                   </p>
                 </div>
 
                 {order?.payment_id ? (
                   <div className="p-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1 mb-2 block tracking-wider">Transaction Proof</label>
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-1 mb-3 block tracking-[0.2em]">Transaction Artifact</label>
                     <a 
                       href={order.payment_id} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="group flex items-center justify-between bg-slate-50 border border-slate-100 p-4 rounded-2xl hover:border-orange-200 transition-all"
+                      className="group flex items-center justify-between bg-slate-50 border border-slate-100 p-5 rounded-2xl hover:border-brand-gold transition-all"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-slate-100 group-hover:text-orange-600 transition-colors">
-                          <Eye size={18} />
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center border border-slate-100 group-hover:border-brand-gold group-hover:text-brand-gold transition-all shadow-sm">
+                          <Eye size={20} />
                         </div>
                         <div>
-                          <p className="text-xs font-black text-slate-900">View Attachment</p>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase">Opens in new tab</p>
+                          <p className="text-xs font-black text-brand-blue uppercase">Evidence.jpg</p>
+                          <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">External Link</p>
                         </div>
                       </div>
-                      <ChevronRight size={16} className="text-slate-300 group-hover:text-orange-500 group-hover:translate-x-1 transition-all" />
+                      <ArrowUpRight size={18} className="text-slate-300 group-hover:text-brand-gold transition-all" />
                     </a>
                   </div>
                 ) : (
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200 flex items-center justify-center">
-                    <p className="text-[10px] font-bold text-slate-400 italic">No proof uploaded by customer</p>
+                  <div className="p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200 flex items-center justify-center">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">No Artifact Provided</p>
                   </div>
                 )}
 
                 {!paymentPaid && (
                   <button 
                     onClick={handleApprovePayment}
-                    className="w-full bg-emerald-500 text-white p-4 rounded-2xl font-black text-xs hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-100 mt-2"
+                    className="w-full bg-brand-blue text-brand-gold p-5 rounded-2xl font-black text-[10px] tracking-[0.2em] hover:bg-brand-gold hover:text-brand-blue transition-all shadow-lg shadow-brand-blue/10 uppercase"
                   >
-                    APPROVE PAYMENT
+                    Authorize Payment
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Fulfillment Card */}
-            <div className={`bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 transition-all ${!paymentPaid ? 'opacity-60 grayscale-[0.5]' : ''}`}>
-              <h3 className="flex items-center gap-2 text-sm font-black text-slate-900 uppercase tracking-widest mb-6">
-                <Package size={18} className="text-orange-600" /> Fulfillment
+            {/* Status Update */}
+            <div className={`bg-brand-blue rounded-[2.5rem] p-8 shadow-xl shadow-brand-blue/20 transition-all ${!paymentPaid ? 'opacity-50 grayscale' : ''}`}>
+              <h3 className="flex items-center gap-3 text-[10px] font-black text-white uppercase tracking-[0.3em] mb-8">
+                <Package size={18} className="text-brand-gold" /> Logistics
               </h3>
 
               <div className="space-y-4">
                 {!paymentPaid && (
-                  <div className="flex items-center gap-2 p-3 bg-red-50 text-red-600 rounded-xl text-[10px] font-bold border border-red-100">
-                    <AlertCircle size={14}/> LOCK: APPROVE PAYMENT TO UPDATE STATUS
+                  <div className="flex items-center gap-2 p-3 bg-white/10 text-brand-gold rounded-xl text-[8px] font-black border border-white/10 uppercase tracking-widest">
+                    <AlertCircle size={12}/> Secure: Verification Required
                   </div>
                 )}
                 <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1 mb-2 block tracking-wider">Order Status</label>
+                  <label className="text-[9px] font-black text-slate-400 uppercase ml-1 mb-3 block tracking-widest">Order Life-cycle</label>
                   <select
-                    className="w-full bg-slate-50 border-none rounded-2xl px-4 py-4 font-bold text-slate-700 focus:ring-2 focus:ring-orange-500 transition-all outline-none disabled:bg-slate-100 disabled:cursor-not-allowed"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-5 text-[11px] font-black text-white uppercase tracking-widest focus:ring-2 focus:ring-brand-gold transition-all outline-none disabled:cursor-not-allowed appearance-none"
                     value={orderStatus}
                     onChange={(e) => handleStatusChange(e.target.value)}
                     disabled={!paymentPaid || statusUpdating}
                   >
-                    <option value="pending">Pending</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="processing">Processing</option>
-                    <option value="out of delivery">Out of Delivery</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="cancelled">Cancelled</option>
+                    <option className="text-brand-blue" value="pending">In Queue</option>
+                    <option className="text-brand-blue" value="confirmed">Confirmed</option>
+                    <option className="text-brand-blue" value="processing">Workplace</option>
+                    <option className="text-brand-blue" value="out of delivery">In Transit</option>
+                    <option className="text-brand-blue" value="delivered">Archived</option>
+                    <option className="text-brand-blue" value="cancelled">Voided</option>
                   </select>
                 </div>
               </div>
             </div>
 
             {/* Customer Information */}
-            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
-              <h3 className="flex items-center gap-2 text-sm font-black text-slate-900 uppercase tracking-widest mb-6">
-                <User size={18} className="text-orange-600" /> Customer Info
+            <div className="bg-white rounded-[2.5rem] p-8 shadow-xl shadow-brand-blue/5 border border-slate-100">
+              <h3 className="flex items-center gap-3 text-[10px] font-black text-brand-blue uppercase tracking-[0.3em] mb-8">
+                <User size={18} className="text-brand-gold" /> Client Profile
               </h3>
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center font-black text-lg">
+              <div className="space-y-6">
+                <div className="flex items-center gap-5">
+                  <div className="w-14 h-14 bg-brand-blue text-brand-gold rounded-2xl flex items-center justify-center font-black text-xl shadow-lg shadow-brand-blue/10">
                     {order?.full_name[0]}
                   </div>
                   <div>
-                    <p className="font-black text-slate-900 leading-none">{order?.full_name}</p>
-                    <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">ID #{order?.id}</p>
+                    <p className="font-black text-brand-blue uppercase tracking-tight leading-none">{order?.full_name}</p>
+                    <p className="text-[9px] font-black text-brand-gold mt-2 uppercase tracking-widest">Legacy ID #{order?.id}</p>
                   </div>
                 </div>
-                <div className="space-y-3 pt-2 text-sm font-bold text-slate-600">
-                  <div className="flex items-center gap-3"><Phone size={16} className="text-slate-400" /> {order?.phone_number}</div>
-                  <div className="flex items-center gap-3"><Mail size={16} className="text-slate-400" /> {order?.email || "N/A"}</div>
-                  <div className="flex items-center gap-3"><CreditCard size={16} className="text-slate-400" /> {order?.payment_method?.toUpperCase()}</div>
+                <div className="space-y-4 pt-4 text-[11px] font-black text-brand-blue/70 uppercase tracking-widest">
+                  <div className="flex items-center gap-4"><Phone size={16} className="text-brand-gold" /> {order?.phone_number}</div>
+                  <div className="flex items-center gap-4"><Mail size={16} className="text-brand-gold" /> {order?.email || "NOT PROVIDED"}</div>
+                  <div className="flex items-center gap-4 border-t border-slate-50 pt-4"><CreditCard size={16} className="text-brand-gold" /> {order?.payment_method?.toUpperCase()}</div>
                 </div>
               </div>
             </div>
 
-            {/* Shipping Address */}
-            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
-              <h3 className="flex items-center gap-2 text-sm font-black text-slate-900 uppercase tracking-widest mb-6">
-                <MapPin size={18} className="text-orange-600" /> Shipping
+            {/* Shipping Details */}
+            <div className="bg-brand-gold rounded-[2.5rem] p-8 shadow-xl shadow-brand-gold/10 text-brand-blue">
+              <h3 className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.3em] mb-8">
+                <MapPin size={18} /> Destination
               </h3>
-              <div className="p-4 bg-orange-50/50 border border-orange-100 rounded-2xl text-sm font-bold text-slate-700 leading-relaxed">
+              <div className="p-6 bg-white/30 backdrop-blur-sm rounded-2xl text-[11px] font-black uppercase tracking-widest leading-relaxed border border-white/40">
                 {order?.house_number}, {order?.street}<br />
                 {order?.city}, {order?.state}<br />
-                <span className="text-orange-600 font-black">PIN: {order?.pincode}</span>
+                <span className="mt-4 block text-xs underline decoration-2 underline-offset-4 font-black">ZIP: {order?.pincode}</span>
               </div>
             </div>
 
           </div>
         </div>
       </div>
-
-      {/* Proof Modal */}
-      {showProofModal && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] max-w-lg w-full overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
-            <div className="p-6 border-b flex justify-between items-center">
-              <h2 className="font-black text-slate-900 uppercase">Payment Proof</h2>
-              <button onClick={() => setShowProofModal(false)} className="text-slate-400 hover:text-slate-900 font-black">CLOSE</button>
-            </div>
-            <div className="p-4 flex items-center justify-center bg-slate-50">
-               {order?.payment_id ? (
-                  <img src={order.payment_id} alt="Proof" className="max-h-[60vh] rounded-2xl object-contain shadow-md" />
-               ) : (
-                  <p className="p-10 text-slate-400 font-bold">No image available</p>
-               )}
-            </div>
-            <div className="p-6">
-              <button 
-                onClick={() => { handleApprovePayment(); setShowProofModal(false); }}
-                className="w-full bg-emerald-500 text-white p-4 rounded-2xl font-black text-xs hover:bg-emerald-600 transition-colors"
-              >
-                CONFIRM & APPROVE PAYMENT
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

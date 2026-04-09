@@ -1,7 +1,7 @@
 "use client";
 
-import { Eye, EyeOff, RefreshCw, ArrowRight, ShieldCheck, Lock } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Eye, EyeOff, ArrowRight, ShieldCheck, Lock } from "lucide-react";
+import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import toast, { Toaster } from "react-hot-toast";
 import { useRouter } from "next/navigation";
@@ -11,41 +11,18 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-function generateCaptcha(length = 4) {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let result = "";
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
-
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [captcha, setCaptcha] = useState("");
-  const [captchaValue, setCaptchaValue] = useState("");
   const [loading, setLoading] = useState(false);
 
   const router = useRouter();
 
-  useEffect(() => setCaptchaValue(generateCaptcha()), []);
-
-  const refreshCaptcha = () => {
-    setCaptchaValue(generateCaptcha());
-    setCaptcha("");
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (captcha.toUpperCase() !== captchaValue.toUpperCase()) {
-      toast.error("Code Mismatch");
-      refreshCaptcha();
-      return;
-    }
-
     setLoading(true);
+    
     try {
       const { data, error } = await supabase
         .from("subadmins")
@@ -54,7 +31,7 @@ export default function Login() {
         .single();
 
       if (error || !data || data.password !== password) {
-        toast.error("Access Denied");
+        toast.error("Invalid Credentials");
         setLoading(false);
         return;
       }
@@ -69,49 +46,48 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-[#f8f8f8] p-4 selection:bg-black selection:text-white">
+    <div className="min-h-screen w-full flex items-center justify-center bg-[#fcfcfc] p-4 selection:bg-brand-gold/30 selection:text-brand-blue">
       <Toaster position="top-center" />
       
-      {/* Small, Compact Container (Reduced Height) */}
-      <div className="flex w-full max-w-md lg:max-w-4xl bg-white rounded-3xl overflow-hidden lg:h-[580px] shadow-[0_30px_70px_-20px_rgba(0,0,0,0.1)] border border-gray-100">
+      {/* Container */}
+      <div className="flex w-full max-w-md lg:max-w-4xl bg-white rounded-[2.5rem] overflow-hidden lg:h-[580px] shadow-[0_30px_80px_-20px_rgba(43,38,82,0.15)] border border-slate-50">
         
-        {/* LEFT SIDE: COMPACT FORM */}
-        <div className="w-full lg:w-[45%] p-8 lg:p-10 flex flex-col justify-center bg-white">
-          <div className="w-full max-w-[280px] mx-auto">
-            <header className="mb-6">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="mb-8 flex justify-center lg:justify-start">
+        {/* LEFT SIDE: LOGIN FORM */}
+        <div className="w-full lg:w-[45%] p-8 lg:p-12 flex flex-col justify-center bg-white">
+          <div className="w-full max-w-[300px] mx-auto">
+            <header className="mb-10 text-center lg:text-left">
+              <div className="mb-8 flex justify-center lg:justify-start">
                 <img 
                   src="/banglorecollectivelogo.jpg" 
                   alt="Logo" 
-                  className="h-10 w-auto object-contain brightness-0" 
+                  className="h-12 w-auto object-contain" 
+                  style={{ filter: 'contrast(1.1)' }}
                 />
               </div>
-              </div>
-              <h1 className="text-xl font-black text-black tracking-tighter mb-1 uppercase">Admin panel</h1>
-              <p className="text-gray-400 text-[8px] font-black uppercase tracking-[0.2em]">Restricted Access</p>
+              <h1 className="text-2xl font-black text-brand-blue tracking-tighter mb-1 uppercase">Vault Access</h1>
+              <p className="text-brand-gold text-[9px] font-black uppercase tracking-[0.3em]">Restricted Admin Portal</p>
             </header>
 
-            <form onSubmit={handleSubmit} className="space-y-3.5">
-              <div className="space-y-1">
-                <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 ml-1">Identity</label>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Identity</label>
                 <input
                   type="email"
                   required
-                  className="w-full rounded-xl border border-gray-100 bg-gray-50/50 px-4 py-3 text-xs font-bold text-black transition-all focus:bg-white focus:border-black outline-none placeholder:text-gray-300"
-                  placeholder="admin@onlyyou.com"
+                  className="w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-5 py-3.5 text-xs font-bold text-brand-blue transition-all focus:bg-white focus:border-brand-gold focus:ring-4 focus:ring-brand-gold/5 outline-none placeholder:text-slate-300"
+                  placeholder="admin@exclusive.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 ml-1">Key</label>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Keyphrase</label>
                 <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
                     required
-                    className="w-full rounded-xl border border-gray-100 bg-gray-50/50 px-4 py-3 text-xs font-bold text-black transition-all focus:bg-white focus:border-black outline-none"
+                    className="w-full rounded-2xl border border-slate-100 bg-slate-50/50 px-5 py-3.5 text-xs font-bold text-brand-blue transition-all focus:bg-white focus:border-brand-gold focus:ring-4 focus:ring-brand-gold/5 outline-none"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -119,64 +95,47 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 hover:text-black transition-colors"
+                    className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-brand-blue transition-colors"
                   >
-                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 ml-1">Human Check</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    required
-                    className="w-16 rounded-xl border border-gray-100 bg-gray-50/50 px-3 py-3 text-xs font-black text-center uppercase focus:border-black outline-none"
-                    placeholder="CODE"
-                    value={captcha}
-                    onChange={(e) => setCaptcha(e.target.value)}
-                  />
-                  <div className="flex-grow flex items-center justify-between bg-black rounded-xl px-3 py-3">
-                    <span className="font-mono text-xs font-black text-white tracking-[0.3em] italic select-none">
-                      {captchaValue}
-                    </span>
-                    <button type="button" onClick={refreshCaptcha} className="text-gray-500 hover:text-white transition-colors">
-                      <RefreshCw size={12} />
-                    </button>
-                  </div>
                 </div>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="group w-full mt-2 py-3.5 bg-black text-white font-black rounded-xl shadow-lg hover:bg-zinc-800 transition-all active:scale-[0.96] disabled:opacity-50 flex items-center justify-center gap-2 tracking-[0.15em] uppercase text-[9px]"
+                className="group w-full mt-4 py-4 bg-brand-blue text-white font-black rounded-2xl shadow-xl shadow-brand-blue/20 hover:bg-brand-blue/95 hover:-translate-y-0.5 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3 tracking-[0.2em] uppercase text-[10px]"
               >
-                {loading ? "Verifying..." : <>Enter Portal <ArrowRight size={14} /></>}
+                {loading ? "Verifying..." : <>Secure Entry <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" /></>}
               </button>
             </form>
 
-            <footer className="mt-8 flex items-center gap-2 text-gray-300">
-              <ShieldCheck size={12} />
-              <span className="text-[8px] font-black uppercase tracking-widest">Secure Admin Session</span>
+            <footer className="mt-10 flex items-center justify-center lg:justify-start gap-2 text-slate-300">
+              <Lock size={12} className="text-brand-gold" />
+              <span className="text-[9px] font-black uppercase tracking-widest">Encrypted Admin Session</span>
             </footer>
           </div>
         </div>
 
-        {/* RIGHT SIDE: IMAGE (DESKTOP) */}
+        {/* RIGHT SIDE: BRANDED VISUAL */}
         <div className="hidden lg:block lg:w-[55%] relative">
           <img 
-            src="https://images.unsplash.com/photo-1511556820780-d912e42b4980?auto=format&fit=crop&q=80&w=1200" 
-            alt="Studio" 
-            className="absolute inset-0 w-full h-full object-cover grayscale brightness-90 contrast-125"
+            src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&q=80&w=1200" 
+            alt="Luxury Retail" 
+            className="absolute inset-0 w-full h-full object-cover grayscale brightness-[0.7] contrast-125"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+          {/* Brand Color Overlay */}
+          <div className="absolute inset-0 bg-brand-blue/40 mix-blend-multiply" />
+          <div className="absolute inset-0 bg-gradient-to-t from-brand-blue via-transparent to-transparent opacity-80" />
           
-          <div className="absolute bottom-8 left-8 right-8">
-            <p className="text-white font-black tracking-[0.4em] text-[7px] uppercase opacity-50 mb-1">OnlyYou Studio</p>
-            <h2 className="text-3xl font-black text-white tracking-tighter leading-none uppercase">
-              MODERN <br /> LIFESTYLE.
+          <div className="absolute bottom-12 left-12 right-12">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-[1px] w-12 bg-brand-gold" />
+              <p className="text-brand-gold font-black tracking-[0.5em] text-[8px] uppercase">Bangalore Collective</p>
+            </div>
+            <h2 className="text-5xl font-black text-white tracking-tighter leading-[0.9] uppercase">
+              Curation <br /> <span className="text-brand-gold">Redefined.</span>
             </h2>
           </div>
         </div>
