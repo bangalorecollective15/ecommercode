@@ -22,6 +22,7 @@ interface HeroData {
   title: string;
   description: string;
   button_text: string;
+  lifestyle_tag?: string; // Add this line (the '?' makes it optional)
 }
 
 
@@ -87,7 +88,8 @@ export default function HomePage() {
                 .from("products")
                 .select(`*, product_variations(*, attributes:size_id(name)), product_images(image_url)`)
                 .eq("lifestyle_tag_id", tag.id).eq("active", true).limit(4);
-              return {  tagId: tag.id, 
+              return {
+                tagId: tag.id,
                 tagName: tag.name,
                 products: products?.map(p => ({
                   ...p,
@@ -193,24 +195,24 @@ export default function HomePage() {
                     {/* Action Button */}
                     <div className={`transition-all duration-700 delay-1000 ${index === currentSlide ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"
                       }`}>
-<Link
-  href={
-    hero.lifestyle_tag
-      ? `/userinterface/Gproducts?tag=${hero.lifestyle_tag}`
-      : "/userinterface/Gproducts"
-  }
-  className="group flex items-center gap-4 w-fit"
->
-  <div className="px-8 py-4 bg-white text-black rounded-full text-[10px] font-black uppercase tracking-widest group-hover:bg-orange-600 group-hover:text-white transition-all shadow-xl">
-    
-    {/* Dynamic Button Name */}
-    {hero.lifestyle_tag
-      ? "View Products"
-      : (hero.button_text || "Shop Now")}
-      
-  </div>
+                      <Link
+                        href={
+                          hero.lifestyle_tag
+                            ? `/userinterface/Gproducts?tag=${hero.lifestyle_tag}`
+                            : "/userinterface/Gproducts"
+                        }
+                        className="group flex items-center gap-4 w-fit"
+                      >
+                        <div className="px-8 py-4 bg-white text-black rounded-full text-[10px] font-black uppercase tracking-widest group-hover:bg-orange-600 group-hover:text-white transition-all shadow-xl">
 
-</Link>
+                          {/* Dynamic Button Name */}
+                          {hero.lifestyle_tag
+                            ? "View Products"
+                            : (hero.button_text || "Shop Now")}
+
+                        </div>
+
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -324,48 +326,48 @@ export default function HomePage() {
         </div>
 
         {/* MARQUEE CONTAINER */}
-       {/* MARQUEE CONTAINER */}
-<div className="relative flex group">
-  {/* Changed gap-12 to gap-6 for tighter spacing */}
-  <div className="flex animate-marquee whitespace-nowrap gap-6 py-10">
-    {[...latestProducts, ...latestProducts].map((p, idx) => (
-      <div
-        key={`${p.id}-${idx}`}
-        /* Match the width to your ProductCard's max-width (300px) */
-        className="relative w-[280px] md:w-[300px] shrink-0 group/card"
-      >
-        {/* Subtle Numbering */}
-        <span className="absolute -top-4 left-6 text-[40px] font-black text-slate-100 group-hover/card:text-brand-gold/20 transition-colors z-0">
-          0{(idx % latestProducts.length) + 1}
-        </span>
+        {/* MARQUEE CONTAINER */}
+        <div className="relative flex group">
+          {/* Changed gap-12 to gap-6 for tighter spacing */}
+          <div className="flex animate-marquee whitespace-nowrap gap-6 py-10">
+            {[...latestProducts, ...latestProducts].map((p, idx) => (
+              <div
+                key={`${p.id}-${idx}`}
+                /* Match the width to your ProductCard's max-width (300px) */
+                className="relative w-[280px] md:w-[300px] shrink-0 group/card"
+              >
+                {/* Subtle Numbering */}
+                <span className="absolute -top-4 left-6 text-[40px] font-black text-slate-100 group-hover/card:text-brand-gold/20 transition-colors z-0">
+                  0{(idx % latestProducts.length) + 1}
+                </span>
 
-        {/* Luxury Tags Container */}
-        <div className="absolute top-6 left-6 z-20 flex flex-col gap-2 pointer-events-none">
-          {p.tags?.map((tag: string) => (
-            <span
-              key={tag}
-              className="px-4 py-1.5 bg-brand-blue/90 backdrop-blur-md text-[8px] font-black uppercase tracking-[0.3em] text-white rounded-full inline-block w-fit shadow-lg border border-white/10"
-            >
-              {tag}
-            </span>
-          ))}
+                {/* Luxury Tags Container */}
+                <div className="absolute top-6 left-6 z-20 flex flex-col gap-2 pointer-events-none">
+                  {p.tags?.map((tag: string) => (
+                    <span
+                      key={tag}
+                      className="px-4 py-1.5 bg-brand-blue/90 backdrop-blur-md text-[8px] font-black uppercase tracking-[0.3em] text-white rounded-full inline-block w-fit shadow-lg border border-white/10"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+
+                {/* The Card Wrapper */}
+                <div className="group/card relative transition-all duration-700">
+                  <ProductCard product={p} userId={userId} />
+
+                  {/* Overlay - Adjusted opacity and radius to match card */}
+                  <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-brand-blue/5 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity pointer-events-none rounded-[1.5rem]" />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Elegant Fade Edges */}
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-white via-white/40 to-transparent z-20" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-white via-white/40 to-transparent z-20" />
         </div>
-
-        {/* The Card Wrapper */}
-        <div className="group/card relative transition-all duration-700">
-          <ProductCard product={p} userId={userId} />
-          
-          {/* Overlay - Adjusted opacity and radius to match card */}
-          <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-brand-blue/5 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity pointer-events-none rounded-[1.5rem]" />
-        </div>
-      </div>
-    ))}
-  </div>
-
-  {/* Elegant Fade Edges */}
-  <div className="pointer-events-none absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-white via-white/40 to-transparent z-20" />
-  <div className="pointer-events-none absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-white via-white/40 to-transparent z-20" />
-</div>
       </section>
 
 
@@ -642,15 +644,15 @@ export default function HomePage() {
                   </div>
 
                   <h2 className="text-5xl md:text-6xl font-black tracking-tighter uppercase leading-[0.85] text-[#2b2652]">
-  {section.tagName}
-  {' '} {/* This adds the space */}
-  <span
-    className="text-transparent"
-    style={{ WebkitTextStroke: '1px #c4a174' }}
-  >
-    Series.
-  </span>
-</h2>
+                    {section.tagName}
+                    {' '} {/* This adds the space */}
+                    <span
+                      className="text-transparent"
+                      style={{ WebkitTextStroke: '1px #c4a174' }}
+                    >
+                      Series.
+                    </span>
+                  </h2>
                 </div>
 
                 <Link
