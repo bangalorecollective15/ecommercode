@@ -29,8 +29,8 @@ interface CartItem {
   quantity: number;
   image: string;
   stock: number;
+  isSaleItem: boolean;
 }
-
 export default function CartPage() {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -49,11 +49,11 @@ export default function CartPage() {
     if (!userId) return;
     setLoading(true);
 
-    const { data, error } = await supabase
+const { data, error } = await supabase
       .from("cart")
       .select(`
         id, product_id, variation_id, quantity,
-        products ( id, name, product_images ( image_url ) )
+        products ( id, name, product_images ( image_url ), lifestyle_tag:attributes!products_lifestyle_tag_id_fkey ( name ) )
       `)
       .eq("user_id", userId);
 
@@ -94,6 +94,10 @@ export default function CartPage() {
         varName = parts.join(" - ");
       }
 
+const rawTag = item.products?.lifestyle_tag;
+      const tagName = Array.isArray(rawTag) ? rawTag[0]?.name : rawTag?.name;
+      const isSaleItem = !!(tagName && tagName.toLowerCase().includes("sale"));
+
       return {
         id: item.id,
         productId: item.product_id,
@@ -105,6 +109,7 @@ export default function CartPage() {
         originalPrice: basePrice,
         stock: stock,
         image: item.products?.product_images?.[0]?.image_url || "/placeholder.png",
+        isSaleItem,
       };
     }));
 
@@ -298,6 +303,7 @@ function CartItemRow({ item, updateQuantity, removeFromCart }: any) {
               </p>
             )}
             {/* Realtime Context Stock Indicators */}
+            {/* Realtime Context Stock Indicators */}
             {isOutOfStock ? (
               <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 transition-colors duration-300">
                 <AlertTriangle size={8} /> No Stock Left
@@ -307,6 +313,13 @@ function CartItemRow({ item, updateQuantity, removeFromCart }: any) {
                 <AlertTriangle size={8} /> Exceeds available ({item.stock} left)
               </span>
             ) : null}
+
+            {/* Sale item indicator — coupons won't apply if this is in the cart */}
+            {item.isSaleItem && (
+              <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider bg-brand-gold/10 text-brand-gold transition-colors duration-300">
+                Sale Item — Coupons Not Applicable
+              </span>
+            )}
           </div>
           <button onClick={() => removeFromCart(item)} className="p-2 text-slate-300 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400 transition-colors">
             <Trash2 size={14} />

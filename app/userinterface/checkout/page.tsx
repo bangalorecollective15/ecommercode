@@ -55,6 +55,7 @@ type CouponErrorType =
   | "usage_limit_reached" 
   | "already_used" 
   | "min_purchase_not_met" 
+  | "sale_item_in_cart"
   | "success" 
   | null;
 
@@ -77,12 +78,15 @@ export default function CheckoutPage() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   // Coupon state
+// Coupon state
   const [couponInput, setCouponInput] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
   const [couponError, setCouponError] = useState<CouponErrorType>(null);
   const [couponErrorMessage, setCouponErrorMessage] = useState("");
-
+  // The amount the discount actually applies to (subtotal minus sale-tagged items)
+  const [couponApplicableAmount, setCouponApplicableAmount] = useState(0);
+  const [saleItemsInfo, setSaleItemsInfo] = useState<{ count: number; amount: number }>({ count: 0, amount: 0 });
   const [pastAddresses, setPastAddresses] = useState<Address[]>([]);
   const [selectedAddressIndex, setSelectedAddressIndex] = useState<number | null>(null);
   const [isNewAddress, setIsNewAddress] = useState(true);
@@ -190,14 +194,65 @@ export default function CheckoutPage() {
       setCouponErrorMessage("Please enter a coupon code");
       return;
     }
-
-    if (!userId) {
+if (!userId) {
       setCouponError("invalid");
       setCouponErrorMessage("Please login to apply coupons");
       return;
     }
 
     setCouponLoading(true);
+
+    // ── Split cart into sale-tagged vs regular items ──
+    // Cart-flow items use `productId` (camelCase); direct-buy flow uses `product_id` (snake_case)
+    const items = checkoutData?.items || [];
+    const productIdsInCart = items.map((i: any) => i.product_id ?? i.productId).filter(Boolean);
+
+    let regularSubtotal = checkoutData?.subtotal || 0;
+    let saleSubtotal = 0;
+    let saleCount = 0;
+
+    if (productIdsInCart.length > 0) {
+      const { data: saleCheckProducts, error: saleCheckErr } = await supabase
+        .from("products")
+        .select("id, lifestyle_tag:attributes!products_lifestyle_tag_id_fkey(name)")
+        .in("id", productIdsInCart);
+
+      if (!saleCheckErr) {
+        const saleIdSet = new Set(
+          (saleCheckProducts || [])
+            .filter((p: any) => {
+              const tagName = Array.isArray(p.lifestyle_tag) ? p.lifestyle_tag[0]?.name : p.lifestyle_tag?.name;
+              return tagName && tagName.toLowerCase().includes("sale");
+            })
+            .map((p: any) => p.id)
+        );
+
+        regularSubtotal = 0;
+        saleSubtotal = 0;
+        saleCount = 0;
+
+        for (const item of items) {
+          const pid = item.product_id ?? item.productId;
+          const lineTotal = (Number(item.price) || 0) * (Number(item.quantity) || 1);
+          if (saleIdSet.has(pid)) {
+            saleSubtotal += lineTotal;
+            saleCount += 1;
+          } else {
+            regularSubtotal += lineTotal;
+          }
+        }
+      }
+    }
+
+    setSaleItemsInfo({ count: saleCount, amount: saleSubtotal });
+
+    // If literally everything in the bag is a sale item, there's nothing left to discount
+    if (saleCount > 0 && regularSubtotal <= 0) {
+      setCouponError("sale_item_in_cart");
+      setCouponErrorMessage(`❌ All ${saleCount} item(s) in your bag are on sale. Coupons can't be applied to sale items — remove them or add a regular-priced item to use a coupon.`);
+      setCouponLoading(false);
+      return;
+    }
     try {
       // 1. Look up the coupon
       const { data: coupon, error: couponErr } = await supabase
@@ -252,24 +307,34 @@ export default function CheckoutPage() {
       }
 
       // 5. Check minimum purchase amount (AFTER already_used check)
-      const subtotal = checkoutData?.subtotal || 0;
-      if (coupon.min_purchase_amount && subtotal < coupon.min_purchase_amount) {
+// 5. Check minimum purchase amount against ELIGIBLE (non-sale) subtotal only
+      if (coupon.min_purchase_amount && regularSubtotal < coupon.min_purchase_amount) {
+        const shortfall = coupon.min_purchase_amount - regularSubtotal;
         setCouponError("min_purchase_not_met");
-        setCouponErrorMessage(`⚠️ Minimum purchase amount of ₹${coupon.min_purchase_amount} required. Current: ₹${subtotal}`);
+        setCouponErrorMessage(
+          saleCount > 0
+            ? `⚠️ Minimum purchase of ₹${coupon.min_purchase_amount} required on regular-priced items (sale items don't count). You need ₹${shortfall.toLocaleString()} more of eligible items. Current eligible amount: ₹${regularSubtotal.toLocaleString()}`
+            : `⚠️ Minimum purchase amount of ₹${coupon.min_purchase_amount} required. Current: ₹${regularSubtotal.toLocaleString()}`
+        );
         setCouponLoading(false);
         return;
       }
 
-      // 6. All checks passed — apply it
+      // 6. All checks passed — apply it (discount will apply only to the eligible/regular subtotal)
       setAppliedCoupon({
         id: coupon.id,
         code: coupon.code,
         discount_type: coupon.discount_type,
         discount_value: coupon.discount_value,
       });
+      setCouponApplicableAmount(regularSubtotal);
       setCouponInput("");
       setCouponError("success");
-      setCouponErrorMessage(`✅ Coupon "${coupon.code}" applied successfully!`);
+      setCouponErrorMessage(
+        saleCount > 0
+          ? `✅ Coupon "${coupon.code}" applied! Discount applies to ₹${regularSubtotal.toLocaleString()} of eligible items — ${saleCount} sale item(s) worth ₹${saleSubtotal.toLocaleString()} are excluded.`
+          : `✅ Coupon "${coupon.code}" applied successfully!`
+      );
     } catch (err: any) {
       setCouponError("invalid");
       setCouponErrorMessage(`❌ ${err.message || "Failed to apply coupon"}`);
@@ -278,11 +343,12 @@ export default function CheckoutPage() {
     }
   };
 
-  const removeCoupon = () => {
+const removeCoupon = () => {
     setAppliedCoupon(null);
     setCouponInput("");
     setCouponError(null);
     setCouponErrorMessage("");
+    setCouponApplicableAmount(0);
   };
   // ──────────────────────────────────────────────────────────────
 
@@ -430,16 +496,15 @@ export default function CheckoutPage() {
   const subtotal = checkoutData?.subtotal || 0;
   const shipping = subtotal < 1000 && subtotal > 0 ? 100 : 0;
 
-  const discountAmount = appliedCoupon
+const discountAmount = appliedCoupon
     ? appliedCoupon.discount_type === "percentage"
-      ? Math.round((subtotal * appliedCoupon.discount_value) / 100)
-      : Math.min(appliedCoupon.discount_value, subtotal)
+      ? Math.round((couponApplicableAmount * appliedCoupon.discount_value) / 100)
+      : Math.min(appliedCoupon.discount_value, couponApplicableAmount)
     : 0;
 
   const moreToSpend = appliedCoupon && appliedCoupon.discount_type === "fixed"
-    ? Math.max(0, appliedCoupon.discount_value - subtotal)
+    ? Math.max(0, appliedCoupon.discount_value - couponApplicableAmount)
     : 0;
-
   const grandTotal = Math.max(0, subtotal + shipping - discountAmount);
 
   return (
@@ -638,13 +703,18 @@ export default function CheckoutPage() {
                     {shipping === 0 ? "Complimentary" : `₹${shipping}`}
                   </span>
                 </div>
-                {discountAmount > 0 && (
+               {discountAmount > 0 && (
                   <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
                     <span className="text-green-600 flex items-center gap-1">
                       <Tag size={11} /> Coupon ({appliedCoupon?.code})
                     </span>
                     <span className="text-green-600">−₹{discountAmount.toLocaleString()}</span>
                   </div>
+                )}
+                {saleItemsInfo.count > 0 && (
+                  <p className="text-[9px] font-semibold text-brand-gold uppercase tracking-wider">
+                    {saleItemsInfo.count} sale item(s) worth ₹{saleItemsInfo.amount.toLocaleString()} are not eligible for coupon discounts
+                  </p>
                 )}
               </div>
 

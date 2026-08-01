@@ -186,7 +186,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link href="/userinterface/Gproducts" className="text-sm text-neutral-600 dark:text-gray-400 hover:text-neutral-900 dark:hover:text-white hover:underline underline-offset-4 transition-colors">
-                  Product Gallery
+                  Fashion Studio
                 </Link>
               </li>
               <li>
