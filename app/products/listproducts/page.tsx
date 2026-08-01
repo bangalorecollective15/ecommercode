@@ -46,7 +46,7 @@ const [selectedStatus, setSelectedStatus] = usePersistentState("prod_filter_stat
   const pageSize = 20;
   const page = Number(searchParams.get("page")) || 1;
 
-  const handleFilterChange = (type: "category" | "subcategory" | "subsubcategory" | "search", value: string) => {
+  const handleFilterChange = (type: "category" | "subcategory" | "subsubcategory" | "search" | "status", value: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.delete("page");
 
