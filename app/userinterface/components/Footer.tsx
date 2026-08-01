@@ -144,12 +144,22 @@ export default function Footer() {
           {/* Column 1: Brand Profile */}
           <div className="flex flex-col space-y-5">
             <div className="relative w-44 h-12">
+              {/* Light Mode Logo */}
+              <Image
+                src="/banglorecollectivelogo.jpg"
+                alt="Bangalore Collective Logo"
+                fill
+                sizes="(max-width: 768px) 176px, 176px"
+                className="object-contain object-left block dark:hidden"
+                priority
+              />
+              {/* Dark Mode Logo */}
               <Image
                 src="/logowhite.png"
                 alt="Bangalore Collective Logo"
                 fill
                 sizes="(max-width: 768px) 176px, 176px"
-                className="object-contain object-left dark:brightness-110"
+                className="object-contain object-left hidden dark:block"
                 priority
               />
             </div>

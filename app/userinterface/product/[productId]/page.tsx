@@ -7,7 +7,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import {
   ShoppingBag, Heart, Truck, ArrowLeft, ShieldCheck,
-  Tag, Minus, Plus, CreditCard, Sparkles, Star, Play
+  Tag, Minus, Plus, CreditCard, Sparkles, Star, Play, MessageSquare, Lock
 } from "lucide-react";
 import ProductCard from "../../components/ProductCard";
 
@@ -94,6 +94,44 @@ function SimilarProductsSkeleton() {
   );
 }
 
+function ReviewsSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <div className="h-6 w-40 rounded-full bg-slate-100 dark:bg-[#222] animate-pulse transition-colors duration-300" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="h-40 rounded-2xl bg-slate-100 dark:bg-[#222] animate-pulse transition-colors duration-300" />
+        <div className="md:col-span-2 space-y-3">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="h-24 rounded-2xl bg-slate-100 dark:bg-[#222] animate-pulse transition-colors duration-300" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Star rating display (read-only) ────────────────────────────────────────
+
+function StarRow({ value, size = 14 }: { value: number; size?: number }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Star
+          key={i}
+          size={size}
+          className={
+            i < Math.round(value)
+              ? "fill-brand-gold text-brand-gold"
+              : "text-slate-200 dark:text-[#333] transition-colors duration-300"
+          }
+        />
+      ))}
+    </div>
+  );
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 
 export default function ProductDetailsPage() {
@@ -115,16 +153,54 @@ export default function ProductDetailsPage() {
   const [wishlistId, setWishlistId] = useState<number | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [rating, setRating] = useState(5);
+  const [hoverRating, setHoverRating] = useState(0);
   const [similarProducts, setSimilarProducts] = useState<any[]>([]);
   const [reviewText, setReviewText] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   // ── Per-section loading flags ──────────────────────────────────────────────
   // Each paints the moment its own query resolves — nothing waits on anything else.
   const [imagesLoading, setImagesLoading] = useState(true);
   const [infoLoading, setInfoLoading] = useState(true);
   const [similarLoading, setSimilarLoading] = useState(true);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+
+  const fetchReviews = useCallback(async () => {
+    const { data: reviewRows } = await supabase
+      .from("reviews")
+      .select("*")
+      .eq("product_id", productId)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+
+    const rows = reviewRows || [];
+    const userIds = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
+
+    let profileMap: Record<string, { full_name: string | null; email: string | null }> = {};
+    if (userIds.length > 0) {
+      const { data: profileRows } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", userIds);
+
+      profileMap = (profileRows || []).reduce((acc, p) => {
+        acc[p.id] = { full_name: p.full_name, email: p.email };
+        return acc;
+      }, {} as Record<string, { full_name: string | null; email: string | null }>);
+    }
+
+    setReviews(
+      rows.map((r) => ({
+        ...r,
+        reviewer_name:
+          profileMap[r.user_id]?.full_name ||
+          profileMap[r.user_id]?.email?.split("@")[0] ||
+          null,
+      }))
+    );
+  }, [productId]);
 
   const checkWishlistStatus = useCallback(async (uId: string) => {
     const { data } = await supabase
@@ -227,14 +303,9 @@ export default function ProductDetailsPage() {
           });
 
         // ── 4. Reviews fires independently too ───────────────────────────
-        supabase
-          .from("reviews")
-          .select("*")
-          .eq("product_id", productId)
-          .order("created_at", { ascending: false })
-          .then(({ data }) => setReviews(data || []));
+        fetchReviews().finally(() => setReviewsLoading(false));
       });
-  }, [productId, checkWishlistStatus]);
+  }, [productId, checkWishlistStatus, fetchReviews]);
 
   const handleVariationChange = (variation: any) => {
     setSelectedVar(variation);
@@ -242,22 +313,22 @@ export default function ProductDetailsPage() {
   };
 
   const submitReview = async () => {
-    if (!userId) return toast.error("Login required");
+    if (!userId) { toast.error("Please login to write a review"); return; }
     if (!reviewText.trim()) return toast.error("Please write something");
 
+    setSubmittingReview(true);
     const { error } = await supabase.from("reviews").insert([{
       product_id: productId, user_id: userId, rating, review_text: reviewText,
     }]);
+    setSubmittingReview(false);
 
     if (!error) {
       toast.success("Review added!");
       setReviewText("");
-      const { data } = await supabase
-        .from("reviews")
-        .select("*")
-        .eq("product_id", productId)
-        .order("created_at", { ascending: false });
-      setReviews(data || []);
+      setRating(5);
+      await fetchReviews();
+    } else {
+      toast.error("Couldn't post your review. Please try again.");
     }
   };
 
@@ -337,6 +408,16 @@ export default function ProductDetailsPage() {
 const displaySalePrice = cleanPrice(selectedVar?.sale_price);
 const isOutOfStock = !selectedVar || selectedVar.stock <= 0;
   const dynamicDescriptionFallback = `Explore this premium selection from ${product?.brands?.name_en || "our exclusive collections"}. Part of our handpicked ${product?.categories?.name || "designer"} catalog, crafted for discerning tastes.`;
+
+  // ── Reviews derived data ───────────────────────────────────────────────
+  const reviewCount = reviews.length;
+  const averageRating = reviewCount > 0
+    ? reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / reviewCount
+    : 0;
+  const ratingBuckets = [5, 4, 3, 2, 1].map((star) => ({
+    star,
+    count: reviews.filter((r) => r.rating === star).length,
+  }));
 
   return (
     <div className="min-h-screen bg-[#fcfcfc] dark:bg-black text-slate-900 dark:text-white selection:bg-brand-gold/20 transition-colors duration-300">
@@ -474,6 +555,14 @@ const isOutOfStock = !selectedVar || selectedVar.stock <= 0;
                   <div className="flex items-center gap-3 text-slate-400 dark:text-gray-500 text-xs italic transition-colors duration-300">
                     <Tag size={12} /> SKU: {product?.sku || "N/A"}
                   </div>
+                  {reviewCount > 0 && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <StarRow value={averageRating} />
+                      <span className="text-xs font-bold text-slate-500 dark:text-gray-400 transition-colors duration-300">
+                        {averageRating.toFixed(1)} ({reviewCount} review{reviewCount !== 1 ? "s" : ""})
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Price */}
@@ -619,6 +708,193 @@ const isOutOfStock = !selectedVar || selectedVar.stock <= 0;
               </div>
             </section>
           ) : null}
+        </div>
+
+        {/* CUSTOMER REVIEWS — paints when reviewsLoading → false */}
+        <div className="mt-16 pt-12 border-t border-slate-100 dark:border-[#222] transition-colors duration-300">
+          {reviewsLoading ? (
+            <ReviewsSkeleton />
+          ) : (
+            <section className="space-y-8">
+              <h3 className="text-xl font-black text-slate-950 dark:text-white uppercase tracking-tight transition-colors duration-300">
+                Customer Reviews
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+
+                {/* SUMMARY + WRITE-REVIEW COLUMN */}
+                <div className="space-y-6">
+                  {/* Rating summary */}
+                  <div className="rounded-2xl border border-slate-100 dark:border-[#333] bg-slate-50 dark:bg-[#111]/50 p-6 space-y-4 transition-colors duration-300">
+                    {reviewCount > 0 ? (
+                      <>
+                        <div className="flex items-end gap-2">
+                          <span className="text-5xl font-black text-brand-blue dark:text-white transition-colors duration-300">
+                            {averageRating.toFixed(1)}
+                          </span>
+                          <span className="text-sm text-slate-400 dark:text-gray-500 pb-1 transition-colors duration-300">/ 5</span>
+                        </div>
+                        <StarRow value={averageRating} size={16} />
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-gray-500 transition-colors duration-300">
+                          Based on {reviewCount} review{reviewCount !== 1 ? "s" : ""}
+                        </p>
+
+                        {/* Rating breakdown bars */}
+                        <div className="space-y-1.5 pt-2">
+                          {ratingBuckets.map(({ star, count }) => {
+                            const pct = reviewCount > 0 ? (count / reviewCount) * 100 : 0;
+                            return (
+                              <div key={star} className="flex items-center gap-2 text-[10px] font-bold text-slate-400 dark:text-gray-500 transition-colors duration-300">
+                                <span className="w-3">{star}</span>
+                                <Star size={10} className="fill-brand-gold text-brand-gold flex-shrink-0" />
+                                <div className="flex-1 h-1.5 rounded-full bg-slate-200 dark:bg-[#333] overflow-hidden transition-colors duration-300">
+                                  <div
+                                    className="h-full bg-brand-gold rounded-full transition-all duration-500"
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                                <span className="w-4 text-right">{count}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center text-center gap-2 py-4">
+                        <div className="p-3 bg-white dark:bg-black rounded-full border border-slate-100 dark:border-[#333] transition-colors duration-300">
+                          <MessageSquare size={18} className="text-brand-gold" />
+                        </div>
+                        <p className="text-xs font-bold text-slate-500 dark:text-gray-400 transition-colors duration-300">
+                          No reviews yet
+                        </p>
+                        <p className="text-[10px] text-slate-400 dark:text-gray-500 transition-colors duration-300">
+                          Be the first to share your thoughts.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Write a review */}
+                  <div className="rounded-2xl border border-slate-100 dark:border-[#333] bg-white dark:bg-[#0a0a0a] p-6 space-y-4 transition-colors duration-300">
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-gray-500 transition-colors duration-300">
+                      Write a Review
+                    </h4>
+
+                    {authChecked && !userId ? (
+                      <div className="flex items-start gap-3 bg-slate-50 dark:bg-[#111] rounded-xl p-4 border border-slate-100 dark:border-[#333] transition-colors duration-300">
+                        <Lock size={16} className="text-slate-400 dark:text-gray-500 mt-0.5 flex-shrink-0" />
+                        <div className="space-y-2">
+                          <p className="text-xs text-slate-500 dark:text-gray-400 leading-relaxed transition-colors duration-300">
+                            Please log in to leave a review for this product.
+                          </p>
+                          <button
+                            onClick={() => router.push(`/login?returnUrl=${encodeURIComponent(window.location.pathname)}`)}
+                            className="text-[10px] font-bold uppercase tracking-widest text-brand-blue dark:text-white underline underline-offset-4"
+                          >
+                            Log in to continue
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-gray-500 transition-colors duration-300">
+                            Your Rating
+                          </span>
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: 5 }).map((_, i) => {
+                              const starValue = i + 1;
+                              const active = starValue <= (hoverRating || rating);
+                              return (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  onMouseEnter={() => setHoverRating(starValue)}
+                                  onMouseLeave={() => setHoverRating(0)}
+                                  onClick={() => setRating(starValue)}
+                                  className="p-0.5 hover:scale-110 transition-transform duration-200"
+                                  aria-label={`Rate ${starValue} out of 5`}
+                                >
+                                  <Star
+                                    size={22}
+                                    className={active ? "fill-brand-gold text-brand-gold" : "text-slate-200 dark:text-[#333] transition-colors duration-300"}
+                                  />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <textarea
+                          value={reviewText}
+                          onChange={(e) => setReviewText(e.target.value)}
+                          disabled={!userId}
+                          placeholder="Share details about the fit, quality, or your experience..."
+                          rows={4}
+                          className="w-full resize-none rounded-xl border border-slate-100 dark:border-[#333] bg-slate-50 dark:bg-[#111] px-4 py-3 text-xs text-slate-700 dark:text-gray-200 placeholder:text-slate-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-gold/40 transition-colors duration-300"
+                        />
+
+                        <button
+                          onClick={submitReview}
+                          disabled={!userId || submittingReview || !reviewText.trim()}
+                          className="w-full bg-brand-blue dark:bg-white text-white dark:text-slate-900 py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:opacity-90 transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {submittingReview ? "Posting..." : "Post Review"}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* REVIEW LIST COLUMN */}
+                <div className="md:col-span-2 space-y-4">
+                  {reviews.length > 0 ? (
+                    reviews.map((r) => {
+                      const displayName = r.reviewer_name
+                        ? r.reviewer_name.charAt(0).toUpperCase() + r.reviewer_name.slice(1)
+                        : "Verified Buyer";
+                      const initial = displayName.charAt(0).toUpperCase();
+                      const dateStr = r.created_at
+                        ? new Date(r.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+                        : "";
+                      return (
+                        <div
+                          key={r.id}
+                          className="rounded-2xl border border-slate-100 dark:border-[#333] bg-white dark:bg-[#0a0a0a] p-5 space-y-3 transition-colors duration-300"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-brand-blue/10 dark:bg-white/10 text-brand-blue dark:text-white flex items-center justify-center text-xs font-black transition-colors duration-300">
+                                {initial}
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold text-slate-800 dark:text-gray-200 transition-colors duration-300">
+                                  {displayName}
+                                </p>
+                                <p className="text-[10px] text-slate-400 dark:text-gray-500 transition-colors duration-300">
+                                  {dateStr}
+                                </p>
+                              </div>
+                            </div>
+                            <StarRow value={r.rating || 0} size={13} />
+                          </div>
+                          {r.review_text && (
+                            <p className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed transition-colors duration-300">
+                              {r.review_text}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="h-full min-h-[160px] flex items-center justify-center rounded-2xl border border-dashed border-slate-200 dark:border-[#333] text-xs text-slate-400 dark:text-gray-500 transition-colors duration-300">
+                      Reviews from customers will appear here.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
         </div>
 
       </div>

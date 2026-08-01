@@ -93,6 +93,7 @@ export default function Sidebar({ role }: SidebarProps) {
         { label: "Bottom Gallery", href: "/about-bottom" },
       ],
     },
+{ label: "Review Approval", href: "/review", icon: <CheckCircle size={16} /> },
     { label: "Website Info", href: "/site-info", icon: <Info size={16} /> },
     { label: "Videos", href: "/videos", icon: <Users size={16} /> },
     { label: "Admin Creations", href: "/createsub", icon: <Lock size={16} /> },
