@@ -145,7 +145,7 @@ export default function Footer() {
           <div className="flex flex-col space-y-5">
             <div className="relative w-44 h-12">
               <Image
-                src="/banglorecollectivelogo.jpg"
+                src="/removebglogo.png"
                 alt="Bangalore Collective Logo"
                 fill
                 sizes="(max-width: 768px) 176px, 176px"
