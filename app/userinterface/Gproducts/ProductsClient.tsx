@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import supabase from "@/lib/supabase";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import ProductCard from "../components/ProductCard";
@@ -23,6 +23,19 @@ interface ProductsClientProps {
   initialPage: number;
 }
 
+// Read a filter value straight out of URLSearchParams — the single source of truth.
+function filtersFromParams(sp: URLSearchParams) {
+  return {
+    category_id: sp.get("cat") ? Number(sp.get("cat")) : null,
+    subcategory_id: sp.get("subcat") ? Number(sp.get("subcat")) : null,
+    sub_subcategory_id: sp.get("subsubcat") ? Number(sp.get("subsubcat")) : null,
+    brand_id: sp.get("brand") ? Number(sp.get("brand")) : null,
+    lifestyle_tag_id: sp.get("lifestyle") ? Number(sp.get("lifestyle")) : null,
+    sort: sp.get("sort") || "latest",
+    search: sp.get("q") || "",
+  };
+}
+
 export default function ProductsClient({
   initialProducts,
   initialTotalCount,
@@ -36,7 +49,6 @@ export default function ProductsClient({
   const router = useRouter();
   const pathname = usePathname();
 
-  // --- Hydrate straight from server-fetched data. No blank state, no spinner on first paint. ---
   const [products, setProducts] = useState<any[]>(initialProducts);
   const [totalCount, setTotalCount] = useState(initialTotalCount);
   const [categories, setCategories] = useState<any[]>(initialCategories);
@@ -48,26 +60,40 @@ export default function ProductsClient({
 
   const [userId, setUserId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const tagParam = searchParams.get("tag");
+  const tagParam = searchParams.get("tag"); // legacy name-based deep link, e.g. /products?tag=running
 
   const currentPage = Number(searchParams.get("page")) || initialPage;
   const productsPerPage = 60;
 
-  const [filters, setFilters] = useState({
-    category_id: initialFilters.category_id,
-    subcategory_id: null,
-    sub_subcategory_id: null,
-    brand_id: initialFilters.brand_id,
-    lifestyle_tag_id: initialFilters.lifestyle_tag_id,
-    sort: "latest",
-    search: "",
+  // ── Filters now hydrate from the URL first, falling back to server-provided initial values. ──
+  const [filters, setFiltersState] = useState(() => {
+    const fromUrl = filtersFromParams(searchParams);
+    return {
+      category_id: fromUrl.category_id ?? initialFilters.category_id,
+      subcategory_id: fromUrl.subcategory_id,
+      sub_subcategory_id: fromUrl.sub_subcategory_id,
+      brand_id: fromUrl.brand_id ?? initialFilters.brand_id,
+      lifestyle_tag_id: fromUrl.lifestyle_tag_id ?? initialFilters.lifestyle_tag_id,
+      sort: fromUrl.sort,
+      search: fromUrl.search,
+    };
   });
+
+  // Guards so URL<->state syncing doesn't loop or fight each other.
+  const isSyncingFromUrl = useRef(false);
+  const isFirstFilterRun = useRef(true);
+  const isFirstProductRun = useRef(true);
 
   const [debouncedSearch, setDebouncedSearch] = useState(filters.search);
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(filters.search), 400);
     return () => clearTimeout(t);
   }, [filters.search]);
+
+  // Wrapper so ProductFilters' setFilters calls keep working unchanged.
+  const setFilters = useCallback((next: any) => {
+    setFiltersState(typeof next === "function" ? next : next);
+  }, []);
 
   const setPage = (pageNumber: number) => {
     const current = new URLSearchParams(Array.from(searchParams.entries()));
@@ -83,16 +109,37 @@ export default function ProductsClient({
     }
   };
 
-  // Skip the very first run of the filter-changed effect — the server already
-  // fetched page 1 with these exact filters, so re-running it here would be
-  // a wasted duplicate request right after hydration.
-  const isFirstFilterRun = useRef(true);
+  // ── Push filter changes into the URL (mirrors the `page` pattern already used). ──
   useEffect(() => {
     if (isFirstFilterRun.current) {
       isFirstFilterRun.current = false;
       return;
     }
-    setPage(1);
+    if (isSyncingFromUrl.current) {
+      // This change originated from the URL itself (e.g. back navigation) — don't re-push.
+      isSyncingFromUrl.current = false;
+      return;
+    }
+
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+
+    const setOrDelete = (key: string, value: any) => {
+      if (value === null || value === undefined || value === "") current.delete(key);
+      else current.set(key, String(value));
+    };
+
+    setOrDelete("cat", filters.category_id);
+    setOrDelete("subcat", filters.subcategory_id);
+    setOrDelete("subsubcat", filters.sub_subcategory_id);
+    setOrDelete("brand", filters.brand_id);
+    setOrDelete("lifestyle", filters.lifestyle_tag_id);
+    setOrDelete("sort", filters.sort !== "latest" ? filters.sort : null);
+    setOrDelete("q", debouncedSearch);
+    current.delete("page"); // any real filter change resets pagination
+    current.delete("tag");  // once resolved into an id, drop the legacy name param
+
+    const query = current.toString();
+    router.push(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.category_id,
@@ -104,22 +151,42 @@ export default function ProductsClient({
     debouncedSearch,
   ]);
 
+  // ── Re-sync local filter state whenever the URL changes from elsewhere ──
+  // (browser back/forward, or returning here via a product page's back button).
+  useEffect(() => {
+    const fromUrl = filtersFromParams(searchParams);
+    setFiltersState((prev) => {
+      const changed =
+        prev.category_id !== fromUrl.category_id ||
+        prev.subcategory_id !== fromUrl.subcategory_id ||
+        prev.sub_subcategory_id !== fromUrl.sub_subcategory_id ||
+        prev.brand_id !== fromUrl.brand_id ||
+        prev.lifestyle_tag_id !== fromUrl.lifestyle_tag_id ||
+        prev.sort !== fromUrl.sort ||
+        prev.search !== fromUrl.search;
+
+      if (!changed) return prev;
+      isSyncingFromUrl.current = true;
+      return { ...fromUrl };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Legacy support: ?tag=running (by name) resolves to an id once tags are loaded.
   useEffect(() => {
     if (!tagParam || lifestyleTags.length === 0) return;
     const foundTag = lifestyleTags.find((t: any) => t.name.toLowerCase() === tagParam.toLowerCase());
     if (foundTag && foundTag.id !== filters.lifestyle_tag_id) {
-      setFilters((prev) => ({ ...prev, lifestyle_tag_id: foundTag.id }));
+      setFilters((prev: any) => ({ ...prev, lifestyle_tag_id: foundTag.id }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tagParam, lifestyleTags]);
 
-  // Auth session — cheap, client-only, doesn't block render.
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setUserId(session?.user?.id || null));
   }, []);
 
   // --- PRODUCTS: skip the first run (server already fetched it), fetch on every real change after. ---
-  const isFirstProductRun = useRef(true);
   useEffect(() => {
     if (isFirstProductRun.current) {
       isFirstProductRun.current = false;
@@ -244,6 +311,9 @@ export default function ProductsClient({
     });
   };
 
+  // ── The URL the user should return to after viewing a product ──
+  const returnUrl = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+
   const PaginationControls = ({ className = "" }: { className?: string }) => {
     if (totalPages <= 1) return null;
     return (
@@ -279,7 +349,6 @@ export default function ProductsClient({
     );
   };
 
-  // Full-screen loader should now essentially never show — data is already there on first paint.
   const showFullScreenLoader = productsLoading && products.length === 0 && totalCount === 0;
 
   return (
@@ -309,7 +378,6 @@ export default function ProductsClient({
         </header>
 
         <div className="sticky top-24 z-50 mb-14">
-          {/* Desktop Filter Bar */}
           <div className="hidden lg:flex items-center justify-between gap-4 bg-white/40 dark:bg-[#111]/40 backdrop-blur-xl py-3 px-6 rounded-[2rem] border border-white/60 dark:border-[#333]/60 shadow-[0_10px_30px_rgba(0,0,0,0.02)] transition-colors duration-300">
             <div className="flex-1">
               <ProductFilters
@@ -332,7 +400,6 @@ export default function ProductsClient({
             </div>
           </div>
 
-          {/* Mobile Filter Bar */}
           <div className="flex lg:hidden w-full items-center justify-between gap-4 bg-white/40 dark:bg-[#111]/40 backdrop-blur-md p-4 rounded-[2rem] border border-white/50 dark:border-[#333]/50 shadow-sm transition-colors duration-300">
             <button
               onClick={() => setIsMobileMenuOpen(true)}
@@ -407,7 +474,7 @@ export default function ProductsClient({
                     className="group product-reveal transition-transform duration-500 hover:-translate-y-2"
                     style={{ animationDelay: `${(idx % 8) * 60}ms` }}
                   >
-                    <ProductCard product={item} userId={userId} priority={idx < 4} />
+                    <ProductCard product={item} userId={userId} priority={idx < 4} returnUrl={returnUrl} />
                   </div>
                 ))}
               </div>

@@ -12,15 +12,19 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+interface ProductCardProps {
+  product: any;
+  userId: string | null;
+  priority?: boolean;
+  returnUrl?: string;
+}
+
 export default function ProductCard({
   product,
   userId,
   priority = false,
-}: {
-  product: any;
-  userId: string | null;
-  priority?: boolean;
-}) {
+  returnUrl,
+}: ProductCardProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -172,16 +176,20 @@ export default function ProductCard({
     }
   };
 
+  // Prefer the explicit returnUrl passed by the parent (page + filters + pagination).
+  // Fall back to the raw current URL if the parent didn't pass one.
   const currentUrl =
-    pathname + (searchParams.toString() ? `?${searchParams.toString()}` : "");
+    returnUrl ?? (pathname + (searchParams.toString() ? `?${searchParams.toString()}` : ""));
+
+  const handleNavigate = () => {
+    router.push(
+      `/userinterface/product/${product.id}?returnUrl=${encodeURIComponent(currentUrl)}`
+    );
+  };
 
   return (
     <div
-      onClick={() =>
-        router.push(
-          `/userinterface/product/${product.id}?returnUrl=${encodeURIComponent(currentUrl)}`
-        )
-      }
+      onClick={handleNavigate}
       className="group relative bg-white dark:bg-[#111] rounded-[1.5rem] p-3 border border-slate-100 dark:border-[#2a2a2a] hover:shadow-xl dark:hover:shadow-white/5 transition-all duration-500 cursor-pointer flex flex-col"
     >
       <style jsx>{`
@@ -231,7 +239,6 @@ export default function ProductCard({
           />
         )}
 
-        {/* ✅ OUT OF STOCK BADGE — top-right corner of image */}
         {isCurrentVarOutOfStock && (
           <div className="absolute top-3 right-3 z-10 bg-gray-100/90 dark:bg-[#222]/90 backdrop-blur-sm text-gray-600 dark:text-gray-300 text-[10px] font-bold uppercase px-3 py-1 rounded-sm border border-gray-200 dark:border-[#444] transition-colors duration-300">
             Out of Stock
@@ -246,7 +253,6 @@ export default function ProductCard({
             {product.name}
           </h3>
 
-          {/* ✅ PRICE — strikethrough + red when out of stock */}
           <span
             className={`text-sm font-black ${isCurrentVarOutOfStock
                 ? "text-red-400 line-through decoration-red-500"
@@ -299,7 +305,6 @@ export default function ProductCard({
             <Eye size={12} /> Details
           </span>
 
-          {/* ACTION BUTTONS */}
           <div className="flex items-center gap-2">
             <button onClick={handleWishlist} className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-[#222] transition-colors duration-300">
               <Heart size={16} className={isWishlisted ? "text-red-500 fill-red-500" : "text-slate-400 dark:text-gray-500"} />
