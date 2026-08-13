@@ -35,6 +35,12 @@ export default function Header() {
   // Desktop category dropdown - state controlled (not pure CSS hover) so it can be closed on click/navigation
   const [openDesktopCategory, setOpenDesktopCategory] = useState<number | null>(null);
 
+  // Desktop DEEP (level 3 / sub-subcategory) flyout - state controlled so it works on
+  // click / touch as well as hover. This is the piece that was missing before: it relied
+  // purely on CSS group-hover, so on click (or on touch devices with no hover) the flyout
+  // never appeared and the Link just navigated straight away.
+  const [openSubCategory, setOpenSubCategory] = useState<number | null>(null);
+
   // Theme State (Default to Dark Mode initially)
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [mounted, setMounted] = useState(false);
@@ -205,6 +211,7 @@ export default function Header() {
     setMobileMenuOpen(false);
     setMobileCategoryOpen(null);
     setOpenDesktopCategory(null);
+    setOpenSubCategory(null);
   }, [pathname]);
 
   useEffect(() => {
@@ -425,7 +432,10 @@ export default function Header() {
                   key={category.id}
                   className="relative"
                   onMouseEnter={() => setOpenDesktopCategory(category.id)}
-                  onMouseLeave={() => setOpenDesktopCategory(null)}
+                  onMouseLeave={() => {
+                    setOpenDesktopCategory(null);
+                    setOpenSubCategory(null);
+                  }}
                 >
                   <button className="px-4 py-2 rounded-full flex items-center gap-1.5 tracking-[0.15em] font-bold text-[11px] uppercase text-slate-800 dark:text-slate-200 hover:bg-slate-900 hover:text-white dark:hover:bg-slate-100 dark:hover:text-slate-900 transition-all duration-300 whitespace-nowrap">
                     {category.name.toUpperCase()}
@@ -439,43 +449,77 @@ export default function Header() {
                     <div className="backdrop-blur-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-2xl rounded-2xl overflow-visible py-2">
                       <Link
                         href={`/userinterface/Gproducts/category/${category.id}`}
-                        onClick={() => setOpenDesktopCategory(null)}
+                        onClick={() => {
+                          setOpenDesktopCategory(null);
+                          setOpenSubCategory(null);
+                        }}
                         className="block px-5 py-3 text-[11px] font-black text-brand-gold dark:text-amber-500 border-b border-slate-50 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all uppercase tracking-wider"
                       >
                         All {category.name}
                       </Link>
 
-                      {category.subcategories.map((sub) => (
-                        <div key={sub.id} className="relative group/l2">
-                          <Link
-                            href={`/userinterface/Gproducts/subcategory/${sub.id}`}
-                            onClick={() => setOpenDesktopCategory(null)}
-                            className="flex items-center justify-between px-5 py-3 text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:bg-brand-blue hover:text-white dark:hover:bg-brand-blue dark:hover:text-white transition-all"
-                          >
-                            {sub.name}
-                            {sub.sub_subcategories && sub.sub_subcategories.length > 0 && (
-                              <ChevronRight size={14} className="opacity-50" />
-                            )}
-                          </Link>
+                      {category.subcategories.map((sub) => {
+                        const hasDeep = sub.sub_subcategories && sub.sub_subcategories.length > 0;
+                        const isSubOpen = openSubCategory === sub.id;
 
-                          {sub.sub_subcategories && sub.sub_subcategories.length > 0 && (
-                            <div className="absolute left-full top-0 w-56 ml-1 opacity-0 invisible group-hover/l2:opacity-100 group-hover/l2:visible transition-all duration-200">
-                              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-xl rounded-xl py-2">
-                                {sub.sub_subcategories.map((ssub) => (
-                                  <Link
-                                    key={ssub.id}
-                                    href={`/userinterface/Gproducts/subsubcategory/${ssub.id}`}
-                                    onClick={() => setOpenDesktopCategory(null)}
-                                    className="block px-4 py-2 text-[12px] text-slate-600 dark:text-slate-400 hover:text-brand-blue dark:hover:text-brand-blue hover:bg-slate-50 dark:hover:bg-slate-800 font-medium transition-colors"
-                                  >
-                                    {ssub.name}
-                                  </Link>
-                                ))}
+                        return (
+                          <div
+                            key={sub.id}
+                            className="relative"
+                            onMouseEnter={() => hasDeep && setOpenSubCategory(sub.id)}
+                            onMouseLeave={() => hasDeep && setOpenSubCategory(null)}
+                          >
+                            <Link
+                              href={`/userinterface/Gproducts/subcategory/${sub.id}`}
+                              onClick={(e) => {
+                                // If this subcategory has deep (sub-sub) categories, the first
+                                // click/tap reveals them instead of navigating straight away.
+                                // This is what fixes the "deep category not visible" issue on
+                                // click / touch devices, since hover never fires there.
+                                if (hasDeep && !isSubOpen) {
+                                  e.preventDefault();
+                                  setOpenSubCategory(sub.id);
+                                  return;
+                                }
+                                setOpenDesktopCategory(null);
+                                setOpenSubCategory(null);
+                              }}
+                              className="flex items-center justify-between px-5 py-3 text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:bg-black hover:text-white dark:hover:bg-black dark:hover:text-white transition-all"
+                            >
+                              {sub.name}
+                              {hasDeep && (
+                                <ChevronRight
+                                  size={14}
+                                  className={`opacity-50 transition-transform duration-200 ${isSubOpen ? "rotate-90" : ""}`}
+                                />
+                              )}
+                            </Link>
+
+                            {hasDeep && (
+                              <div
+                                className={`absolute left-full top-0 w-56 pl-1 transition-all duration-200 z-[70] ${isSubOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"
+                                  }`}
+                              >
+                                <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-xl rounded-xl py-2">
+                                  {sub.sub_subcategories.map((ssub) => (
+                                    <Link
+                                      key={ssub.id}
+                                      href={`/userinterface/Gproducts/subsubcategory/${ssub.id}`}
+                                      onClick={() => {
+                                        setOpenDesktopCategory(null);
+                                        setOpenSubCategory(null);
+                                      }}
+                                      className="block px-4 py-2 text-[12px] text-slate-600 dark:text-slate-400 hover:text-white hover:bg-black dark:hover:bg-black dark:hover:text-white font-medium transition-colors"
+                                    >
+                                      {ssub.name}
+                                    </Link>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -633,7 +677,7 @@ export default function Header() {
                       </div>
 
                       <div className="flex-1">
-                        <h4 className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-brand-blue transition-colors">
+                        <h4 className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-black dark:group-hover:text-white transition-colors">
                           {product.name}
                         </h4>
                       </div>
@@ -676,7 +720,7 @@ export default function Header() {
                 <Link
                   href="/userinterface/home"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="block px-4 py-4 text-lg font-bold text-slate-800 dark:text-slate-200 hover:bg-brand-soft hover:text-brand-blue dark:hover:bg-slate-800 rounded-xl transition-all border-b border-slate-50 dark:border-slate-800/50"
+                  className="block px-4 py-4 text-lg font-bold text-slate-800 dark:text-slate-200 hover:bg-black hover:text-white dark:hover:bg-black rounded-xl transition-all border-b border-slate-50 dark:border-slate-800/50"
                 >
                   Home
                 </Link>
@@ -684,7 +728,7 @@ export default function Header() {
                 <Link
                   href="/userinterface/Gproducts"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="block px-4 py-4 text-lg font-bold text-slate-800 dark:text-slate-200 hover:bg-brand-soft hover:text-brand-blue dark:hover:bg-slate-800 rounded-xl transition-all border-b border-slate-50 dark:border-slate-800/50"
+                  className="block px-4 py-4 text-lg font-bold text-slate-800 dark:text-slate-200 hover:bg-black hover:text-white dark:hover:bg-black rounded-xl transition-all border-b border-slate-50 dark:border-slate-800/50"
                 >
                   Fashion Studio
                 </Link>
@@ -692,7 +736,7 @@ export default function Header() {
                 <Link
                   href="/userinterface/videos"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="block px-4 py-4 text-lg font-bold text-slate-800 dark:text-slate-200 hover:bg-brand-soft hover:text-brand-blue dark:hover:bg-slate-800 rounded-xl transition-all border-b border-slate-50 dark:border-slate-800/50"
+                  className="block px-4 py-4 text-lg font-bold text-slate-800 dark:text-slate-200 hover:bg-black hover:text-white dark:hover:bg-black rounded-xl transition-all border-b border-slate-50 dark:border-slate-800/50"
                 >
                   Videos
                 </Link>
@@ -700,7 +744,7 @@ export default function Header() {
                 <Link
                   href="/userinterface/about"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="block px-4 py-4 text-lg font-bold text-slate-800 dark:text-slate-200 hover:bg-brand-soft hover:text-brand-blue dark:hover:bg-slate-800 rounded-xl transition-all border-b border-slate-50 dark:border-slate-800/50"
+                  className="block px-4 py-4 text-lg font-bold text-slate-800 dark:text-slate-200 hover:bg-black hover:text-white dark:hover:bg-black rounded-xl transition-all border-b border-slate-50 dark:border-slate-800/50"
                 >
                   About Us
                 </Link>
@@ -712,7 +756,7 @@ export default function Header() {
                     <div key={`cat-wrapper-${category.id}`}>
                       <button
                         onClick={() => toggleMobileCategory(category.id)}
-                        className="w-full flex items-center justify-between px-4 py-4 text-left text-lg font-bold text-slate-800 dark:text-slate-200 hover:bg-brand-soft dark:hover:bg-slate-800 hover:text-brand-blue rounded-xl transition-all"
+                        className="w-full flex items-center justify-between px-4 py-4 text-left text-lg font-bold text-slate-800 dark:text-slate-200 hover:bg-black hover:text-white dark:hover:bg-black rounded-xl transition-all"
                       >
                         {category.name}
                         <ChevronDown
@@ -726,7 +770,7 @@ export default function Header() {
                           <Link
                             href={`/userinterface/Gproducts/category/${category.id}`}
                             onClick={() => setMobileMenuOpen(false)}
-                            className="block px-4 py-3 text-base font-semibold text-slate-700 dark:text-slate-300 hover:text-brand-blue hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-all"
+                            className="block px-4 py-3 text-base font-semibold text-slate-700 dark:text-slate-300 hover:text-white hover:bg-black dark:hover:bg-black rounded-lg transition-all"
                           >
                             All {category.name}
                           </Link>
@@ -735,7 +779,7 @@ export default function Header() {
                               <Link
                                 href={`/userinterface/Gproducts/subcategory/${sub.id}`}
                                 onClick={() => setMobileMenuOpen(false)}
-                                className="block pl-4 py-3 text-base font-semibold text-slate-700 dark:text-slate-300 hover:text-brand-blue hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-all"
+                                className="block pl-4 py-3 text-base font-semibold text-slate-700 dark:text-slate-300 hover:text-white hover:bg-black dark:hover:bg-black rounded-lg transition-all"
                               >
                                 - {sub.name}
                               </Link>
@@ -744,7 +788,7 @@ export default function Header() {
                                   key={`ssub-${ssub.id}`}
                                   href={`/userinterface/Gproducts/subsubcategory/${ssub.id}`}
                                   onClick={() => setMobileMenuOpen(false)}
-                                  className="block pl-8 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-blue hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-all ml-2"
+                                  className="block pl-8 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-white hover:bg-black dark:hover:bg-black rounded-lg transition-all ml-2"
                                 >
                                   ◦ {ssub.name}
                                 </Link>
@@ -774,9 +818,9 @@ export default function Header() {
                       <Link
                         href="/userinterface/order"
                         onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-4 text-lg font-bold text-slate-800 dark:text-slate-200 hover:bg-brand-soft hover:text-brand-blue dark:hover:bg-slate-800 rounded-xl transition-all"
+                        className="flex items-center gap-3 px-4 py-4 text-lg font-bold text-slate-800 dark:text-slate-200 hover:bg-black hover:text-white dark:hover:bg-black rounded-xl transition-all"
                       >
-                        <Package size={20} className="text-brand-blue" />
+                        <Package size={20} className="text-slate-500" />
                         Track Orders
                       </Link>
 
@@ -794,7 +838,7 @@ export default function Header() {
                         setIsAuthModalOpen(true);
                         setMobileMenuOpen(false);
                       }}
-                      className="w-full px-4 py-4 bg-brand-blue dark:bg-brand-gold text-white dark:text-slate-900 rounded-2xl text-lg font-black tracking-[0.1em] hover:bg-brand-gold dark:hover:bg-white shadow-xl transition-all active:scale-95"
+                      className="w-full px-4 py-4 bg-black dark:bg-brand-gold text-white dark:text-slate-900 rounded-2xl text-lg font-black tracking-[0.1em] hover:bg-slate-800 dark:hover:bg-white shadow-xl transition-all active:scale-95"
                     >
                       LOGIN / SIGNUP
                     </button>
