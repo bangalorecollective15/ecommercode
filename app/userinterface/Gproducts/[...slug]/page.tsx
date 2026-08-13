@@ -4,8 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import ProductCard from "../../components/ProductCard"; 
 import { notFound, useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Sparkles, ShoppingBag, Layers, Search, Loader2, ArrowUpDown, ChevronLeft, ChevronRight, Filter, Ruler, X } from "lucide-react";
-import { use, useState, useEffect, useMemo } from "react";
-import { useRef } from "react";
+import { use, useState, useEffect, useMemo, useRef } from "react";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,12 +29,40 @@ export default function UnifiedShopPage({ params }: PageProps) {
   const [products, setProducts] = useState<any[]>([]);
   const [displayName, setDisplayName] = useState<string>("");
   const [userId, setUserId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [sortOrder, setSortOrder] = useState<string>("default");
-  const [selectedBrand, setSelectedBrand] = useState<string>("all");
-  const [selectedVariation, setSelectedVariation] = useState<string>("all"); // NEW
+
+  // ── Filters: local state for controlled inputs, kept in sync with URL ──
+  const [searchQuery, setSearchQuery] = useState<string>(searchParams.get("q") || "");
+  const [sortOrder, setSortOrder] = useState<string>(searchParams.get("sort") || "default");
+  const [selectedBrand, setSelectedBrand] = useState<string>(searchParams.get("brand") || "all");
+  const [selectedVariation, setSelectedVariation] = useState<string>(searchParams.get("size") || "all");
+
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<boolean>(false);
+
+  // Re-sync local filter state whenever the URL changes (e.g. browser back/forward,
+  // or the user returning here via the product page's "back" button).
+  useEffect(() => {
+    setSearchQuery(searchParams.get("q") || "");
+    setSortOrder(searchParams.get("sort") || "default");
+    setSelectedBrand(searchParams.get("brand") || "all");
+    setSelectedVariation(searchParams.get("size") || "all");
+  }, [searchParams]);
+
+  // Generic helper: merge param updates into the URL. Resets pagination
+  // whenever a filter changes, since the result set shifts.
+  const updateFilters = (updates: Record<string, string>, resetPage = true) => {
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === "" || value === "all" || value === "default") {
+        current.delete(key);
+      } else {
+        current.set(key, value);
+      }
+    });
+    if (resetPage) current.delete("page");
+    const search = current.toString();
+    router.push(`${pathname}${search ? `?${search}` : ""}`, { scroll: true });
+  };
 
   const setPage = (pageNumber: number) => {
     const current = new URLSearchParams(Array.from(searchParams.entries()));
@@ -45,8 +72,7 @@ export default function UnifiedShopPage({ params }: PageProps) {
       current.set("page", String(pageNumber));
     }
     const search = current.toString();
-    const query = search ? `?${search}` : "";
-    router.push(`${pathname}${query}`, { scroll: true });
+    router.push(`${pathname}${search ? `?${search}` : ""}`, { scroll: true });
   };
 
   const isFilterActive = useMemo(() => {
@@ -54,46 +80,45 @@ export default function UnifiedShopPage({ params }: PageProps) {
       searchQuery !== "" ||
       sortOrder !== "default" ||
       selectedBrand !== "all" ||
-      selectedVariation !== "all" // NEW
+      selectedVariation !== "all"
     );
   }, [searchQuery, sortOrder, selectedBrand, selectedVariation]);
 
   const handleClearFilters = () => {
-    setSearchQuery("");
-    setSortOrder("default");
-    setSelectedBrand("all");
-    setSelectedVariation("all"); // NEW
-    setPage(1);
+    router.push(pathname, { scroll: true });
   };
 
-  const previousFilters = useRef({
-    searchQuery,
-    sortOrder,
-    selectedBrand,
-    selectedVariation, // NEW
-  });
-
+  // Debounce search text -> URL, so we're not pushing on every keystroke
+  const isFirstRender = useRef(true);
   useEffect(() => {
-    const filtersChanged =
-      previousFilters.current.searchQuery !== searchQuery ||
-      previousFilters.current.sortOrder !== sortOrder ||
-      previousFilters.current.selectedBrand !== selectedBrand ||
-      previousFilters.current.selectedVariation !== selectedVariation; // NEW
-
-    if (filtersChanged) {
-      const currentPageFromUrl = Number(searchParams.get("page")) || 1;
-      if (currentPageFromUrl !== 1) {
-        setPage(1);
-      }
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
     }
+    const handle = setTimeout(() => {
+      const urlQ = searchParams.get("q") || "";
+      if (searchQuery !== urlQ) {
+        updateFilters({ q: searchQuery });
+      }
+    }, 400);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
 
-    previousFilters.current = {
-      searchQuery,
-      sortOrder,
-      selectedBrand,
-      selectedVariation, // NEW
-    };
-  }, [searchQuery, sortOrder, selectedBrand, selectedVariation]);
+  const handleSortChange = (value: string) => {
+    setSortOrder(value);
+    updateFilters({ sort: value });
+  };
+
+  const handleBrandChange = (value: string) => {
+    setSelectedBrand(value);
+    updateFilters({ brand: value });
+  };
+
+  const handleVariationChange = (value: string) => {
+    setSelectedVariation(value);
+    updateFilters({ size: value });
+  };
 
   useEffect(() => {
     if (!type || !id) return;
@@ -178,25 +203,22 @@ export default function UnifiedShopPage({ params }: PageProps) {
     return Array.from(brandsMap.entries()).map(([id, name]) => ({ id, name }));
   }, [products]);
 
-  // NEW: Extract unique variation labels (e.g. sizes) across all products
-// NEW: Extract unique variation labels (e.g. sizes) across all products — only include labels that have stock
-const availableVariations = useMemo(() => {
-  const variationSet = new Set<string>();
-  products.forEach((product) => {
-    product.product_variations?.forEach((v: any) => {
-      const label = v.attributes?.name;
-      if (label && v.stock > 0) variationSet.add(label);
+  const availableVariations = useMemo(() => {
+    const variationSet = new Set<string>();
+    products.forEach((product) => {
+      product.product_variations?.forEach((v: any) => {
+        const label = v.attributes?.name;
+        if (label && v.stock > 0) variationSet.add(label);
+      });
     });
-  });
-  return Array.from(variationSet);
-}, [products]);
+    return Array.from(variationSet);
+  }, [products]);
 
-const filteredAndSortedProducts = useMemo(() => {
+  const filteredAndSortedProducts = useMemo(() => {
     return products
       .filter((product) => {
         const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesBrand = selectedBrand === "all" || String(product.brand_id) === selectedBrand;
-        // matches only if product has that size label AND it's in stock
         const matchesVariation =
           selectedVariation === "all" ||
           product.product_variations?.some(
@@ -205,12 +227,8 @@ const filteredAndSortedProducts = useMemo(() => {
         return matchesSearch && matchesBrand && matchesVariation;
       })
       .sort((a, b) => {
-        if (sortOrder === "lowToHigh") {
-          return a.sortingPrice - b.sortingPrice;
-        }
-        if (sortOrder === "highToLow") {
-          return b.sortingPrice - a.sortingPrice;
-        }
+        if (sortOrder === "lowToHigh") return a.sortingPrice - b.sortingPrice;
+        if (sortOrder === "highToLow") return b.sortingPrice - a.sortingPrice;
         if (sortOrder === "newest") {
           const dateA = a.created_at ? new Date(a.created_at).getTime() : Number(a.id) || 0;
           const dateB = b.created_at ? new Date(b.created_at).getTime() : Number(b.id) || 0;
@@ -229,6 +247,9 @@ const filteredAndSortedProducts = useMemo(() => {
   const indexOfLastProduct = currentPage * productsPerPage;
   const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
   const currentProducts = filteredAndSortedProducts.slice(indexOfFirstProduct, indexOfLastProduct);
+
+  // ── The URL the user should return to after viewing a product ──
+  const returnUrl = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
 
   if (!type || !id || error) return notFound();
 
@@ -319,12 +340,12 @@ const filteredAndSortedProducts = useMemo(() => {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto flex-wrap">
-            {/* Dynamic Brand Filter Dropdown */}
+            {/* Brand Filter */}
             <div className="relative w-full sm:w-56">
               <Filter className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-500 pointer-events-none transition-colors duration-300" size={16} />
               <select
                 value={selectedBrand}
-                onChange={(e) => setSelectedBrand(e.target.value)}
+                onChange={(e) => handleBrandChange(e.target.value)}
                 className="w-full pl-12 pr-10 py-4 bg-white/80 dark:bg-[#111]/80 backdrop-blur-md border border-slate-200 dark:border-[#333] focus:border-brand-gold dark:focus:border-brand-gold rounded-full shadow-sm text-slate-700 dark:text-gray-200 font-bold text-xs uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-brand-gold/20 transition-all duration-300 cursor-pointer appearance-none"
               >
                 <option value="all">All Brands</option>
@@ -337,13 +358,13 @@ const filteredAndSortedProducts = useMemo(() => {
               <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-500 w-0 h-0" />
             </div>
 
-            {/* NEW: Variation (e.g. Size) Filter Dropdown — only show if sizes exist */}
+            {/* Variation (Size) Filter */}
             {availableVariations.length > 0 && (
               <div className="relative w-full sm:w-56">
                 <Ruler className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-500 pointer-events-none transition-colors duration-300" size={16} />
                 <select
                   value={selectedVariation}
-                  onChange={(e) => setSelectedVariation(e.target.value)}
+                  onChange={(e) => handleVariationChange(e.target.value)}
                   className="w-full pl-12 pr-10 py-4 bg-white/80 dark:bg-[#111]/80 backdrop-blur-md border border-slate-200 dark:border-[#333] focus:border-brand-gold dark:focus:border-brand-gold rounded-full shadow-sm text-slate-700 dark:text-gray-200 font-bold text-xs uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-brand-gold/20 transition-all duration-300 cursor-pointer appearance-none"
                 >
                   <option value="all">All Sizes</option>
@@ -357,12 +378,12 @@ const filteredAndSortedProducts = useMemo(() => {
               </div>
             )}
 
-            {/* Pricing / Newest / Oldest dropdown filter selector wrapper */}
+            {/* Sort */}
             <div className="relative w-full sm:w-56">
               <ArrowUpDown className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-500 pointer-events-none transition-colors duration-300" size={16} />
               <select
                 value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value)}
+                onChange={(e) => handleSortChange(e.target.value)}
                 className="w-full pl-12 pr-10 py-4 bg-white/80 dark:bg-[#111]/80 backdrop-blur-md border border-slate-200 dark:border-[#333] focus:border-brand-gold dark:focus:border-brand-gold rounded-full shadow-sm text-slate-700 dark:text-gray-200 font-bold text-xs uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-brand-gold/20 transition-all duration-300 cursor-pointer appearance-none"
               >
                 <option value="default">Sort: Featured</option>
@@ -374,7 +395,6 @@ const filteredAndSortedProducts = useMemo(() => {
               <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-500 w-0 h-0" />
             </div>
 
-            {/* Clear Filters Action Button */}
             {isFilterActive && (
               <button
                 onClick={handleClearFilters}
@@ -394,6 +414,7 @@ const filteredAndSortedProducts = useMemo(() => {
                 key={product.id} 
                 product={product} 
                 userId={userId} 
+                returnUrl={returnUrl}
               />
             ))
           ) : (
