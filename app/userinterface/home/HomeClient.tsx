@@ -622,7 +622,7 @@ export default function HomeClient({
                       className="text-transparent font-sans font-black tracking-[0.15em] uppercase pt-1 text-3xl sm:text-4xl md:text-5xl"
                       style={{ WebkitTextStroke: "1.8px #c4a174" }}
                     >
-                      SERIES
+                      SERIES.
                     </span>
                   </h2>
                 </div>
