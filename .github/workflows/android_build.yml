@@ -53,8 +53,8 @@ jobs:
 
       - name: Decode Production Keystore
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_CONTENT }}" | base64 --decode > android/bangalorecollective-release.jks
-
+          python3 -c "import base64; open('android/bangalorecollective-release.jks', 'wb').write(base64.b64decode('${{ secrets.ANDROID_KEYSTORE_CONTENT }}'))"
+      
       - name: Create keystore.properties
         run: |
           echo "storeFile=bangalorecollective-release.jks" >> android/keystore.properties
