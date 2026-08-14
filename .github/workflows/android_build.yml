@@ -52,9 +52,11 @@ jobs:
         run: npx cap sync android
 
       - name: Decode Production Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_CONTENT }}
         run: |
-          python3 -c "import base64; open('android/bangalorecollective-release.jks', 'wb').write(base64.b64decode('${{ secrets.ANDROID_KEYSTORE_CONTENT }}'))"
-      
+          python3 -c "import os, base64; open('android/bangalorecollective-release.jks', 'wb').write(base64.b64decode(os.environ['KEYSTORE_BASE64']))"
+          
       - name: Create keystore.properties
         run: |
           echo "storeFile=bangalorecollective-release.jks" >> android/keystore.properties
