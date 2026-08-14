@@ -45,6 +45,9 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Create Android Assets Directory
+        run: mkdir -p android/app/src/main/assets
+
       - name: Capacitor Sync
         run: npx cap sync android
 
@@ -70,10 +73,3 @@ jobs:
         with:
           name: bangalorecollective-aab
           path: android/app/build/outputs/bundle/release/app-release.aab
-
-
-      - name: Create Android Assets Directory
-        run: mkdir -p android/app/src/main/assets
-
-      - name: Capacitor Sync
-        run: npx cap sync android
