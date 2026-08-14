@@ -55,8 +55,8 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_CONTENT }}
         run: |
-          python3 -c "import os, base64; open('android/bangalorecollective-release.jks', 'wb').write(base64.b64decode(os.environ['KEYSTORE_BASE64']))"
-          
+          python3 -c "import os, base64; open('android/bangalorecollective-release.jks', 'wb').write(base64.b64decode(os.environ['KEYSTORE_BASE64'].strip()))"
+
       - name: Create keystore.properties
         run: |
           echo "storeFile=bangalorecollective-release.jks" >> android/keystore.properties
