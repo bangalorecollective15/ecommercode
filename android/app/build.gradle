@@ -1,16 +1,22 @@
 apply plugin: 'com.android.application'
 
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.banglorecolletive.app"
     compileSdk = rootProject.ext.compileSdkVersion
     
     signingConfigs {
         release {
-            if (project.hasProperty('storeFile')) {
-                storeFile file(storeFile)
-                storePassword storePassword
-                keyAlias keyAlias
-                keyPassword keyPassword
+            if (keystoreProperties.getProperty('storeFile')) {
+                storeFile file(keystoreProperties.getProperty('storeFile'))
+                storePassword keystoreProperties.getProperty('storePassword')
+                keyAlias keystoreProperties.getProperty('keyAlias')
+                keyPassword keystoreProperties.getProperty('keyPassword')
             }
         }
     }
