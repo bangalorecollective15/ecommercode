@@ -51,6 +51,24 @@ jobs:
       - name: Capacitor Sync
         run: npx cap sync android
 
+      - name: Check Keystore Secret Integrity
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_CONTENT }}
+        run: |
+          python3 -c "
+          import os, sys
+          s = os.environ.get('KEYSTORE_BASE64', '').strip()
+          length = len(s)
+          print(f'KEYSTORE_BASE64 length: {length}')
+          if length == 0:
+              print('::error::ANDROID_KEYSTORE_CONTENT secret is empty or not set.')
+              sys.exit(1)
+          if length % 4 != 0:
+              print(f'::error::Base64 length {length} is not a multiple of 4 -- the secret is truncated or corrupted. Re-generate it with: base64 -w0 keystore.jks and re-upload with gh secret set, not by pasting into the web UI.')
+              sys.exit(1)
+          print('Length check passed.')
+          "
+
       - name: Decode Production Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_CONTENT }}
