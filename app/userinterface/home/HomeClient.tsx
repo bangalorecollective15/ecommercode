@@ -58,6 +58,8 @@ interface HomeClientProps {
   initialInstagramLinks: any[];
   initialLatestProducts: any[];
   initialLifestyleSections: any[];
+  // NEW: pass the "attributes" table rows down from the server component
+  initialAttributes?: any[];
 }
 
 export default function HomeClient({
@@ -69,6 +71,7 @@ export default function HomeClient({
   initialInstagramLinks,
   initialLatestProducts,
   initialLifestyleSections,
+  initialAttributes = [],
 }: HomeClientProps) {
   const [brands] = useState<any[]>(initialBrands);
   const [lifestyleSections] = useState<any[]>(initialLifestyleSections);
@@ -79,6 +82,7 @@ export default function HomeClient({
   const [heroSections] = useState<HeroData[]>(initialHeroSections);
   const [categories] = useState<any[]>(initialCategories);
   const [subcategories] = useState<any[]>(initialSubcategories);
+  const [attributes] = useState<any[]>(initialAttributes); // NEW
   const [activeCategory, setActiveCategory] = useState<number | null>(
     initialCategories.length > 0 ? initialCategories[0].id : null
   );
@@ -86,6 +90,27 @@ export default function HomeClient({
   const router = useRouter();
 
   const duplicatedBrands = [...brands, ...brands];
+
+  // NEW: resolve a lifestyle_tag NAME (e.g. "August-sale") to its
+  // attributes.id (e.g. 62) using the attributes table rows we already have.
+  const getLifestyleAttributeId = (tagName?: string): number | string | null => {
+    if (!tagName) return null;
+    const match = attributes.find(
+      (a) => a.type === "lifestyle_tag" && a.name === tagName
+    );
+    return match ? match.id : null;
+  };
+
+  // NEW: builds the correct hero CTA link.
+  // If we can resolve the attribute id -> /Gproducts?lifestyle=62
+  // Otherwise falls back to the old behaviour -> /Gproducts?tag=August-sale
+  const getHeroHref = (hero: HeroData) => {
+    if (!hero.lifestyle_tag) return "/userinterface/Gproducts";
+    const lifestyleId = getLifestyleAttributeId(hero.lifestyle_tag);
+    return lifestyleId
+      ? `/userinterface/Gproducts?lifestyle=${lifestyleId}`
+      : `/userinterface/Gproducts?tag=${hero.lifestyle_tag}`;
+  };
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.location.hash) {
@@ -191,11 +216,7 @@ export default function HomeClient({
                         }`}
                     >
                       <Link
-                        href={
-                          hero.lifestyle_tag
-                            ? `/userinterface/Gproducts?tag=${hero.lifestyle_tag}`
-                            : "/userinterface/Gproducts"
-                        }
+                        href={getHeroHref(hero)}
                         className="group flex items-center gap-4 w-fit"
                       >
                         <div className="px-8 py-4 bg-white text-black rounded-full text-[10px] font-black uppercase tracking-widest group-hover:bg-orange-600 group-hover:text-white transition-all shadow-xl">
@@ -583,6 +604,13 @@ export default function HomeClient({
           "bg-white border-[#c4a174]/10 dark:bg-black dark:border-[#333]",
         ][idx % 3];
 
+        // NEW: resolve this section's tag name to an attribute id too,
+        // so "DISCOVER MORE" also opens ?lifestyle=<id> instead of ?tag=<name>
+        const sectionLifestyleId = getLifestyleAttributeId(section.tagName);
+        const sectionHref = sectionLifestyleId
+          ? `/userinterface/Gproducts?lifestyle=${sectionLifestyleId}`
+          : `/userinterface/Gproducts?tag=${section.tagName}`;
+
         return (
           <section key={idx} className={`w-full py-16 border-b transition-all duration-700 ${bgStyles}`}>
             <div className="max-w-[1400px] mx-auto px-6">
@@ -600,7 +628,7 @@ export default function HomeClient({
                 </div>
 
                 <Link
-                  href={`/userinterface/Gproducts?tag=${section.tagName}`}
+                  href={sectionHref}
                   className="group flex items-center gap-4 text-[10px] font-black tracking-[0.3em] text-[#2b2652] dark:text-white transition-all"
                 >
                   <span className="border-b border-[#c4a174] pb-1 group-hover:border-[#2b2652] dark:group-hover:border-white transition-colors duration-300">DISCOVER MORE</span>

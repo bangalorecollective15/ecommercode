@@ -6,6 +6,11 @@ export const dynamic = "force-dynamic";
 // ready to cache this page and regenerate it in the background every 60s.
 
 export default async function HomePage() {
+  const { data: attributesData } = await supabase
+  .from("attributes")
+  .select("id, type, name")
+  .eq("type", "lifestyle_tag");
+
   const [
     { data: heroSections },
     { data: siteInfo },
@@ -95,6 +100,7 @@ export default async function HomePage() {
       initialInstagramLinks={instagramData || []}
       initialLatestProducts={latestProducts}
       initialLifestyleSections={lifestyleSections}
+        initialAttributes={attributesData || []} 
     />
   );
 }
