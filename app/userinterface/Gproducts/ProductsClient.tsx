@@ -187,10 +187,25 @@ export default function ProductsClient({
   }, []);
 
   // --- PRODUCTS: skip the first run (server already fetched it), fetch on every real change after. ---
+// --- PRODUCTS: skip the first run only if URL filters match what SSR used ---
   useEffect(() => {
     if (isFirstProductRun.current) {
       isFirstProductRun.current = false;
-      return;
+
+      const matchesServerState =
+        filters.category_id === initialFilters.category_id &&
+        filters.brand_id === initialFilters.brand_id &&
+        filters.lifestyle_tag_id === initialFilters.lifestyle_tag_id &&
+        !filters.subcategory_id &&
+        !filters.sub_subcategory_id &&
+        filters.sort === "latest" &&
+        !filters.search &&
+        currentPage === initialPage;
+
+      if (matchesServerState) {
+        return; // server already rendered the right data, skip refetch
+      }
+      // otherwise fall through and fetch fresh — URL filters don't match what SSR used
     }
 
     let cancelled = false;
@@ -286,7 +301,6 @@ export default function ProductsClient({
     debouncedSearch,
     currentPage,
   ]);
-
   const totalPages = Math.max(1, Math.ceil(totalCount / productsPerPage));
   const activeCategoryName = categories.find((c) => Number(c.id) === Number(filters.category_id))?.name;
   const activeBrandName = brands.find((b) => Number(b.id) === Number(filters.brand_id))?.name_en;
