@@ -12,7 +12,6 @@ export default function BackButtonHandler() {
   const pathname = usePathname();
   const router = useRouter();
   const pathnameRef = useRef(pathname);
-  const lastBackPressRef = useRef(0);
 
   // Keep a ref in sync so the listener (registered once) always reads the current path
   useEffect(() => {
@@ -37,17 +36,11 @@ export default function BackButtonHandler() {
           return;
         }
 
-        // On a root screen — require a second press within 2s to actually exit
-        const now = Date.now();
-        if (now - lastBackPressRef.current < 2000) {
-          if (Capacitor.getPlatform() === "android") {
-            App.exitApp();
-          }
-          // iOS: Apple doesn't allow programmatic quitting, so do nothing here
-        } else {
-          lastBackPressRef.current = now;
-          // Optional: show a toast/snackbar here, e.g. "Press back again to exit"
+        // On a root screen (Home) — nothing to go back to, so exit right away
+        if (Capacitor.getPlatform() === "android") {
+          App.exitApp();
         }
+        // iOS: Apple doesn't allow programmatically quitting the app, so do nothing here
       });
     };
 
