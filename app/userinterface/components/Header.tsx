@@ -32,16 +32,9 @@ export default function Header() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
-  // Desktop category dropdown - state controlled (not pure CSS hover) so it can be closed on click/navigation
   const [openDesktopCategory, setOpenDesktopCategory] = useState<number | null>(null);
-
-  // Desktop DEEP (level 3 / sub-subcategory) flyout - state controlled so it works on
-  // click / touch as well as hover. This is the piece that was missing before: it relied
-  // purely on CSS group-hover, so on click (or on touch devices with no hover) the flyout
-  // never appeared and the Link just navigated straight away.
   const [openSubCategory, setOpenSubCategory] = useState<number | null>(null);
 
-  // Theme State (Default to Dark Mode initially)
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [mounted, setMounted] = useState(false);
 
@@ -55,18 +48,14 @@ export default function Header() {
   const whatsappMessage = encodeURIComponent("Hello, I would like to enquire about your luxury fashion and accessories collection. Please connect with me to discuss further. Thank you.");
   const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
 
-  // Handle Scroll
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
     };
-
     window.addEventListener("scroll", handleScroll);
-
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Handle Theme Initialization (Defaults to Dark Mode if no preference is saved)
   useEffect(() => {
     setMounted(true);
     const savedTheme = localStorage.getItem("theme");
@@ -75,7 +64,6 @@ export default function Header() {
       setIsDarkMode(false);
       document.documentElement.classList.remove("dark");
     } else {
-      // Default / saved as dark
       setIsDarkMode(true);
       document.documentElement.classList.add("dark");
       if (!savedTheme) {
@@ -96,7 +84,6 @@ export default function Header() {
     }
   };
 
-  // Handle Search logic
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
       const cleanQuery = searchQuery.trim();
@@ -140,7 +127,6 @@ export default function Header() {
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
 
-  // Close desktop dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -151,7 +137,6 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // MASTER SYNC CART EFFECT
   useEffect(() => {
     const fetchCartCount = async () => {
       const {
@@ -178,13 +163,11 @@ export default function Header() {
 
     fetchCartCount();
 
-    // 1. INSTANT LOCAL UPDATE
     const handleLocalCartUpdate = () => {
       fetchCartCount();
     };
     window.addEventListener("cartUpdated", handleLocalCartUpdate);
 
-    // 2. REALTIME BACKEND SYNC
     const channel = supabase
       .channel("cart-count-changes")
       .on(
@@ -206,7 +189,6 @@ export default function Header() {
     };
   }, [isAuthenticated]);
 
-  // Close mobile menu and desktop dropdown on route change
   useEffect(() => {
     setMobileMenuOpen(false);
     setMobileCategoryOpen(null);
@@ -271,7 +253,6 @@ export default function Header() {
   return (
     <>
       <header className="fixed top-0 left-0 w-full z-50">
-        {/* MARQUEE BANNER AT THE ABSOLUTE TOP */}
         {banner && banner.active && (
           <div
             className="w-full py-2.5 overflow-hidden backdrop-blur-lg border-b border-white/15 shadow-sm relative z-50"
@@ -302,7 +283,8 @@ export default function Header() {
     `}</style>
           </div>
         )}
-        {/* MOBILE HEADER - MATCHING HEADER BACKGROUND */}
+
+        {/* MOBILE HEADER */}
         <div className="lg:hidden w-full px-4 transition-all duration-300 border-b border-white/10 dark:border-slate-800/50 backdrop-blur-xl bg-white/70 dark:bg-slate-950/70 shadow-sm">
           <div className="flex items-center justify-between h-16">
             {/* LOGO */}
@@ -317,10 +299,9 @@ export default function Header() {
               />
             </Link>
 
-            {/* RIGHT SIDE ACTIONS */}
+            {/* RIGHT SIDE ACTIONS — kept minimal so the hamburger never gets squeezed off-screen */}
             <div className="flex items-center gap-1">
 
-              {/* THEME TOGGLE */}
               {mounted && (
                 <button
                   onClick={toggleTheme}
@@ -330,7 +311,6 @@ export default function Header() {
                 </button>
               )}
 
-              {/* SEARCH */}
               <button
                 onClick={() => setIsSearchOpen(true)}
                 className="p-2 text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition-all"
@@ -338,69 +318,41 @@ export default function Header() {
                 <Search size={20} />
               </button>
 
-              {isAuthenticated && (
-                <>
-                  <Link
-                    href="/userinterface/wishlist"
-                    className="p-2 text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition-all"
-                  >
-                    <Heart size={20} />
-                  </Link>
-                  <Link
-                    href="/userinterface/cart"
-                    className="p-2 text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition-all relative"
-                  >
-                    <ShoppingCart size={20} />
-                    {cartCount > 0 && (
-                      <span className="absolute top-1 right-0 min-w-[16px] h-[16px] px-1 bg-black dark:bg-white text-white dark:text-black text-[9px] font-black rounded-full flex items-center justify-center shadow-md">
-                        {cartCount}
-                      </span>
-                    )}
-                  </Link>
-                </>
-              )}
-
-              {!isAuthenticated ? (
+              {!isAuthenticated && (
                 <button
                   onClick={() => setIsAuthModalOpen(true)}
                   className="px-4 py-1.5 ml-1 bg-white dark:bg-slate-800 text-[#8A7763] dark:text-white rounded-full text-[10px] font-black tracking-[0.1em] hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
                 >
                   LOGIN
                 </button>
-              ) : (
-                <div className="relative flex items-center ml-1" ref={dropdownRef}>
-                  <button
-                    onClick={() => setDropdownOpen(!dropdownOpen)}
-                    className="w-9 h-9 rounded-full border border-black/30 dark:border-white/30 bg-black/10 dark:bg-white/10 flex items-center justify-center hover:bg-black/20 dark:hover:bg-white/20 transition-all"
-                  >
-                    <User size={18} className="text-black dark:text-white" />
-                  </button>
-                </div>
               )}
 
+              {/* Hamburger — this is now always visible. Wishlist, Cart, and Account
+                  moved into the slide-out menu below instead of living out here. */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-2 text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition-all ml-1"
+                className="p-2 text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition-all ml-1 relative"
               >
                 {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                {isAuthenticated && cartCount > 0 && !mobileMenuOpen && (
+                  <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-slate-950" />
+                )}
               </button>
             </div>
           </div>
         </div>
 
-        {/* DESKTOP HEADER */}
+        {/* DESKTOP HEADER (unchanged) */}
         <div
           className={`hidden lg:flex items-center justify-between transition-all duration-500 border-b px-8 h-16 ${isScrolled
             ? "bg-white/90 dark:bg-slate-950/90 backdrop-blur-2xl shadow-md border-slate-200/50 dark:border-slate-800/50"
             : "bg-white/70 dark:bg-slate-950/70 backdrop-blur-xl border-white/20 dark:border-slate-800/50"
             }`}
         >
-          {/* LOGO */}
           <Link href="/userinterface/home" className="flex-shrink-0 transition-opacity hover:opacity-80">
             <Image src="/logowhite.png" alt="Logo" width={160} height={50} className="h-12 w-auto object-contain brightness-0 dark:invert transition-all" />
           </Link>
 
-          {/* NAVIGATION LINKS */}
           <nav className="flex items-center gap-0.5">
             <Link
               href="/userinterface/home"
@@ -409,7 +361,6 @@ export default function Header() {
               HOME
             </Link>
 
-            {/* Dynamic Categories */}
             {categories.map((category) => {
               const hasSubcategories = category.subcategories && category.subcategories.length > 0;
 
@@ -472,10 +423,6 @@ export default function Header() {
                             <Link
                               href={`/userinterface/Gproducts/subcategory/${sub.id}`}
                               onClick={(e) => {
-                                // If this subcategory has deep (sub-sub) categories, the first
-                                // click/tap reveals them instead of navigating straight away.
-                                // This is what fixes the "deep category not visible" issue on
-                                // click / touch devices, since hover never fires there.
                                 if (hasDeep && !isSubOpen) {
                                   e.preventDefault();
                                   setOpenSubCategory(sub.id);
@@ -548,7 +495,6 @@ export default function Header() {
             </div>
           </nav>
 
-          {/* DESKTOP HEADER - RIGHT SIDE */}
           <div className="flex items-center gap-1">
             {mounted && (
               <button
@@ -632,7 +578,7 @@ export default function Header() {
           </div>
         </div>
 
-        {/* SEARCH OVERLAY */}
+        {/* SEARCH OVERLAY (unchanged) */}
         {isSearchOpen && (
           <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 px-4">
             <div
@@ -699,7 +645,7 @@ export default function Header() {
           </div>
         )}
 
-        {/* MOBILE BOTTOM MENU - MATCHING HEADER BACKGROUND */}
+        {/* MOBILE SLIDE-OUT MENU */}
         {mobileMenuOpen && (
           <div className="fixed inset-0 z-[60] lg:hidden backdrop-blur-xl bg-black/50" onClick={() => setMobileMenuOpen(false)}>
             <div
@@ -717,6 +663,34 @@ export default function Header() {
               </div>
 
               <div className="p-4 space-y-1 pt-0">
+
+                {/* WISHLIST + CART — moved here from the top bar */}
+                {isAuthenticated && (
+                  <div className="grid grid-cols-2 gap-3 mb-4 mt-4">
+                    <Link
+                      href="/userinterface/wishlist"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex flex-col items-center justify-center gap-1.5 px-4 py-4 bg-slate-50 dark:bg-slate-900 rounded-2xl text-sm font-bold text-slate-800 dark:text-slate-200 hover:bg-black hover:text-white dark:hover:bg-black transition-all"
+                    >
+                      <Heart size={20} />
+                      Wishlist
+                    </Link>
+                    <Link
+                      href="/userinterface/cart"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="relative flex flex-col items-center justify-center gap-1.5 px-4 py-4 bg-slate-50 dark:bg-slate-900 rounded-2xl text-sm font-bold text-slate-800 dark:text-slate-200 hover:bg-black hover:text-white dark:hover:bg-black transition-all"
+                    >
+                      <ShoppingCart size={20} />
+                      Cart
+                      {cartCount > 0 && (
+                        <span className="absolute top-2 right-2 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center">
+                          {cartCount}
+                        </span>
+                      )}
+                    </Link>
+                  </div>
+                )}
+
                 <Link
                   href="/userinterface/home"
                   onClick={() => setMobileMenuOpen(false)}

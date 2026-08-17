@@ -1,33 +1,62 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { App } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core";
+import { usePathname, useRouter } from "next/navigation";
+
+// Routes where a back-press should exit the app instead of navigating back
+const ROOT_ROUTES = ["/", "/userinterface/home"];
 
 export default function BackButtonHandler() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const pathnameRef = useRef(pathname);
+  const lastBackPressRef = useRef(0);
+
+  // Keep a ref in sync so the listener (registered once) always reads the current path
   useEffect(() => {
-    // 1. Define the listener logic
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) {
+      console.log("Capacitor App plugin not available in browser.");
+      return;
+    }
+
+    let handle: any;
+
     const setupListener = async () => {
-      try {
-        await App.addListener("backButton", ({ canGoBack }) => {
-          if (canGoBack) {
-            window.history.back();
-          } else {
-            // No more history? Close the school app.
+      handle = await App.addListener("backButton", () => {
+        const isRoot = ROOT_ROUTES.includes(pathnameRef.current);
+
+        if (!isRoot) {
+          // Not on a root screen — just go back in-app
+          router.back();
+          return;
+        }
+
+        // On a root screen — require a second press within 2s to actually exit
+        const now = Date.now();
+        if (now - lastBackPressRef.current < 2000) {
+          if (Capacitor.getPlatform() === "android") {
             App.exitApp();
           }
-        });
-      } catch (e) {
-        console.log("Capacitor App plugin not available in browser.");
-      }
+          // iOS: Apple doesn't allow programmatic quitting, so do nothing here
+        } else {
+          lastBackPressRef.current = now;
+          // Optional: show a toast/snackbar here, e.g. "Press back again to exit"
+        }
+      });
     };
 
     setupListener();
 
-    // 2. Clean up when the component unmounts
     return () => {
-      App.removeAllListeners();
+      handle?.remove();
     };
-  }, []);
+  }, [router]);
 
   return null;
 }
