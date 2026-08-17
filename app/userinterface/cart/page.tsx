@@ -49,7 +49,7 @@ export default function CartPage() {
     if (!userId) return;
     setLoading(true);
 
-const { data, error } = await supabase
+    const { data, error } = await supabase
       .from("cart")
       .select(`
         id, product_id, variation_id, quantity,
@@ -94,7 +94,7 @@ const { data, error } = await supabase
         varName = parts.join(" - ");
       }
 
-const rawTag = item.products?.lifestyle_tag;
+      const rawTag = item.products?.lifestyle_tag;
       const tagName = Array.isArray(rawTag) ? rawTag[0]?.name : rawTag?.name;
       const isSaleItem = !!(tagName && tagName.toLowerCase().includes("sale"));
 
@@ -122,7 +122,7 @@ const rawTag = item.products?.lifestyle_tag;
   const updateQuantity = async (item: CartItem, newQuantity: number) => {
     if (newQuantity < 1) return;
 
-    // GUARD: Block manual variations exceeding physical quantities 
+    // GUARD: Block manual variations exceeding physical quantities
     if (newQuantity > item.stock) {
       toast.error(`Only ${item.stock} pieces available in stock.`);
       return;
@@ -165,21 +165,21 @@ const rawTag = item.products?.lifestyle_tag;
   );
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-black pt-24 pb-24 px-6 text-slate-900 dark:text-white selection:bg-brand-gold/20 transition-colors duration-300">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-black pt-20 sm:pt-24 pb-28 lg:pb-24 px-4 sm:px-6 text-slate-900 dark:text-white selection:bg-brand-gold/20 transition-colors duration-300">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-5%] right-[-5%] w-[400px] h-[400px] bg-brand-gold/5 rounded-full blur-[100px]" />
-        <div className="absolute bottom-[10%] left-[-5%] w-[500px] h-[500px] bg-blue-50 dark:bg-[#111]/50 rounded-full blur-[120px] transition-colors duration-300" />
+        <div className="absolute top-[-5%] right-[-5%] w-[260px] h-[260px] sm:w-[400px] sm:h-[400px] bg-brand-gold/5 rounded-full blur-[100px]" />
+        <div className="absolute bottom-[10%] left-[-5%] w-[320px] h-[320px] sm:w-[500px] sm:h-[500px] bg-blue-50 dark:bg-[#111]/50 rounded-full blur-[120px] transition-colors duration-300" />
       </div>
 
       <div className="max-w-6xl mx-auto relative z-10">
-        <header className="mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/40 dark:bg-[#111]/40 backdrop-blur-md border border-white/80 dark:border-[#333] rounded-full shadow-sm mb-4 transition-colors duration-300">
+        <header className="mb-6 sm:mb-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/40 dark:bg-[#111]/40 backdrop-blur-md border border-white/80 dark:border-[#333] rounded-full shadow-sm mb-3 sm:mb-4 transition-colors duration-300">
             <Sparkles size={10} className="text-brand-gold" />
             <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-gray-300">
               Shopping Bag / {cart.length} Units
             </span>
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-slate-950 dark:text-white uppercase transition-colors duration-300">
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-950 dark:text-white uppercase transition-colors duration-300">
             Checkou<span className="text-brand-gold">t</span>
           </h1>
         </header>
@@ -187,8 +187,8 @@ const rawTag = item.products?.lifestyle_tag;
         {cart.length === 0 ? (
           <EmptyCart />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            <div className="lg:col-span-7 space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+            <div className="lg:col-span-7 space-y-3 sm:space-y-4">
               {cart.map((item) => (
                 <CartItemRow
                   key={item.id}
@@ -199,11 +199,12 @@ const rawTag = item.products?.lifestyle_tag;
               ))}
             </div>
 
-            <div className="lg:col-span-5 sticky top-24">
-              <div className="p-8 bg-white/60 dark:bg-[#111]/60 backdrop-blur-2xl rounded-[2.5rem] border border-white dark:border-[#333] shadow-2xl shadow-slate-200/50 dark:shadow-black/50 transition-colors duration-300">
-                <h2 className="text-lg font-black mb-6 uppercase tracking-tight text-slate-900 dark:text-white transition-colors duration-300">Order Summary</h2>
+            {/* Order Summary — inline card, static on mobile, sticky sidebar on desktop */}
+            <div className="lg:col-span-5 lg:sticky lg:top-24">
+              <div className="p-6 sm:p-8 bg-white/60 dark:bg-[#111]/60 backdrop-blur-2xl rounded-[2rem] sm:rounded-[2.5rem] border border-white dark:border-[#333] shadow-2xl shadow-slate-200/50 dark:shadow-black/50 transition-colors duration-300">
+                <h2 className="text-base sm:text-lg font-black mb-5 sm:mb-6 uppercase tracking-tight text-slate-900 dark:text-white transition-colors duration-300">Order Summary</h2>
 
-                <div className="space-y-3 mb-8">
+                <div className="space-y-3 mb-6 sm:mb-8">
                   <SummaryRow label="Subtotal" value={subtotal} />
 
                   <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
@@ -224,14 +225,15 @@ const rawTag = item.products?.lifestyle_tag;
                   <div className="flex justify-between items-end">
                     <div className="flex flex-col">
                       <span className="text-[9px] font-black text-brand-gold uppercase tracking-[0.2em] mb-1">Total Payable</span>
-                      <span className="text-3xl font-black tracking-tighter text-slate-950 dark:text-white transition-colors duration-300">₹{total.toLocaleString()}</span>
+                      <span className="text-2xl sm:text-3xl font-black tracking-tighter text-slate-950 dark:text-white transition-colors duration-300">₹{total.toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
 
+                {/* Desktop / tablet checkout CTA — hidden on mobile, replaced by the fixed bottom bar */}
                 <button
                   onClick={handleProceedToCheckout}
-                  className="group w-full bg-slate-950 dark:bg-white hover:bg-brand-gold dark:hover:bg-brand-gold py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] text-white dark:text-slate-900 dark:hover:text-white flex items-center justify-center gap-3 transition-all duration-300"
+                  className="hidden lg:flex group w-full bg-slate-950 dark:bg-white hover:bg-brand-gold dark:hover:bg-brand-gold py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] text-white dark:text-slate-900 dark:hover:text-white items-center justify-center gap-3 transition-all duration-300"
                 >
                   Proceed to Payment <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                 </button>
@@ -245,6 +247,24 @@ const rawTag = item.products?.lifestyle_tag;
           </div>
         )}
       </div>
+
+      {/* Fixed bottom checkout bar — mobile & tablet only, keeps the CTA within thumb reach */}
+      {cart.length > 0 && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-20 px-4 pb-4 pt-3 bg-white/80 dark:bg-black/80 backdrop-blur-2xl border-t border-white/80 dark:border-[#222] transition-colors duration-300">
+          <div className="max-w-6xl mx-auto flex items-center gap-4">
+            <div className="flex flex-col shrink-0">
+              <span className="text-[8px] font-black text-brand-gold uppercase tracking-[0.2em]">Total</span>
+              <span className="text-lg font-black tracking-tighter text-slate-950 dark:text-white transition-colors duration-300">₹{total.toLocaleString()}</span>
+            </div>
+            <button
+              onClick={handleProceedToCheckout}
+              className="group flex-1 bg-slate-950 dark:bg-white active:bg-brand-gold dark:active:bg-brand-gold py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] text-white dark:text-slate-900 dark:active:text-white flex items-center justify-center gap-2 transition-all duration-300"
+            >
+              Checkout <ArrowRight size={13} className="group-active:translate-x-1 transition-transform" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -260,12 +280,12 @@ function CartItemRow({ item, updateQuantity, removeFromCart }: any) {
   const isExceedingStock = item.quantity > item.stock;
 
   return (
-    <div className={`group relative flex items-center gap-4 p-3 bg-white/40 dark:bg-[#111]/40 backdrop-blur-xl border rounded-3xl transition-all duration-500 hover:shadow-xl hover:shadow-slate-200/40 dark:hover:shadow-black/50 ${
-      isOutOfStock || isExceedingStock 
-        ? "border-red-200 bg-red-50/20 dark:border-red-900/30 dark:bg-red-900/10" 
+    <div className={`group relative flex items-center gap-3 sm:gap-4 p-3 bg-white/40 dark:bg-[#111]/40 backdrop-blur-xl border rounded-2xl sm:rounded-3xl transition-all duration-500 hover:shadow-xl hover:shadow-slate-200/40 dark:hover:shadow-black/50 ${
+      isOutOfStock || isExceedingStock
+        ? "border-red-200 bg-red-50/20 dark:border-red-900/30 dark:bg-red-900/10"
         : "border-white/60 dark:border-[#333]"
       }`}>
-      <div className="relative w-24 h-24 overflow-hidden rounded-2xl bg-slate-50 dark:bg-[#111] flex-shrink-0 transition-colors duration-300">
+      <div className="relative w-20 h-20 sm:w-24 sm:h-24 overflow-hidden rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-[#111] flex-shrink-0 transition-colors duration-300">
         {isVideo ? (
           <video
             src={item.image}
@@ -280,6 +300,7 @@ function CartItemRow({ item, updateQuantity, removeFromCart }: any) {
             src={item.image}
             alt={item.name}
             fill
+            sizes="(max-width: 640px) 80px, 96px"
             className="object-cover group-hover:scale-105 transition-transform duration-700"
             unoptimized={true}
           />
@@ -293,16 +314,15 @@ function CartItemRow({ item, updateQuantity, removeFromCart }: any) {
         )}
       </div>
 
-      <div className="flex-1 min-w-0 pr-2">
-        <div className="flex justify-between items-start mb-2">
-          <div>
-            <h3 className="font-bold text-[13px] text-slate-900 dark:text-white truncate uppercase tracking-tight transition-colors duration-300">{item.name}</h3>
+      <div className="flex-1 min-w-0 pr-1 sm:pr-2">
+        <div className="flex justify-between items-start mb-2 gap-2">
+          <div className="min-w-0">
+            <h3 className="font-bold text-[12px] sm:text-[13px] text-slate-900 dark:text-white truncate uppercase tracking-tight transition-colors duration-300">{item.name}</h3>
             {item.variationName && (
               <p className="text-[9px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-widest mt-0.5 transition-colors duration-300">
                 {item.variationName}
               </p>
             )}
-            {/* Realtime Context Stock Indicators */}
             {/* Realtime Context Stock Indicators */}
             {isOutOfStock ? (
               <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 transition-colors duration-300">
@@ -321,27 +341,33 @@ function CartItemRow({ item, updateQuantity, removeFromCart }: any) {
               </span>
             )}
           </div>
-          <button onClick={() => removeFromCart(item)} className="p-2 text-slate-300 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400 transition-colors">
+          <button
+            onClick={() => removeFromCart(item)}
+            aria-label="Remove item"
+            className="p-2 -mr-1 text-slate-300 hover:text-red-500 active:text-red-500 dark:text-gray-600 dark:hover:text-red-400 transition-colors shrink-0"
+          >
             <Trash2 size={14} />
           </button>
         </div>
 
-        <div className="flex items-center justify-between mt-4">
+        <div className="flex items-center justify-between mt-3 sm:mt-4">
           <div className="flex items-center bg-white/60 dark:bg-[#222]/60 border border-white dark:border-[#333] rounded-lg p-0.5 transition-colors duration-300">
             <button
               onClick={() => updateQuantity(item, item.quantity - 1)}
               disabled={isOutOfStock}
-              className="w-6 h-6 flex items-center justify-center hover:bg-white dark:hover:bg-[#333] rounded-md transition-all disabled:opacity-20"
+              aria-label="Decrease quantity"
+              className="w-8 h-8 sm:w-6 sm:h-6 flex items-center justify-center hover:bg-white dark:hover:bg-[#333] active:bg-white dark:active:bg-[#333] rounded-md transition-all disabled:opacity-20"
             >
               <Minus size={10} />
             </button>
-            <span className="w-8 text-center text-[11px] font-black">
+            <span className="w-7 sm:w-8 text-center text-[11px] font-black">
               {isOutOfStock ? 0 : item.quantity}
             </span>
             <button
               onClick={() => updateQuantity(item, item.quantity + 1)}
               disabled={isOutOfStock || item.quantity >= item.stock}
-              className="w-6 h-6 flex items-center justify-center hover:bg-white dark:hover:bg-[#333] rounded-md transition-all disabled:opacity-20"
+              aria-label="Increase quantity"
+              className="w-8 h-8 sm:w-6 sm:h-6 flex items-center justify-center hover:bg-white dark:hover:bg-[#333] active:bg-white dark:active:bg-[#333] rounded-md transition-all disabled:opacity-20"
             >
               <Plus size={10} />
             </button>
@@ -372,7 +398,7 @@ function SummaryRow({ label, value }: { label: string, value: number }) {
 
 function EmptyCart() {
   return (
-    <div className="py-20 flex flex-col items-center text-center">
+    <div className="py-16 sm:py-20 flex flex-col items-center text-center">
       <div className="w-20 h-20 bg-white/60 dark:bg-[#111]/60 backdrop-blur-xl rounded-3xl flex items-center justify-center mb-8 border border-white dark:border-[#333] shadow-sm transition-colors duration-300">
         <ShoppingBag size={24} className="text-slate-200 dark:text-gray-600" />
       </div>
