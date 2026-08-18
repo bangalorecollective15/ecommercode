@@ -271,18 +271,27 @@ export default function Footer() {
         </div>
 
         {/* CTA Banner: Android App Download */}
-        <div className="my-10 p-6 bg-neutral-900 dark:bg-[#111] text-white dark:text-gray-100 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm dark:border dark:border-[#333]">
+     {/* CTA Banner: Google Play Store Download */}
+        <div className="my-10 p-6 bg-neutral-900 dark:bg-[#111] text-white dark:text-gray-100 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm dark:border dark:border-[#333]">
           <div className="text-center sm:text-left">
             <h4 className="text-base font-semibold tracking-wide">Shop on the go</h4>
-            <p className="text-xs text-neutral-400 dark:text-gray-400 mt-0.5">Download our specialized application for exclusive collections and rapid checkouts.</p>
+            <p className="text-xs text-neutral-400 dark:text-gray-400 mt-0.5">Download our official app from the Google Play Store for exclusive collections and rapid checkouts.</p>
           </div>
           <a
-            href="/downloads/app-debug.apk"
-            download="BangaloreCollective.apk"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white dark:bg-white text-neutral-900 dark:text-black px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-neutral-100 dark:hover:bg-gray-200 transition-all duration-200 shadow-md group"
+            href="https://play.google.com/store/apps/details?id=com.banglorecolletive.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-3 bg-black hover:bg-neutral-950 text-white border border-neutral-700 px-5 py-2.5 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg flex-shrink-0"
+            aria-label="Get it on Google Play"
           >
-            <Download size={14} className="group-hover:translate-y-0.5 transition-transform" />
-            Download Android App
+            {/* Play Store Triangle Icon */}
+            <svg className="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3.609 1.814L13.792 12 3.61 22.186a1.29 1.29 0 0 1-.61-1.09V2.904a1.29 1.29 0 0 1 .609-1.09zM15.208 13.415l2.094 2.094-11.39 6.57a1.15 1.15 0 0 1-1.15 0l10.446-8.664zM5.762 2.122l11.39 6.57-2.094 2.094L3.61 4.216a1.15 1.15 0 0 1 .47-.96 1.15 1.15 0 0 1 1.682-1.134zM19.392 10.59l2.25 1.3a1.15 1.15 0 0 1 0 1.99l-2.25 1.3-2.39-2.39 2.39-2.39z" />
+            </svg>
+            <div className="flex flex-col text-left">
+              <span className="text-[9px] uppercase tracking-wider text-neutral-400 leading-tight">GET IT ON</span>
+              <span className="text-sm font-semibold tracking-tight leading-tight">Google Play</span>
+            </div>
           </a>
         </div>
 
