@@ -824,10 +824,11 @@ export default function Header() {
         )}
       </header>
 
-      {/* FLOATING WHATSAPP BUTTON */}
+{/* FLOATING WHATSAPP BUTTON */}
       <div
-        className={`fixed bottom-6 right-6 z-[9999] group flex-col items-end ${isVideosRoute ? 'hidden lg:flex' : 'flex'
-          }`}
+        className={`fixed bottom-6 right-6 z-[9999] group flex-col items-end ${
+          isVideosRoute ? 'hidden lg:flex' : 'flex'
+        }`}
       >
         <span className="mb-2 px-3 py-1.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 shadow-xl pointer-events-none tracking-wider whitespace-nowrap">
           Enquire on WhatsApp
@@ -836,20 +837,19 @@ export default function Header() {
           href={whatsappUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="w-14 h-14 bg-[#25D366] rounded-full flex items-center justify-center shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white/20 transition-all duration-300 hover:scale-110 active:scale-90 relative"
+          className="w-12 h-12 bg-[#25D366] rounded-full flex items-center justify-center shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white/20 transition-all duration-300 hover:scale-110 active:scale-90 relative"
           aria-label="Chat on WhatsApp"
         >
           <span className="absolute inset-0 rounded-full bg-[#25D366] animate-ping opacity-25 pointer-events-none" />
           <Image
             src="/whatsappicons.png"
             alt="WhatsApp Logo"
-            width={32}
-            height={32}
-            className="w-8 h-8 object-contain"
+            width={24}
+            height={24}
+            className="w-6 h-6 object-contain"
           />
         </a>
       </div>
-
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </>
   );
