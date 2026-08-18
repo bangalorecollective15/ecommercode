@@ -1,11 +1,10 @@
 "use client";
-
 import { useEffect, useRef } from "react";
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { usePathname, useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
-// Routes where a back-press should exit the app instead of navigating back
 const ROOT_ROUTES = ["/", "/userinterface", "/userinterface/home"];
 
 export default function BackButtonHandler() {
@@ -13,35 +12,42 @@ export default function BackButtonHandler() {
   const router = useRouter();
   const pathnameRef = useRef(pathname);
 
-  // Keep a ref in sync so the listener (registered once) always reads the current path
   useEffect(() => {
     pathnameRef.current = pathname;
   }, [pathname]);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) {
-      console.log("Capacitor App plugin not available in browser.");
       return;
     }
+
+    // Fires immediately so you can confirm this effect even ran
+    toast(`BackButtonHandler active. platform: ${Capacitor.getPlatform()}`, { duration: 3000 });
 
     let handle: any;
 
     const setupListener = async () => {
-      handle = await App.addListener("backButton", () => {
-        const isRoot = ROOT_ROUTES.includes(pathnameRef.current);
+      try {
+        handle = await App.addListener("backButton", () => {
+          const currentPath = pathnameRef.current;
+          const isRoot = ROOT_ROUTES.includes(currentPath);
 
-        if (!isRoot) {
-          // Not on a root screen — just go back in-app
-          router.back();
-          return;
-        }
+          toast(`path: ${currentPath} | isRoot: ${isRoot}`, { duration: 3000 });
 
-        // On a root screen (Home) — nothing to go back to, so exit right away
-        if (Capacitor.getPlatform() === "android") {
-          App.exitApp();
-        }
-        // iOS: Apple doesn't allow programmatically quitting the app, so do nothing here
-      });
+          if (!isRoot) {
+            router.back();
+            return;
+          }
+
+          if (Capacitor.getPlatform() === "android") {
+            toast("Calling App.exitApp() now...", { duration: 2000 });
+            App.exitApp();
+          }
+        });
+        toast("Listener registered OK", { duration: 2000 });
+      } catch (err: any) {
+        toast.error(`Listener FAILED: ${err?.message || String(err)}`, { duration: 6000 });
+      }
     };
 
     setupListener();

@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Banglore Colletive',
   webDir: 'out',
   server: {
-    url: 'https://ecommercode-w89a.vercel.app/userinterface/home/', 
+    url: 'https://bangalorecollective.com/', 
     cleartext: true
   },
   plugins: {
