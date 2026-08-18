@@ -1,13 +1,14 @@
 "use client";
 import OptimizedImage from "../../components/OptimizedImage"; // adjust relative path to match your folder depth
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { createClient } from "@supabase/supabase-js";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import {
   ShoppingBag, Heart, Truck, ArrowLeft, ShieldCheck,
-  Tag, Minus, Plus, CreditCard, Sparkles, Star, Play, MessageSquare, Lock
+  Tag, Minus, Plus, CreditCard, Sparkles, Star, Play, MessageSquare, Lock,
+  X, ZoomIn, ChevronLeft, ChevronRight
 } from "lucide-react";
 import ProductCard from "../../components/ProductCard";
 
@@ -22,6 +23,8 @@ const cleanPrice = (price: any): number => {
   const cleanedString = String(price).replace(/[^\d.]/g, "");
   return Number(cleanedString) || 0;
 };
+
+const isVideoUrl = (url: string) => !!url && /\.(mp4|webm|mov)$/i.test(url);
 
 // ─── Per-section skeleton components ────────────────────────────────────────
 
@@ -132,6 +135,226 @@ function StarRow({ value, size = 14 }: { value: number; size?: number }) {
   );
 }
 
+// ─── Image Lightbox (click-to-zoom, drag-to-pan, wheel + pinch zoom) ───────
+
+interface LightboxImage {
+  id: string;
+  image_url: string;
+}
+
+function ImageLightbox({
+  images,
+  initialIndex,
+  onClose,
+}: {
+  images: LightboxImage[];
+  initialIndex: number;
+  onClose: () => void;
+}) {
+  const [index, setIndex] = useState(initialIndex);
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+
+  const dragStart = useRef({ x: 0, y: 0 });
+  const posStart = useRef({ x: 0, y: 0 });
+  const pinchStartDist = useRef<number | null>(null);
+  const pinchStartScale = useRef(1);
+
+  // Lock background scroll while open
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
+
+  const resetZoom = useCallback(() => {
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+  }, []);
+
+  const goNext = useCallback(() => {
+    setIndex((i) => (i + 1) % images.length);
+    resetZoom();
+  }, [images.length, resetZoom]);
+
+  const goPrev = useCallback(() => {
+    setIndex((i) => (i - 1 + images.length) % images.length);
+    resetZoom();
+  }, [images.length, resetZoom]);
+
+  // Keyboard controls
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight") goNext();
+      if (e.key === "ArrowLeft") goPrev();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose, goNext, goPrev]);
+
+  const handleImageClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (scale === 1) {
+      setScale(2.5);
+    } else {
+      resetZoom();
+    }
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    setScale((s) => {
+      const next = s - e.deltaY * 0.0015;
+      return Math.min(4, Math.max(1, next));
+    });
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (scale === 1) return;
+    setIsDragging(true);
+    dragStart.current = { x: e.clientX, y: e.clientY };
+    posStart.current = { ...position };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStart.current.x;
+    const dy = e.clientY - dragStart.current.y;
+    setPosition({ x: posStart.current.x + dx, y: posStart.current.y + dy });
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  const getTouchDist = (t1: React.Touch, t2: React.Touch) =>
+    Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      pinchStartDist.current = getTouchDist(e.touches[0], e.touches[1]);
+      pinchStartScale.current = scale;
+    } else if (e.touches.length === 1 && scale > 1) {
+      setIsDragging(true);
+      dragStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      posStart.current = { ...position };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchStartDist.current) {
+      const newDist = getTouchDist(e.touches[0], e.touches[1]);
+      const factor = newDist / pinchStartDist.current;
+      setScale(Math.min(4, Math.max(1, pinchStartScale.current * factor)));
+    } else if (e.touches.length === 1 && isDragging) {
+      const dx = e.touches[0].clientX - dragStart.current.x;
+      const dy = e.touches[0].clientY - dragStart.current.y;
+      setPosition({ x: posStart.current.x + dx, y: posStart.current.y + dy });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    pinchStartDist.current = null;
+  };
+
+  const current = images[index];
+  if (!current) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[999] bg-black/95 backdrop-blur-sm flex items-center justify-center select-none"
+      onClick={onClose}
+    >
+      {/* Close */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
+        className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10 p-2.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors duration-300"
+        aria-label="Close zoom view"
+      >
+        <X size={20} />
+      </button>
+
+      {/* Counter */}
+      {images.length > 1 && (
+        <div className="absolute top-4 left-4 sm:top-6 sm:left-6 z-10 px-3 py-1.5 bg-white/10 rounded-full text-white text-[10px] font-bold uppercase tracking-widest">
+          {index + 1} / {images.length}
+        </div>
+      )}
+
+      {/* Zoom hint */}
+      <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 bg-white/10 rounded-full text-white/70 text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5 whitespace-nowrap">
+        {scale === 1 ? (
+          <>
+            <ZoomIn size={11} /> Tap or scroll to zoom
+          </>
+        ) : (
+          "Drag to pan · Tap to reset"
+        )}
+      </div>
+
+      {/* Prev / Next */}
+      {images.length > 1 && (
+        <>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              goPrev();
+            }}
+            className="absolute left-2 sm:left-6 z-10 p-2.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors duration-300"
+            aria-label="Previous image"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              goNext();
+            }}
+            className="absolute right-2 sm:right-6 z-10 p-2.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors duration-300"
+            aria-label="Next image"
+          >
+            <ChevronRight size={20} />
+          </button>
+        </>
+      )}
+
+      {/* Image */}
+      <div
+        className="relative w-full h-full flex items-center justify-center overflow-hidden touch-none"
+        onClick={(e) => e.stopPropagation()}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={current.image_url}
+          alt="Product zoom view"
+          draggable={false}
+          onClick={handleImageClick}
+          style={{
+            transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+            transition: isDragging ? "none" : "transform 0.2s ease-out",
+            cursor: scale === 1 ? "zoom-in" : isDragging ? "grabbing" : "grab",
+          }}
+          className="max-w-[92vw] max-h-[80vh] object-contain"
+        />
+      </div>
+    </div>
+  );
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 
 export default function ProductDetailsPage() {
@@ -159,6 +382,10 @@ export default function ProductDetailsPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [submittingReview, setSubmittingReview] = useState(false);
+
+  // ── Image lightbox state ───────────────────────────────────────────────
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   // ── Per-section loading flags ──────────────────────────────────────────────
   // Each paints the moment its own query resolves — nothing waits on anything else.
@@ -419,6 +646,17 @@ const isOutOfStock = !selectedVar || selectedVar.stock <= 0;
     count: reviews.filter((r) => r.rating === star).length,
   }));
 
+  // ── Lightbox helpers ────────────────────────────────────────────────────
+  const zoomableImages = images.filter((img) => !isVideoUrl(img.image_url));
+  const isMainImageVideo = isVideoUrl(mainImage);
+
+  const openLightbox = () => {
+    if (isMainImageVideo || zoomableImages.length === 0) return;
+    const idx = zoomableImages.findIndex((img) => img.image_url === mainImage);
+    setLightboxIndex(idx >= 0 ? idx : 0);
+    setLightboxOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-[#fcfcfc] dark:bg-black text-slate-900 dark:text-white selection:bg-brand-gold/20 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-6 pt-24 pb-12">
@@ -465,25 +703,42 @@ const isOutOfStock = !selectedVar || selectedVar.stock <= 0;
                   className="relative w-full overflow-hidden rounded-3xl border border-slate-100 dark:border-[#333] shadow-sm group bg-slate-50 dark:bg-[#111]/50 transition-colors duration-300"
                   style={{ aspectRatio: "1/1", maxWidth: "1600px", maxHeight: "1600px" }}
                 >
-                  {mainImage && mainImage.toLowerCase().match(/\.(mp4|webm|mov)$/i) ? (
+                  {isMainImageVideo ? (
                     <video
                       src={mainImage}
                       className="w-full h-full object-contain object-center"
                       autoPlay muted loop playsInline
                     />
                   ) : (
-                    <OptimizedImage
-                      src={mainImage || "/placeholder.png"}
-                      alt="Product"
-                      fill
-                      priority
-                      sizes="(max-width: 1024px) 100vw, 60vw"
-                      className="object-contain object-center transition-transform duration-700 group-hover:scale-105"
-                    />
+                    <button
+                      type="button"
+                      onClick={openLightbox}
+                      className="absolute inset-0 w-full h-full cursor-zoom-in"
+                      aria-label="Open zoomed image view"
+                    >
+                      <OptimizedImage
+                        src={mainImage || "/placeholder.png"}
+                        alt="Product"
+                        fill
+                        priority
+                        sizes="(max-width: 1024px) 100vw, 60vw"
+                        className="object-contain object-center transition-transform duration-700 group-hover:scale-105"
+                      />
+                    </button>
+                  )}
+
+                  {/* Zoom hint icon */}
+                  {!isMainImageVideo && (
+                    <div className="absolute bottom-4 left-4 p-2 bg-white/90 dark:bg-black/90 backdrop-blur shadow-sm rounded-full text-slate-500 dark:text-gray-300 pointer-events-none transition-colors duration-300">
+                      <ZoomIn size={16} />
+                    </div>
                   )}
 
                   <button
-                    onClick={toggleWishlist}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleWishlist();
+                    }}
                     className="absolute top-4 right-4 p-2.5 bg-white/90 dark:bg-black/90 backdrop-blur shadow-sm rounded-full hover:scale-110 transition-transform duration-300 z-10"
                   >
                     <Heart
@@ -496,7 +751,7 @@ const isOutOfStock = !selectedVar || selectedVar.stock <= 0;
                 {/* THUMBNAILS */}
                 <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar min-h-[64px]">
                   {images.length > 0 ? images.map((img) => {
-                    const isThumbVideo = img.image_url.toLowerCase().match(/\.(mp4|webm|mov)$/);
+                    const isThumbVideo = isVideoUrl(img.image_url);
                     return (
                       <button
                         key={img.id}
@@ -898,6 +1153,15 @@ const isOutOfStock = !selectedVar || selectedVar.stock <= 0;
         </div>
 
       </div>
+
+      {/* Full-screen zoomable image viewer */}
+      {lightboxOpen && zoomableImages.length > 0 && (
+        <ImageLightbox
+          images={zoomableImages}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
     </div>
   );
 }
