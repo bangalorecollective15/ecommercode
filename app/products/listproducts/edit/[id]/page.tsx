@@ -8,6 +8,10 @@ import {
   Plus, Save, Sparkles, Layers, Image as ImageIcon, X, Loader2, Hash, ArrowLeft, Lock, Edit2
 } from "lucide-react";
 
+// NOTE: adjust this import path to match where this page file actually lives
+// relative to app/userinterface/components/OptimizedImage.tsx
+import OptimizedImage from "@/app/userinterface/components/OptimizedImage";
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -478,7 +482,13 @@ export default function EditLifestyleProduct({ params }: { params: Promise<{ id:
                       {isVideo ? (
                         <video src={cleanUrl} className="w-full h-full object-cover" muted />
                       ) : (
-                        <img src={cleanUrl} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="" />
+                        <OptimizedImage
+                          src={cleanUrl}
+                          alt=""
+                          fill
+                          sizes="(max-width: 768px) 50vw, 25vw"
+                          className="object-cover transition-transform duration-700 group-hover:scale-110"
+                        />
                       )}
 
                       <button
@@ -493,6 +503,9 @@ export default function EditLifestyleProduct({ params }: { params: Promise<{ id:
                 })}
 
                 {/* New Assets Previews */}
+                {/* Note: these are local blob: object URLs (unsaved uploads), so they
+                    intentionally stay as plain <img> rather than OptimizedImage/next/image,
+                    which does not optimize blob: URLs. */}
                 {form.newImagePreviews.map((src, i) => {
                   const isVideo = form.newImageFiles[i]?.type.startsWith('video/');
                   return (
@@ -500,7 +513,7 @@ export default function EditLifestyleProduct({ params }: { params: Promise<{ id:
                       {isVideo ? (
                         <video src={src} className="w-full h-full object-cover" muted />
                       ) : (
-                        <img src={src} className="w-full h-full object-cover" />
+                        <img src={src} className="w-full h-full object-cover" alt="" />
                       )}
                       <div className="absolute inset-0 bg-[#2b2652]/40 backdrop-blur-[2px] flex items-center justify-center pointer-events-none">
                         <span className="text-[8px] text-white font-black uppercase tracking-widest">New {isVideo ? 'Video' : 'Slot'}</span>

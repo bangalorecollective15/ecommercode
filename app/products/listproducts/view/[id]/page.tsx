@@ -16,6 +16,10 @@ import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
 
+// NOTE: adjust this import path to match where this page file actually lives
+// relative to app/userinterface/components/OptimizedImage.tsx
+import OptimizedImage from "@/app/userinterface/components/OptimizedImage";
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -59,47 +63,47 @@ export default function ProductViewPage({ params }: { params: Promise<{ id: stri
       ]);
 
       setProduct({
-  ...p,
-  brand_name: brandRes?.data?.name_en || "Independent",
-  category_path: [
-    catRes?.data?.name,
-    subRes?.data?.name,
-    subSubRes?.data?.name,
-  ]
-    .filter(Boolean)
-    .join(" / ") || "General",
+        ...p,
+        brand_name: brandRes?.data?.name_en || "Independent",
+        category_path: [
+          catRes?.data?.name,
+          subRes?.data?.name,
+          subSubRes?.data?.name,
+        ]
+          .filter(Boolean)
+          .join(" / ") || "General",
 
-  display_images:
-    p.product_images?.map((img: any) => {
-      let url = img.image_url;
+        display_images:
+          p.product_images?.map((img: any) => {
+            let url = img.image_url;
 
-      try {
-        if (
-          typeof url === "string" &&
-          (url.startsWith("[") || url.startsWith("{"))
-        ) {
-          const parsed = JSON.parse(url);
+            try {
+              if (
+                typeof url === "string" &&
+                (url.startsWith("[") || url.startsWith("{"))
+              ) {
+                const parsed = JSON.parse(url);
 
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            url = parsed[0];
-          } else if (typeof parsed === "string") {
-            url = parsed;
-          }
-        }
-      } catch (e) {}
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  url = parsed[0];
+                } else if (typeof parsed === "string") {
+                  url = parsed;
+                }
+              }
+            } catch (e) {}
 
-      let cleanUrl = String(url || "")
-        .split(",")[0]
-        .replace(/[\[\]"'\\]/g, "")
-        .trim();
+            let cleanUrl = String(url || "")
+              .split(",")[0]
+              .replace(/[\[\]"'\\]/g, "")
+              .trim();
 
-      if (cleanUrl.startsWith("http:")) {
-        cleanUrl = cleanUrl.replace(/^http:/i, "https:");
-      }
+            if (cleanUrl.startsWith("http:")) {
+              cleanUrl = cleanUrl.replace(/^http:/i, "https:");
+            }
 
-      return cleanUrl;
-    }).filter(Boolean) || [],
-});
+            return cleanUrl;
+          }).filter(Boolean) || [],
+      });
       const mappedVars = varRes?.data?.map(v => ({
         ...v,
         color_name: colorRes?.data?.find((c: any) => c.id === v.color_id)?.name || "N/A",
@@ -158,7 +162,6 @@ export default function ProductViewPage({ params }: { params: Promise<{ id: stri
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-20">
 
           {/* Left: Premium Swiper Display */}
-          {/* Left: Premium Swiper Display */}
           <div className="lg:col-span-5">
             <div className="sticky top-12">
               <div className="relative group">
@@ -177,7 +180,7 @@ export default function ProductViewPage({ params }: { params: Promise<{ id: stri
 
                       return (
                         <SwiperSlide key={i}>
-                          <div className="w-full aspect-[4/5] bg-black">
+                          <div className="relative w-full aspect-[4/5] bg-black">
                             {isVideo ? (
                               <video
                                 src={url}
@@ -189,15 +192,14 @@ export default function ProductViewPage({ params }: { params: Promise<{ id: stri
                                 playsInline
                               />
                             ) : (
-                            <img
-  src={url || "/placeholder.png"}
-  alt={`Product display ${i}`}
-  className="w-full h-full object-cover"
-  onError={(e) => {
-    (e.currentTarget as HTMLImageElement).src =
-      "/placeholder.png";
-  }}
-/>
+                              <OptimizedImage
+                                src={url}
+                                alt={`Product display ${i}`}
+                                fill
+                                sizes="(max-width: 1024px) 100vw, 40vw"
+                                priority={i === 0}
+                                className="object-cover"
+                              />
                             )}
                           </div>
                         </SwiperSlide>

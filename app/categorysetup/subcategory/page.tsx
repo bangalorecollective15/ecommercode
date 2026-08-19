@@ -16,6 +16,7 @@ import {
   CloudArrowUpIcon
 } from "@heroicons/react/24/outline";
 import toast, { Toaster } from "react-hot-toast";
+import OptimizedImage from "@/app/userinterface/components/OptimizedImage";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -272,7 +273,13 @@ export default function SubcategoriesPage() {
                   className="relative h-40 w-full rounded-[2rem] border-2 border-dashed border-slate-100 bg-slate-50 overflow-hidden cursor-pointer hover:border-[#c4a174] transition-all flex flex-col items-center justify-center gap-2"
                 >
                   {imagePreview ? (
-                    <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
+                    <OptimizedImage
+                      src={imagePreview}
+                      alt="Preview"
+                      className="object-cover"
+                      fill
+                      sizes="160px"
+                    />
                   ) : (
                     <>
                       <CloudArrowUpIcon className="h-8 w-8 text-slate-200 group-hover:text-[#c4a174] transition-colors" />
@@ -394,9 +401,15 @@ export default function SubcategoriesPage() {
                       <tr key={sub.id} className="hover:bg-[#c4a174]/5 transition-colors group">
                         <td className="px-8 py-6">
                           <div className="flex items-center gap-5">
-                            <div className="h-14 w-14 rounded-2xl bg-white border border-[#c4a174]/20 flex items-center justify-center overflow-hidden text-[#2b2652] flex-shrink-0 shadow-sm group-hover:bg-[#2b2652] group-hover:text-[#c4a174] transition-all">
+                            <div className="h-14 w-14 rounded-2xl bg-white border border-[#c4a174]/20 flex items-center justify-center overflow-hidden text-[#2b2652] flex-shrink-0 shadow-sm relative group-hover:bg-[#2b2652] group-hover:text-[#c4a174] transition-all">
                                 {sub.image_url ? (
-                                    <img src={sub.image_url} className="h-full w-full object-cover" alt={sub.name} />
+                                    <OptimizedImage
+                                      src={sub.image_url}
+                                      alt={sub.name}
+                                      className="object-cover"
+                                      fill
+                                      sizes="56px"
+                                    />
                                 ) : (
                                     <TagIcon className="h-6 w-6" />
                                 )}

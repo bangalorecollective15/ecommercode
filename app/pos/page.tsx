@@ -13,6 +13,18 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// Normalize any SKU/name/text for consistent, safe matching
+// (handles null/undefined, stray whitespace, casing, tabs, etc.)
+const normalize = (val: any) =>
+  (val ?? "").toString().trim().toUpperCase().replace(/\s+/g, "");
+
+// Loose normalize: strips EVERY non-alphanumeric character (hyphens, underscores,
+// dots, slashes, spaces, etc). This is what makes SKU search actually reliable —
+// "ABC-123", "abc 123", "ABC_123", "ABC.123" and "abc123" all become "ABC123",
+// so however the SKU was typed/stored, a search for it still finds a match.
+const normalizeLoose = (val: any) =>
+  (val ?? "").toString().toUpperCase().replace(/[^A-Z0-9]/g, "");
+
 export default function POSPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,12 +52,28 @@ export default function POSPage() {
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [catRes, prodRes] = await Promise.all([
-        supabase.from("categories").select("*").order("priority", { ascending: true }),
-        supabase.from("products").select(`
+  // Supabase/PostgREST enforces a server-side "Max Rows" cap (commonly 1000)
+  // that silently overrides whatever .range() you ask for. A single request
+  // for .range(0, 9999) on a catalog bigger than that cap will come back
+  // truncated — and WITHOUT an explicit .order(), which rows get dropped is
+  // arbitrary, so newly-added products can vanish from POS even though older
+  // ones load fine.
+  //
+  // Fix: fetch in fixed-size pages (well under any realistic Max Rows setting)
+  // and keep requesting the next page until a request comes back with fewer
+  // rows than asked for. This reliably loads the ENTIRE catalog no matter how
+  // large it grows, without depending on any dashboard configuration.
+  const fetchAllProducts = async () => {
+    const PAGE_SIZE = 500;
+    let all: any[] = [];
+    let from = 0;
+    let safety = 0; // hard stop so a bug can't loop forever
+
+    while (safety < 50) {
+      safety++;
+      const { data, error } = await supabase
+        .from("products")
+        .select(`
           *, 
           product_variations (
             *,
@@ -57,9 +85,35 @@ export default function POSPage() {
             image_url
           )
         `)
+        .order("id", { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
+
+      if (error) {
+        console.error("Product fetch error:", error);
+        toast.error("Failed to load some products");
+        break;
+      }
+
+      if (!data || data.length === 0) break;
+
+      all = all.concat(data);
+      from += data.length;
+
+      if (data.length < PAGE_SIZE) break; // last page reached
+    }
+
+    return all;
+  };
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [catRes, allProducts] = await Promise.all([
+        supabase.from("categories").select("*").order("priority", { ascending: true }),
+        fetchAllProducts(),
       ]);
       if (catRes.data) setCategories(catRes.data);
-      if (prodRes.data) setProducts(prodRes.data);
+      setProducts(allProducts);
     } catch (error) {
       console.error("Fetch error:", error);
       toast.error("Failed to sync inventory");
@@ -95,7 +149,7 @@ export default function POSPage() {
         // merge + remove duplicates, but tag source
         const authUserIds = new Set(authUsers.map((u: any) => u.id));
         const uniqueMap = new Map();
-        
+
         // Add auth users first (they're most reliable)
         authUsers.forEach((user: any) => {
           uniqueMap.set(user.phone || user.email || user.id, {
@@ -336,18 +390,34 @@ export default function POSPage() {
     }
   };
 
+  // ─── Product search: name, master SKU, and every variation SKU ───────────
+  // Normalized on both sides so casing / stray spaces / tabs never cause a
+  // false miss. We check TWO levels of normalization:
+  //   1. `normalize` — strict, only collapses whitespace/case.
+  //   2. `normalizeLoose` — strips separators too (- _ . / etc), so
+  //      "ABC-123" matches "abc123" / "ABC 123" / "ABC.123" regardless of
+  //      how the SKU was typed in or how it's stored. This loose pass is
+  //      what fixes SKU searches that "find nothing" even though the SKU
+  //      is clearly visible on the product card.
   const filteredProducts = products
     .filter((p) => {
-      if (!searchTerm) return true;
-      const cleanSearch = searchTerm.toLowerCase().trim();
-      const matchesName = p.name?.toLowerCase().includes(cleanSearch);
-      const matchesMasterSku = p.sku?.toLowerCase().includes(cleanSearch);
-      const matchesVariationSku = p.product_variations?.some((v: any) =>
-        v.sku?.toLowerCase().includes(cleanSearch)
+      if (!searchTerm.trim()) return true;
+
+      const term = normalize(searchTerm);
+      const termLoose = normalizeLoose(searchTerm);
+
+      const matchesName = normalize(p.name).includes(term);
+
+      const matchesMasterSku =
+        normalize(p.sku).includes(term) || normalizeLoose(p.sku).includes(termLoose);
+
+      const matchesVariationSku = (p.product_variations || []).some((v: any) =>
+        normalize(v.sku).includes(term) || normalizeLoose(v.sku).includes(termLoose)
       );
+
       return matchesName || matchesMasterSku || matchesVariationSku;
     })
-    .filter((p) => selectedCategory ? p.category_id === selectedCategory : true);
+    .filter((p) => (selectedCategory ? p.category_id === selectedCategory : true));
 
   if (loading && products.length === 0) {
     return (
@@ -437,129 +507,136 @@ export default function POSPage() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-8 no-scrollbar bg-[#fcfcfc]">
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 gap-6">
-            {filteredProducts.map((p) => {
-              const variations = p.product_variations || [];
-              const singleVar = variations.length === 1 ? variations[0] : null;
-              const hasVariations = variations.length > 1;
+          {filteredProducts.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-slate-300 py-24">
+              <Search className="w-10 h-10 mb-4 opacity-30" />
+              <p className="text-[10px] font-black uppercase tracking-[0.3em]">No products match "{searchTerm}"</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 gap-6">
+              {filteredProducts.map((p) => {
+                const variations = p.product_variations || [];
+                const singleVar = variations.length === 1 ? variations[0] : null;
+                const hasVariations = variations.length > 1;
 
-              const primaryImage = getProductImage(p);
-              return (
-                <div key={p.id} className="group relative flex flex-col justify-between p-6 bg-white border border-slate-100 rounded-[2rem] hover:border-brand-gold/50 hover:shadow-2xl hover:shadow-brand-blue/5 transition-all duration-500">
-                  <div>
-                    <div className="flex justify-between items-start mb-4">
-                      <span className="text-[8px] font-black uppercase tracking-widest text-brand-gold bg-brand-gold/5 px-2.5 py-1 rounded-lg">
-                        {categories.find(c => c.id === p.category_id)?.name || 'Studio'}
-                      </span>
-                      <div className="text-right">
-                        <Hash className="w-3 h-3 text-slate-200 ml-auto mb-1" />
-                        {p.sku && <span className="block text-[8px] text-slate-400 font-mono select-all">SKU: {p.sku}</span>}
+                const primaryImage = getProductImage(p);
+                return (
+                  <div key={p.id} className="group relative flex flex-col justify-between p-6 bg-white border border-slate-100 rounded-[2rem] hover:border-brand-gold/50 hover:shadow-2xl hover:shadow-brand-blue/5 transition-all duration-500">
+                    <div>
+                      <div className="flex justify-between items-start mb-4">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-brand-gold bg-brand-gold/5 px-2.5 py-1 rounded-lg">
+                          {categories.find(c => c.id === p.category_id)?.name || 'Studio'}
+                        </span>
+                        <div className="text-right">
+                          <Hash className="w-3 h-3 text-slate-200 ml-auto mb-1" />
+                          {p.sku && <span className="block text-[8px] text-slate-400 font-mono select-all">SKU: {p.sku}</span>}
+                        </div>
                       </div>
-                    </div>
 
-                    {/* PRODUCT BANNER CONTAINER: Image next to Title layout */}
-                    <div className="flex items-start gap-4 mb-4">
-                      <div className="w-16 h-16 min-w-[64px] bg-slate-50 rounded-2xl relative overflow-hidden border border-slate-100 flex items-center justify-center">
-                        {primaryImage !== "/placeholder.png" ? (
-                          <img
-                            src={primaryImage}
-                            alt={p.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex flex-col items-center justify-center text-slate-300">
-                            <ImageIcon size={16} className="mb-0.5" />
-                            <span className="text-[7px] font-black tracking-tight">
-                              {p.name?.slice(0, 2).toUpperCase()}
+                      {/* PRODUCT BANNER CONTAINER: Image next to Title layout */}
+                      <div className="flex items-start gap-4 mb-4">
+                        <div className="w-16 h-16 min-w-[64px] bg-slate-50 rounded-2xl relative overflow-hidden border border-slate-100 flex items-center justify-center">
+                          {primaryImage !== "/placeholder.png" ? (
+                            <img
+                              src={primaryImage}
+                              alt={p.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center text-slate-300">
+                              <ImageIcon size={16} className="mb-0.5" />
+                              <span className="text-[7px] font-black tracking-tight">
+                                {p.name?.slice(0, 2).toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-[11px] font-black text-brand-blue uppercase leading-tight tracking-wider line-clamp-3 select-none">
+                            {p.name}
+                          </h3>
+                        </div>
+                      </div>
+
+                      {singleVar ? (
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[9px] font-bold text-slate-400">
+                              {[
+                                singleVar.color?.name && singleVar.color.name.toLowerCase() !== "default" ? singleVar.color.name : null,
+                                singleVar.size?.name,
+                              ].filter(Boolean).join(" / ") || "Standard Variation"}
+                            </span>
+                            <span className={`text-[8px] font-black px-2 py-0.5 rounded ${singleVar.stock > 0 ? 'text-emerald-500 bg-emerald-50' : 'text-rose-400 bg-rose-50'}`}>
+                              {singleVar.stock} IN STOCK
                             </span>
                           </div>
-                        )}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-[11px] font-black text-brand-blue uppercase leading-tight tracking-wider line-clamp-3 select-none">
-                          {p.name}
-                        </h3>
-                      </div>
+                          {singleVar.sku && <div className="text-[8px] text-slate-300 font-mono">Var SKU: {singleVar.sku}</div>}
+                          <div className="flex items-center gap-2">
+                            <p className="text-2xl font-black text-brand-blue tracking-tighter">
+                              ₹{(singleVar.sale_price && singleVar.sale_price > 0) ? singleVar.sale_price : singleVar.price}
+                            </p>
+                            {singleVar.sale_price && singleVar.sale_price > 0 && (
+                              <p className="text-xs font-bold text-slate-300 line-through">₹{singleVar.price}</p>
+                            )}
+                          </div>
+                        </div>
+                      ) : hasVariations ? (
+                        <div className="mt-4">
+                          <select
+                            value={selectedVariations[p.id] || ""}
+                            onChange={(e) => setSelectedVariations({ ...selectedVariations, [p.id]: Number(e.target.value) })}
+                            className="w-full text-[9px] font-black uppercase tracking-widest border-b-2 border-slate-50 py-2 outline-none focus:border-brand-gold text-brand-blue bg-transparent transition-colors"
+                          >
+                            <option value="">Select Variation</option>
+                            {variations.map((v: any) => {
+                              const label = [
+                                v.color?.name && v.color.name.toLowerCase() !== "default" ? v.color.name : null,
+                                v.size?.name,
+                              ].filter(Boolean).join(" / ");
+                              const displayPrice = (v.sale_price && v.sale_price > 0) ? v.sale_price : v.price;
+                              const skuLabel = v.sku ? ` [${v.sku}]` : '';
+                              return (
+                                <option key={v.id} value={v.id}>
+                                  {label || `Item #${v.id}`}{skuLabel} — ₹{displayPrice} ({v.stock} left)
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[9px] font-bold text-slate-400">Standard</span>
+                            <span className={`text-[8px] font-black px-2 py-0.5 rounded ${p.stock > 0 ? 'text-emerald-500 bg-emerald-50' : 'text-rose-400 bg-rose-50'}`}>
+                              {p.stock} IN STOCK
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-2xl font-black text-brand-blue tracking-tighter">
+                              ₹{(p.sale_price && p.sale_price > 0) ? p.sale_price : p.price}
+                            </p>
+                            {p.sale_price && p.sale_price > 0 && (
+                              <p className="text-xs font-bold text-slate-300 line-through">₹{p.price}</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    {singleVar ? (
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[9px] font-bold text-slate-400">
-                            {[
-                              singleVar.color?.name && singleVar.color.name.toLowerCase() !== "default" ? singleVar.color.name : null,
-                              singleVar.size?.name,
-                            ].filter(Boolean).join(" / ") || "Standard Variation"}
-                          </span>
-                          <span className={`text-[8px] font-black px-2 py-0.5 rounded ${singleVar.stock > 0 ? 'text-emerald-500 bg-emerald-50' : 'text-rose-400 bg-rose-50'}`}>
-                            {singleVar.stock} IN STOCK
-                          </span>
-                        </div>
-                        {singleVar.sku && <div className="text-[8px] text-slate-300 font-mono">Var SKU: {singleVar.sku}</div>}
-                        <div className="flex items-center gap-2">
-                          <p className="text-2xl font-black text-brand-blue tracking-tighter">
-                            ₹{(singleVar.sale_price && singleVar.sale_price > 0) ? singleVar.sale_price : singleVar.price}
-                          </p>
-                          {singleVar.sale_price && singleVar.sale_price > 0 && (
-                            <p className="text-xs font-bold text-slate-300 line-through">₹{singleVar.price}</p>
-                          )}
-                        </div>
-                      </div>
-                    ) : hasVariations ? (
-                      <div className="mt-4">
-                        <select
-                          value={selectedVariations[p.id] || ""}
-                          onChange={(e) => setSelectedVariations({ ...selectedVariations, [p.id]: Number(e.target.value) })}
-                          className="w-full text-[9px] font-black uppercase tracking-widest border-b-2 border-slate-50 py-2 outline-none focus:border-brand-gold text-brand-blue bg-transparent transition-colors"
-                        >
-                          <option value="">Select Variation</option>
-                          {variations.map((v: any) => {
-                            const label = [
-                              v.color?.name && v.color.name.toLowerCase() !== "default" ? v.color.name : null,
-                              v.size?.name,
-                            ].filter(Boolean).join(" / ");
-                            const displayPrice = (v.sale_price && v.sale_price > 0) ? v.sale_price : v.price;
-                            const skuLabel = v.sku ? ` [${v.sku}]` : '';
-                            return (
-                              <option key={v.id} value={v.id}>
-                                {label || `Item #${v.id}`}{skuLabel} — ₹{displayPrice} ({v.stock} left)
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[9px] font-bold text-slate-400">Standard</span>
-                          <span className={`text-[8px] font-black px-2 py-0.5 rounded ${p.stock > 0 ? 'text-emerald-500 bg-emerald-50' : 'text-rose-400 bg-rose-50'}`}>
-                            {p.stock} IN STOCK
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-2xl font-black text-brand-blue tracking-tighter">
-                            ₹{(p.sale_price && p.sale_price > 0) ? p.sale_price : p.price}
-                          </p>
-                          {p.sale_price && p.sale_price > 0 && (
-                            <p className="text-xs font-bold text-slate-300 line-through">₹{p.price}</p>
-                          )}
-                        </div>
-                      </div>
-                    )}
+                    <button
+                      onClick={() => addToCart(p)}
+                      disabled={singleVar ? singleVar.stock === 0 : (!hasVariations && p.stock === 0)}
+                      className="w-full mt-6 py-4 bg-brand-blue text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-brand-gold transition-all active:scale-95 disabled:bg-slate-50 disabled:text-slate-300 shadow-lg shadow-brand-blue/10"
+                    >
+                      {singleVar?.stock === 0 || (!hasVariations && p.stock === 0) ? "Out of Stock" : "Add to Order"}
+                    </button>
                   </div>
-
-                  <button
-                    onClick={() => addToCart(p)}
-                    disabled={singleVar ? singleVar.stock === 0 : (!hasVariations && p.stock === 0)}
-                    className="w-full mt-6 py-4 bg-brand-blue text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-brand-gold transition-all active:scale-95 disabled:bg-slate-50 disabled:text-slate-300 shadow-lg shadow-brand-blue/10"
-                  >
-                    {singleVar?.stock === 0 || (!hasVariations && p.stock === 0) ? "Out of Stock" : "Add to Order"}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </main>
       </div>
 

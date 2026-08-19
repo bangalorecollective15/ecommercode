@@ -8,6 +8,7 @@ import { Eye, Plus, Pencil, Trash2, QrCode, Search, ChevronLeft, ChevronRight, C
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import OptimizedImage from "@/app/userinterface/components/OptimizedImage";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -740,12 +741,13 @@ const fetchProducts = useCallback(async () => {
                     <tr key={product.id} className="group hover:bg-[#c4a174]/5 transition-all duration-300">
                       <td className="px-10 py-7">
                         <div className="w-16 h-16 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 relative">
-                          {getCleanImageUrl(product) ? (
-                            <img src={getCleanImageUrl(product)!} alt={product.name} className="w-full h-full object-cover"
-                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-[8px] text-slate-300 font-black">NO IMG</div>
-                          )}
+                          <OptimizedImage
+                            src={getCleanImageUrl(product)}
+                            alt={product.name}
+                            className="object-cover"
+                            fill
+                            sizes="64px"
+                          />
                         </div>
                       </td>
                       <td className="px-10 py-7">
