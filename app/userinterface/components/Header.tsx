@@ -1,6 +1,6 @@
 "use client";
 
-import { ShoppingCart, User, Heart, ChevronDown, LogOut, Package, ChevronRight, Menu, X, Search, Sun, Moon } from "lucide-react";
+import { ShoppingCart, User, Heart, ChevronDown, LogOut, Package, ChevronRight, Menu, X, Search, Sun, Moon, Download } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
@@ -12,6 +12,50 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+
+const PLAYSTORE_URL = "https://play.google.com/store/apps/details?id=com.banglorecolletive.app";
+const APP_INSTALLED_STORAGE_KEY = "bc_app_installed";
+
+// Detects whether this page is currently being viewed INSIDE your Android
+// app's WebView, so people who already have the app never see a popup
+// nagging them to install it.
+//
+// NOTE: the exact signal depends on how your Android app is built —
+// adjust these checks to match whatever your app actually does:
+//   - If your app sets a custom User-Agent string when it loads this site,
+//     put the identifying substring in place of "banglorecolletive" below.
+//   - If your app is a WebView that injects a JS bridge object (common with
+//     addJavascriptInterface() on Android, or React Native WebViews), name
+//     that object below instead of / in addition to window.Android.
+const isInsideNativeApp = () => {
+  if (typeof window === "undefined") return false;
+
+  const ua = (navigator.userAgent || "").toLowerCase();
+  if (ua.includes("banglorecolletive")) return true; // adjust to your app's UA marker
+
+  if ((window as any).Android) return true; // native bridge injected by many Android WebView apps
+  if ((window as any).ReactNativeWebView) return true; // React Native WebView bridge
+
+  return false;
+};
+
+// Once we know (or the visitor tells us) they have the app, remember that
+// permanently so the popup never shows again on this browser.
+const markAppAsInstalled = () => {
+  try {
+    localStorage.setItem(APP_INSTALLED_STORAGE_KEY, "true");
+  } catch {
+    // localStorage unavailable (private mode, etc) — safe to ignore
+  }
+};
+
+const hasAppInstalledFlag = () => {
+  try {
+    return localStorage.getItem(APP_INSTALLED_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+};
 
 interface SubSubCategory { id: number; name: string; }
 interface SubCategory { id: number; name: string; sub_subcategories: SubSubCategory[]; }
@@ -44,6 +88,12 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
 
+  // Small "Get our App" popup that appears below the header and
+  // auto-dismisses after 3 minutes (or immediately on click / close).
+  // Starts false — we only flip it on after confirming the visitor
+  // does NOT already have the app (see the effect below).
+  const [showPlayStorePopup, setShowPlayStorePopup] = useState(false);
+
   const whatsappNumber = "919060889995";
   const whatsappMessage = encodeURIComponent("Hello, I would like to enquire about your luxury fashion and accessories collection. Please connect with me to discuss further. Thank you.");
   const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
@@ -71,6 +121,28 @@ export default function Header() {
       }
     }
   }, []);
+
+  // Decide once, on mount, whether to show the Play Store popup at all.
+  // Skips entirely for anyone already inside the native app, or anyone
+  // who has previously clicked through / confirmed they have it.
+  useEffect(() => {
+    if (isInsideNativeApp()) {
+      markAppAsInstalled(); // remember for next time too, e.g. if they later open this URL in a regular browser
+      return;
+    }
+    if (hasAppInstalledFlag()) return;
+
+    setShowPlayStorePopup(true);
+  }, []);
+
+  // Auto-hide the Play Store popup after 3 minutes.
+  useEffect(() => {
+    if (!showPlayStorePopup) return;
+    const timer = setTimeout(() => {
+      setShowPlayStorePopup(false);
+    }, 3 * 60 * 1000); // 3 minutes
+    return () => clearTimeout(timer);
+  }, [showPlayStorePopup]);
 
   const toggleTheme = () => {
     const newTheme = !isDarkMode;
@@ -578,6 +650,55 @@ export default function Header() {
           </div>
         </div>
 
+        {/* PLAY STORE POPUP — small card that appears just below the header,
+            visible for 3 minutes (or until closed / clicked), links to the
+            Play Store listing. */}
+        {showPlayStorePopup && (
+          <div className="w-full flex flex-col items-center lg:items-end px-4 lg:px-8 pt-2 pointer-events-none animate-in slide-in-from-top-2 fade-in duration-300 gap-1">
+            <div className="pointer-events-auto flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-2xl pl-3 pr-2 py-2.5 max-w-xs w-full lg:w-auto">
+              <a
+                href={PLAYSTORE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  markAppAsInstalled(); // clicking through means they're getting it — don't ask again
+                  setShowPlayStorePopup(false);
+                }}
+                className="flex items-center gap-3 flex-1 min-w-0"
+              >
+                <div className="w-9 h-9 rounded-xl bg-slate-900 dark:bg-white flex items-center justify-center flex-shrink-0">
+                  <Download size={16} className="text-white dark:text-slate-900" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black text-slate-800 dark:text-slate-100 leading-tight">
+                    Get our App
+                  </p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                    Download on Google Play
+                  </p>
+                </div>
+              </a>
+              <button
+                onClick={() => setShowPlayStorePopup(false)}
+                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 flex-shrink-0 transition-colors"
+                aria-label="Dismiss for now"
+                title="Dismiss for now"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <button
+              onClick={() => {
+                markAppAsInstalled();
+                setShowPlayStorePopup(false);
+              }}
+              className="pointer-events-auto text-[9px] font-bold text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors"
+            >
+              Already have the app? Don't show this again
+            </button>
+          </div>
+        )}
+
         {/* SEARCH OVERLAY (unchanged) */}
         {isSearchOpen && (
           <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 px-4">
@@ -824,11 +945,10 @@ export default function Header() {
         )}
       </header>
 
-{/* FLOATING WHATSAPP BUTTON */}
+      {/* FLOATING WHATSAPP BUTTON */}
       <div
-        className={`fixed bottom-6 right-6 z-[9999] group flex-col items-end ${
-          isVideosRoute ? 'hidden lg:flex' : 'flex'
-        }`}
+        className={`fixed bottom-6 right-6 z-[9999] group flex-col items-end ${isVideosRoute ? 'hidden lg:flex' : 'flex'
+          }`}
       >
         <span className="mb-2 px-3 py-1.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 shadow-xl pointer-events-none tracking-wider whitespace-nowrap">
           Enquire on WhatsApp
