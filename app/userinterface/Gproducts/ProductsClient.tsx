@@ -36,7 +36,6 @@ type Filters = {
   search: string;
 };
 
-// Read filter/page values straight out of a query string.
 function parseSearch(search: string) {
   const sp = new URLSearchParams(search);
   return {
@@ -54,7 +53,6 @@ function parseSearch(search: string) {
   };
 }
 
-// Build a query string from filters + page (mirrors the old URLSearchParams logic).
 function buildSearch(filters: Filters, page: number) {
   const params = new URLSearchParams();
   const set = (key: string, value: any) => {
@@ -90,10 +88,13 @@ export default function ProductsClient({
 
   const [productsLoading, setProductsLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  
+  // --- Added wishlist and cart tracking state ---
+  const [wishlistedIds, setWishlistedIds] = useState<Set<string>>(new Set());
+  const [cartVariationIds, setCartVariationIds] = useState<Set<string>>(new Set());
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // ── currentPage is now local state, not derived from useSearchParams (which won't
-  // react to history.pushState). Hydrated once from the URL on mount. ──
   const [currentPage, setCurrentPage] = useState(() => {
     if (typeof window === "undefined") return initialPage;
     return parseSearch(window.location.search).page || initialPage;
@@ -124,7 +125,6 @@ export default function ProductsClient({
     };
   });
 
-  // Legacy ?tag= support — resolved once against loaded tags, then dropped from the URL.
   const [tagParam, setTagParam] = useState<string | null>(() =>
     typeof window === "undefined" ? null : parseSearch(window.location.search).tag
   );
@@ -143,7 +143,6 @@ export default function ProductsClient({
     setFiltersState((prev) => (typeof next === "function" ? next(prev) : next));
   }, []);
 
-  // ── URL updates now use pushState only — no Next.js navigation, no RSC refetch. ──
   const pushUrl = useCallback(
     (search: string) => {
       const url = `${pathname}${search ? `?${search}` : ""}`;
@@ -159,7 +158,6 @@ export default function ProductsClient({
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // ── Push filter changes into the URL and reset pagination. ──
   useEffect(() => {
     if (isFirstFilterRun.current) {
       isFirstFilterRun.current = false;
@@ -172,7 +170,6 @@ export default function ProductsClient({
 
     setCurrentPage(1);
     pushUrl(buildSearch({ ...filters, search: debouncedSearch }, 1));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.category_id,
     filters.subcategory_id,
@@ -183,7 +180,6 @@ export default function ProductsClient({
     debouncedSearch,
   ]);
 
-  // ── Handle browser back/forward: re-read the URL and sync local state from it. ──
   useEffect(() => {
     const onPopState = () => {
       const { filters: fromUrl, page } = parseSearch(window.location.search);
@@ -195,22 +191,46 @@ export default function ProductsClient({
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
-  // Legacy support: ?tag=running (by name) resolves to an id once tags are loaded.
   useEffect(() => {
     if (!tagParam || lifestyleTags.length === 0) return;
     const foundTag = lifestyleTags.find((t: any) => t.name.toLowerCase() === tagParam.toLowerCase());
     if (foundTag && foundTag.id !== filters.lifestyle_tag_id) {
       setFilters((prev: Filters) => ({ ...prev, lifestyle_tag_id: foundTag.id }));
     }
-    setTagParam(null); // consume it either way so it doesn't linger in state
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tagParam, lifestyleTags]);
+    setTagParam(null);
+  }, [tagParam, lifestyleTags, setFilters]);
 
+  // Fetch session, wishlist, and cart references
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setUserId(session?.user?.id || null));
+
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const currentUserId = session?.user?.id || null;
+      setUserId(currentUserId);
+
+      if (currentUserId) {
+        // Fetch user wishlists
+        const { data: wishlistData } = await supabase
+          .from("wishlists")
+          .select("product_id")
+          .eq("user_id", currentUserId);
+
+        if (wishlistData) {
+          setWishlistedIds(new Set(wishlistData.map((w: any) => w.product_id)));
+        }
+
+        // Fetch user cart variation IDs
+        const { data: cartData } = await supabase
+          .from("cart_items")
+          .select("product_variation_id")
+          .eq("user_id", currentUserId);
+
+        if (cartData) {
+          setCartVariationIds(new Set(cartData.map((c: any) => c.product_variation_id)));
+        }
+      }
+    });
   }, []);
 
-  // --- PRODUCTS: skip the first run only if URL filters match what SSR used ---
   useEffect(() => {
     if (isFirstProductRun.current) {
       isFirstProductRun.current = false;
@@ -226,7 +246,7 @@ export default function ProductsClient({
         currentPage === initialPage;
 
       if (matchesServerState) {
-        return; // server already rendered the right data, skip refetch
+        return;
       }
     }
 
@@ -348,7 +368,6 @@ export default function ProductsClient({
     });
   };
 
-  // ── The URL the user should return to after viewing a product ──
   const returnUrl = `${pathname}${(() => {
     const q = buildSearch(filters, currentPage);
     return q ? `?${q}` : "";
@@ -397,6 +416,8 @@ export default function ProductsClient({
             userId={userId}
             returnUrl={returnUrl}
             onClearFilters={clearAllFilters}
+            wishlistedIds={wishlistedIds}
+            cartVariationIds={cartVariationIds}
           />
           {!showFullScreenLoader && (
             <PaginationControls
