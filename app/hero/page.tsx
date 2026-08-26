@@ -305,7 +305,7 @@ export default function HeroSettings() {
                 onClick={saveHero} 
                 className="flex-[2] py-4 bg-[#2b2652] text-[#c4a174] rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg"
               >
-                Deploy Configuration
+                Deploy Configuration.
               </button>
             </div>
           </div>
