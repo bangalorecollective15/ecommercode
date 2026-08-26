@@ -1,17 +1,13 @@
 import supabase from "@/lib/supabase";
 import HomeClient from "@/app/userinterface/home/HomeClient";
 
-export const dynamic = "force-dynamic";
-// Swap to `export const revalidate = 60;` instead of force-dynamic once you're
-// ready to cache this page and regenerate it in the background every 60s.
+// Cached and regenerated in the background every 60s instead of
+// hitting Supabase live on every single request.
+export const revalidate = 60;
 
 export default async function HomePage() {
-  const { data: attributesData } = await supabase
-  .from("attributes")
-  .select("id, type, name")
-  .eq("type", "lifestyle_tag");
-
   const [
+    { data: attributesData },
     { data: heroSections },
     { data: siteInfo },
     { data: categoriesData },
@@ -19,8 +15,8 @@ export default async function HomePage() {
     { data: brandsData },
     { data: instagramData },
     { data: productsData },
-    { data: tagsData },
   ] = await Promise.all([
+    supabase.from("attributes").select("id, type, name").eq("type", "lifestyle_tag"),
     supabase.from("hero_section").select("*").eq("active", true).order("created_at", { ascending: false }),
     supabase
       .from("site_info")
@@ -45,8 +41,10 @@ export default async function HomePage() {
       .eq("active", true)
       .order("created_at", { ascending: false })
       .limit(20),
-    supabase.from("attributes").select("id, name").eq("type", "lifestyle_tag"),
   ]);
+
+  // Reuse the same rows instead of re-querying "attributes" a second time.
+  const tagsData = attributesData;
 
   // --- Spotlight products: in-stock only, capped at 6 ---
   const latestProducts = (productsData || [])
