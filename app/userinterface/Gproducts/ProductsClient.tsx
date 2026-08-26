@@ -2,9 +2,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import supabase from "@/lib/supabase";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import ProductCard from "../components/ProductCard";
-import ProductFilters from "../components/ProductFilters";
-import { Loader2, Sparkles, SlidersHorizontal, LayoutGrid, X, ChevronLeft, ChevronRight } from "lucide-react";
+import GalleryHeader from "../components/products/GalleryHeader";
+import DesktopFilterBar from "../components/products/DesktopFilterBar";
+import MobileFilterBar from "../components/products/MobileFilterBar";
+import MobileFilterDrawer from "../components/products/MobileFilterDrawer";
+import ProductGrid from "../components/products/ProductGrid";
+import PaginationControls from "../components/products/PaginationControls";
 
 const mapProducts = (rows: any[]) =>
   rows.map((p) => ({
@@ -55,7 +58,6 @@ export default function ProductsClient({
   const [brands, setBrands] = useState<any[]>(initialBrands);
   const [lifestyleTags, setLifestyleTags] = useState<any[]>(initialLifestyleTags);
 
-  const [filtersLoading, setFiltersLoading] = useState(false);
   const [productsLoading, setProductsLoading] = useState(false);
 
   const [userId, setUserId] = useState<string | null>(null);
@@ -136,7 +138,7 @@ export default function ProductsClient({
     setOrDelete("sort", filters.sort !== "latest" ? filters.sort : null);
     setOrDelete("q", debouncedSearch);
     current.delete("page"); // any real filter change resets pagination
-    current.delete("tag");  // once resolved into an id, drop the legacy name param
+    current.delete("tag"); // once resolved into an id, drop the legacy name param
 
     const query = current.toString();
     router.push(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
@@ -186,8 +188,7 @@ export default function ProductsClient({
     supabase.auth.getSession().then(({ data: { session } }) => setUserId(session?.user?.id || null));
   }, []);
 
-  // --- PRODUCTS: skip the first run (server already fetched it), fetch on every real change after. ---
-// --- PRODUCTS: skip the first run only if URL filters match what SSR used ---
+  // --- PRODUCTS: skip the first run only if URL filters match what SSR used ---
   useEffect(() => {
     if (isFirstProductRun.current) {
       isFirstProductRun.current = false;
@@ -301,6 +302,7 @@ export default function ProductsClient({
     debouncedSearch,
     currentPage,
   ]);
+
   const totalPages = Math.max(1, Math.ceil(totalCount / productsPerPage));
   const activeCategoryName = categories.find((c) => Number(c.id) === Number(filters.category_id))?.name;
   const activeBrandName = brands.find((b) => Number(b.id) === Number(filters.brand_id))?.name_en;
@@ -328,41 +330,6 @@ export default function ProductsClient({
   // ── The URL the user should return to after viewing a product ──
   const returnUrl = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
 
-  const PaginationControls = ({ className = "" }: { className?: string }) => {
-    if (totalPages <= 1) return null;
-    return (
-      <div className={`flex items-center justify-end gap-5 w-full ${className}`}>
-        <button
-          onClick={() => {
-            setPage(Math.max(currentPage - 1, 1));
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
-          disabled={currentPage === 1}
-          className="group relative w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white dark:bg-[#111] border-2 border-slate-200 dark:border-[#333] flex items-center justify-center text-slate-900 dark:text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-brand-blue dark:hover:bg-[#222] hover:text-white hover:border-brand-blue dark:hover:border-[#444] hover:shadow-[0_8px_25px_rgba(43,38,82,0.25)] dark:hover:shadow-[0_8px_25px_rgba(0,0,0,0.5)] hover:-translate-y-1 active:scale-75 active:translate-y-0 transition-all duration-300 ease-out"
-        >
-          <ChevronLeft size={24} strokeWidth={2.5} className="group-hover:-translate-x-1 transition-transform duration-300 ease-out" />
-        </button>
-        <div className="flex flex-col items-center min-w-[3.5rem]">
-          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-gray-500 mb-0.5 transition-colors duration-300">Page</span>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-xl font-black text-slate-900 dark:text-white leading-none transition-colors duration-300">{currentPage}</span>
-            <span className="text-lg font-black text-slate-400 dark:text-gray-500 leading-none transition-colors duration-300">/ {totalPages}</span>
-          </div>
-        </div>
-        <button
-          onClick={() => {
-            setPage(Math.min(currentPage + 1, totalPages));
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
-          disabled={currentPage === totalPages}
-          className="group relative w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white dark:bg-[#111] border-2 border-slate-200 dark:border-[#333] flex items-center justify-center text-slate-900 dark:text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-brand-blue dark:hover:bg-[#222] hover:text-white hover:border-brand-blue dark:hover:border-[#444] hover:shadow-[0_8px_25px_rgba(43,38,82,0.25)] dark:hover:shadow-[0_8px_25px_rgba(0,0,0,0.5)] hover:-translate-y-1 active:scale-75 active:translate-y-0 transition-all duration-300 ease-out"
-        >
-          <ChevronRight size={24} strokeWidth={2.5} className="group-hover:translate-x-1 transition-transform duration-300 ease-out" />
-        </button>
-      </div>
-    );
-  };
-
   const showFullScreenLoader = productsLoading && products.length === 0 && totalCount === 0;
 
   return (
@@ -373,155 +340,50 @@ export default function ProductsClient({
       </div>
 
       <div className="relative z-10 max-w-[1600px] mx-auto px-6 lg:px-12">
-        <header className="pt-32 pb-12 text-center space-y-4">
-          <div className="inline-flex items-center gap-3 px-5 py-2 bg-white/60 dark:bg-[#111]/60 backdrop-blur-md border border-white dark:border-[#333] rounded-full shadow-sm transition-colors duration-300">
-            <Sparkles className="text-brand-gold" size={14} />
-            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 dark:text-gray-400">
-              {activeBrandName ? "Brand Showcase" : "Curated Selection"}
-            </span>
-          </div>
-          <h1 className="text-5xl md:text-8xl font-black tracking-tighter text-brand-blue dark:text-white uppercase transition-colors duration-300">
-            {activeBrandName || activeCategoryName || "The Gallery"}
-            <span className="text-brand-gold">.</span>
-          </h1>
-          <div className="flex items-center justify-center gap-4 text-slate-400 dark:text-gray-500 transition-colors duration-300">
-            <div className="h-[1px] w-8 bg-brand-gold/30"></div>
-            <p className="text-[10px] font-bold tracking-[0.2em] uppercase">Bengaluru Collective</p>
-            <div className="h-[1px] w-8 bg-brand-gold/30"></div>
-          </div>
-        </header>
+        <GalleryHeader activeBrandName={activeBrandName} activeCategoryName={activeCategoryName} />
 
         <div className="sticky top-24 z-50 mb-14">
-          <div className="hidden lg:flex items-center justify-between gap-4 bg-white/40 dark:bg-[#111]/40 backdrop-blur-xl py-3 px-6 rounded-[2rem] border border-white/60 dark:border-[#333]/60 shadow-[0_10px_30px_rgba(0,0,0,0.02)] transition-colors duration-300">
-            <div className="flex-1">
-              <ProductFilters
-                categories={categories}
-                brands={brands}
-                lifestyleTags={lifestyleTags}
-                filters={filters}
-                setFilters={setFilters}
-                isMobile={false}
-              />
-            </div>
-            <div className="flex items-center gap-4 pl-5 border-l border-slate-300/40 dark:border-[#444]/40 shrink-0 transition-colors duration-300">
-              <div className="text-right">
-                <p className="text-[9px] font-black text-slate-400 dark:text-gray-500 uppercase tracking-widest leading-none transition-colors duration-300">Catalog</p>
-                <p className="text-xs font-black text-brand-blue dark:text-white mt-1 whitespace-nowrap transition-colors duration-300">{totalCount} Products</p>
-              </div>
-              <div className="w-9 h-9 bg-brand-blue dark:bg-[#222] text-white rounded-xl flex items-center justify-center shadow-md shadow-brand-blue/10 dark:shadow-none transition-colors duration-300">
-                <LayoutGrid size={16} />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex lg:hidden w-full items-center justify-between gap-4 bg-white/40 dark:bg-[#111]/40 backdrop-blur-md p-4 rounded-[2rem] border border-white/50 dark:border-[#333]/50 shadow-sm transition-colors duration-300">
-            <button
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="flex items-center gap-3 px-6 py-3 bg-brand-blue dark:bg-white text-white dark:text-black rounded-full font-black text-[11px] uppercase tracking-widest shadow-lg shadow-brand-blue/20 dark:shadow-none active:scale-95 transition-all duration-300"
-            >
-              <SlidersHorizontal size={14} className="text-brand-gold dark:text-brand-gold" />
-              <span>Filter & Refine</span>
-              <span className="ml-1 bg-white/20 dark:bg-gray-200 dark:text-black text-white text-[9px] px-2 py-0.5 rounded-full">{totalCount}</span>
-            </button>
-            <div className="text-right">
-              <p className="text-[9px] font-black text-slate-400 dark:text-gray-500 uppercase tracking-widest leading-none transition-colors duration-300">Showing</p>
-              <p className="text-xs font-black text-brand-blue dark:text-white mt-1 transition-colors duration-300">{totalCount} Pcs</p>
-            </div>
-          </div>
+          <DesktopFilterBar
+            categories={categories}
+            brands={brands}
+            lifestyleTags={lifestyleTags}
+            filters={filters}
+            setFilters={setFilters}
+            totalCount={totalCount}
+          />
+          <MobileFilterBar totalCount={totalCount} onOpen={() => setIsMobileMenuOpen(true)} />
         </div>
 
-        {isMobileMenuOpen && (
-          <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md z-[200] animate-in fade-in duration-200 flex flex-col justify-end lg:hidden transition-colors duration-300">
-            <div className="bg-[#f8fafc] dark:bg-black w-full max-h-[90vh] rounded-t-[3rem] p-6 flex flex-col overflow-hidden border-t border-white dark:border-[#333] shadow-2xl animate-in slide-in-from-bottom duration-300 transition-colors">
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-[#333] mb-4 transition-colors duration-300">
-                <div className="flex items-center gap-2">
-                  <SlidersHorizontal size={16} className="text-brand-gold" />
-                  <h2 className="text-sm font-black uppercase tracking-widest text-brand-blue dark:text-white transition-colors duration-300">Filter Parameters</h2>
-                </div>
-                <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-slate-100 dark:bg-[#222] text-slate-700 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-[#333] rounded-full transition-colors">
-                  <X size={16} />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto pr-1 pb-24 no-scrollbar">
-                <ProductFilters
-                  categories={categories}
-                  brands={brands}
-                  lifestyleTags={lifestyleTags}
-                  filters={filters}
-                  setFilters={setFilters}
-                  isMobile={true}
-                />
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-[#f8fafc] via-[#f8fafc] dark:from-black dark:via-black to-transparent border-t border-slate-100 dark:border-[#333] transition-colors duration-300">
-                <button
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="w-full py-4 bg-brand-blue dark:bg-brand-gold text-white dark:text-black font-black text-[12px] uppercase tracking-widest rounded-full shadow-xl active:scale-95 transition-all duration-300 text-center block"
-                >
-                  Apply Filter & View ({totalCount} Products)
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <MobileFilterDrawer
+          isOpen={isMobileMenuOpen}
+          onClose={() => setIsMobileMenuOpen(false)}
+          categories={categories}
+          brands={brands}
+          lifestyleTags={lifestyleTags}
+          filters={filters}
+          setFilters={setFilters}
+          totalCount={totalCount}
+        />
 
         <main className="relative z-10">
-          {showFullScreenLoader ? (
-            <div className="flex flex-col items-center justify-center py-40 space-y-6">
-              <div className="relative">
-                <Loader2 className="animate-spin text-brand-gold" size={48} strokeWidth={1} />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-2 h-2 bg-brand-blue dark:bg-white rounded-full animate-ping transition-colors duration-300" />
-                </div>
-              </div>
-              <p className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-400 dark:text-gray-500 animate-pulse transition-colors duration-300">Syncing Collection</p>
-            </div>
-          ) : (
-            <>
-              <div
-                className={`grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8 md:gap-x-6 md:gap-y-10 transition-opacity duration-300 ${
-                  productsLoading ? "opacity-40 pointer-events-none" : "opacity-100"
-                }`}
-              >
-                {products.map((item, idx) => (
-                  <div
-                    key={item.id}
-                    className="group product-reveal transition-transform duration-500 hover:-translate-y-2"
-                    style={{ animationDelay: `${(idx % 8) * 60}ms` }}
-                  >
-                    <ProductCard product={item} userId={userId} priority={idx < 4} returnUrl={returnUrl} />
-                  </div>
-                ))}
-              </div>
-
-              <PaginationControls className="mt-16" />
-
-              {!productsLoading && products.length === 0 && (
-                <div className="py-40 text-center rounded-[4rem] border-2 border-dashed border-white dark:border-[#333] bg-white/30 dark:bg-[#111]/30 backdrop-blur-sm mt-8 transition-colors duration-300">
-                  <div className="w-20 h-20 bg-white dark:bg-[#111] rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm transition-colors duration-300">
-                    <SlidersHorizontal size={24} className="text-brand-gold" />
-                  </div>
-                  <h3 className="text-xl font-black text-brand-blue dark:text-white uppercase tracking-tight transition-colors duration-300">No Items Match Your Filter</h3>
-                  <p className="text-slate-400 dark:text-gray-500 text-sm mt-2 transition-colors duration-300">Try adjusting your selection or reset filters</p>
-                  <button onClick={clearAllFilters} className="mt-8 text-[10px] font-black uppercase tracking-widest text-brand-gold hover:underline">
-                    Clear All Filters
-                  </button>
-                </div>
-              )}
-            </>
+          <ProductGrid
+            products={products}
+            productsLoading={productsLoading}
+            showFullScreenLoader={showFullScreenLoader}
+            userId={userId}
+            returnUrl={returnUrl}
+            onClearFilters={clearAllFilters}
+          />
+          {!showFullScreenLoader && (
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              className="mt-16"
+            />
           )}
         </main>
       </div>
-
-      <style>{`
-        @keyframes productReveal {
-          from { opacity: 0; transform: translateY(16px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .product-reveal {
-          opacity: 0;
-          animation: productReveal 0.5s ease forwards;
-        }
-      `}</style>
     </div>
   );
 }
