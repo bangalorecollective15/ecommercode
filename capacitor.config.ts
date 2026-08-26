@@ -3,7 +3,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.banglorecolletive.app',
   appName: 'Banglore Colletive',
-  webDir: 'out',
+  webDir: 'capacitor-www',
   server: {
     url: 'https://bangalorecollective.com/', 
     cleartext: true

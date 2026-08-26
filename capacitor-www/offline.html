@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>No Internet Connection</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  /* Defaults to your app's dark theme, since that's what Header.tsx sets on
+     first load unless the visitor previously chose light mode. */
+  body {
+    background: #020617; /* slate-950, matches your header's dark bg */
+    color: #e2e8f0; /* slate-200 */
+  }
+
+  body.light {
+    background: #ffffff;
+    color: #1e293b; /* slate-800 */
+  }
+
+  /* ============ HEADER REPLICA ============
+     Mirrors Header.tsx's mobile bar: logo left, minimal icons right.
+     Static/non-interactive — just enough to keep the brand visible while offline. */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    padding: 0 16px;
+    backdrop-filter: blur(20px);
+    background: rgba(2, 6, 23, 0.7); /* slate-950/70 */
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+
+  body.light .header {
+    background: rgba(255, 255, 255, 0.7);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .logo {
+    height: 48px;
+    width: auto;
+    object-fit: contain;
+  }
+
+  /* Dark mode uses the white logo asset; light mode uses the normal one. */
+  .logo.dark-logo { display: block; }
+  .logo.light-logo { display: none; }
+  body.light .logo.dark-logo { display: none; }
+  body.light .logo.light-logo { display: block; }
+
+  .header-icons {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    opacity: 0.4; /* visually indicates these aren't interactive right now */
+  }
+
+  .icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .icon-btn svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+  }
+
+  /* ============ OFFLINE CONTENT (middle area only) ============ */
+  .content {
+    min-height: calc(100% - 64px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .wrap {
+    text-align: center;
+    max-width: 320px;
+  }
+
+  .icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 24px;
+    opacity: 0.5;
+  }
+
+  h1 {
+    font-size: 19px;
+    font-weight: 800;
+    margin-bottom: 10px;
+    letter-spacing: -0.01em;
+  }
+
+  p {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #94a3b8; /* slate-400 */
+    margin-bottom: 28px;
+  }
+
+  body.light p {
+    color: #64748b; /* slate-500 */
+  }
+
+  button {
+    background: #0f172a; /* slate-900, matches your LOGIN button */
+    color: #fff;
+    border: none;
+    padding: 12px 32px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  body.light button {
+    background: #0f172a;
+    color: #fff;
+  }
+
+  button:active {
+    opacity: 0.8;
+  }
+
+  button:disabled {
+    opacity: 0.5;
+  }
+
+  .status {
+    margin-top: 16px;
+    font-size: 12px;
+    color: #64748b;
+  }
+</style>
+</head>
+<body>
+
+  <!-- Header replica — visually matches Header.tsx, stays visible while offline -->
+  <div class="header">
+    <!-- Copy these two files from your Next.js public/ folder into this same
+         folder (capacitor-www/) so they load without internet. -->
+    <img src="logowhite.png" alt="Bangalore Collective" class="logo dark-logo">
+    <img src="bangalorecollectivelogo.jpeg" alt="Bangalore Collective" class="logo light-logo">
+
+    <div class="header-icons">
+      <div class="icon-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </div>
+      <div class="icon-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Offline message — only this middle area communicates the error -->
+  <div class="content">
+    <div class="wrap">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M12 18h.01M8.5 14.5a5 5 0 0 1 7 0M5 11a10 10 0 0 1 14 0M2 7.5a15 15 0 0 1 20 0" stroke-dasharray="1 3"/>
+        <line x1="2" y1="2" x2="22" y2="22"/>
+      </svg>
+      <h1>No Internet Connection</h1>
+      <p>Please check your Wi-Fi or mobile data and try again.</p>
+      <button id="retryBtn" onclick="retry()">Retry</button>
+      <div class="status" id="statusText"></div>
+    </div>
+  </div>
+
+  <script>
+    // Match whatever theme the visitor last chose in the real app, so the
+    // header replica doesn't jarringly flip light/dark when offline.html shows.
+    (function () {
+      try {
+        var theme = localStorage.getItem('theme');
+        if (theme === 'light') document.body.classList.add('light');
+      } catch (e) {}
+    })();
+
+    function retry() {
+      const btn = document.getElementById('retryBtn');
+      const status = document.getElementById('statusText');
+      btn.disabled = true;
+      status.textContent = 'Checking...';
+
+      // Calls back into MainActivity.retryLoad() via the JavascriptInterface
+      // bridge — re-attempts loading the real remote URL natively, which will
+      // correctly fail again (and reshow this page) if still offline.
+      if (window.AndroidBridge && window.AndroidBridge.retryLoad) {
+        window.AndroidBridge.retryLoad();
+      }
+
+      setTimeout(() => {
+        btn.disabled = false;
+        status.textContent = '';
+      }, 2500);
+    }
+  </script>
+</body>
+</html>
