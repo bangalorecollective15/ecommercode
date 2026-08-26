@@ -97,10 +97,10 @@ export default async function HomePage() {
       initialCategories={categoriesData || []}
       initialSubcategories={subcategoriesData || []}
       initialBrands={brandsData || []}
-      initialInstagramLinks={instagramData || []}
       initialLatestProducts={latestProducts}
       initialLifestyleSections={lifestyleSections}
-        initialAttributes={attributesData || []} 
+      initialInstagramLinks={instagramData || []}
+      initialAttributes={attributesData || []}
     />
   );
 }
