@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import supabase from "@/lib/supabase";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import GalleryHeader from "../components/products/GalleryHeader";
 import DesktopFilterBar from "../components/products/DesktopFilterBar";
 import MobileFilterBar from "../components/products/MobileFilterBar";
@@ -26,17 +26,49 @@ interface ProductsClientProps {
   initialPage: number;
 }
 
-// Read a filter value straight out of URLSearchParams — the single source of truth.
-function filtersFromParams(sp: URLSearchParams) {
+type Filters = {
+  category_id: number | null;
+  subcategory_id: number | null;
+  sub_subcategory_id: number | null;
+  brand_id: number | null;
+  lifestyle_tag_id: number | null;
+  sort: string;
+  search: string;
+};
+
+// Read filter/page values straight out of a query string.
+function parseSearch(search: string) {
+  const sp = new URLSearchParams(search);
   return {
-    category_id: sp.get("cat") ? Number(sp.get("cat")) : null,
-    subcategory_id: sp.get("subcat") ? Number(sp.get("subcat")) : null,
-    sub_subcategory_id: sp.get("subsubcat") ? Number(sp.get("subsubcat")) : null,
-    brand_id: sp.get("brand") ? Number(sp.get("brand")) : null,
-    lifestyle_tag_id: sp.get("lifestyle") ? Number(sp.get("lifestyle")) : null,
-    sort: sp.get("sort") || "latest",
-    search: sp.get("q") || "",
+    filters: {
+      category_id: sp.get("cat") ? Number(sp.get("cat")) : null,
+      subcategory_id: sp.get("subcat") ? Number(sp.get("subcat")) : null,
+      sub_subcategory_id: sp.get("subsubcat") ? Number(sp.get("subsubcat")) : null,
+      brand_id: sp.get("brand") ? Number(sp.get("brand")) : null,
+      lifestyle_tag_id: sp.get("lifestyle") ? Number(sp.get("lifestyle")) : null,
+      sort: sp.get("sort") || "latest",
+      search: sp.get("q") || "",
+    } as Filters,
+    page: Number(sp.get("page")) || 1,
+    tag: sp.get("tag"),
   };
+}
+
+// Build a query string from filters + page (mirrors the old URLSearchParams logic).
+function buildSearch(filters: Filters, page: number) {
+  const params = new URLSearchParams();
+  const set = (key: string, value: any) => {
+    if (value !== null && value !== undefined && value !== "") params.set(key, String(value));
+  };
+  set("cat", filters.category_id);
+  set("subcat", filters.subcategory_id);
+  set("subsubcat", filters.sub_subcategory_id);
+  set("brand", filters.brand_id);
+  set("lifestyle", filters.lifestyle_tag_id);
+  set("sort", filters.sort !== "latest" ? filters.sort : null);
+  set("q", filters.search);
+  set("page", page > 1 ? page : null);
+  return params.toString();
 }
 
 export default function ProductsClient({
@@ -48,8 +80,6 @@ export default function ProductsClient({
   initialFilters,
   initialPage,
 }: ProductsClientProps) {
-  const searchParams = useSearchParams();
-  const router = useRouter();
   const pathname = usePathname();
 
   const [products, setProducts] = useState<any[]>(initialProducts);
@@ -59,17 +89,30 @@ export default function ProductsClient({
   const [lifestyleTags, setLifestyleTags] = useState<any[]>(initialLifestyleTags);
 
   const [productsLoading, setProductsLoading] = useState(false);
-
   const [userId, setUserId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const tagParam = searchParams.get("tag"); // legacy name-based deep link, e.g. /products?tag=running
 
-  const currentPage = Number(searchParams.get("page")) || initialPage;
+  // ── currentPage is now local state, not derived from useSearchParams (which won't
+  // react to history.pushState). Hydrated once from the URL on mount. ──
+  const [currentPage, setCurrentPage] = useState(() => {
+    if (typeof window === "undefined") return initialPage;
+    return parseSearch(window.location.search).page || initialPage;
+  });
   const productsPerPage = 60;
 
-  // ── Filters now hydrate from the URL first, falling back to server-provided initial values. ──
-  const [filters, setFiltersState] = useState(() => {
-    const fromUrl = filtersFromParams(searchParams);
+  const [filters, setFiltersState] = useState<Filters>(() => {
+    if (typeof window === "undefined") {
+      return {
+        category_id: initialFilters.category_id,
+        subcategory_id: null,
+        sub_subcategory_id: null,
+        brand_id: initialFilters.brand_id,
+        lifestyle_tag_id: initialFilters.lifestyle_tag_id,
+        sort: "latest",
+        search: "",
+      };
+    }
+    const fromUrl = parseSearch(window.location.search).filters;
     return {
       category_id: fromUrl.category_id ?? initialFilters.category_id,
       subcategory_id: fromUrl.subcategory_id,
@@ -81,7 +124,11 @@ export default function ProductsClient({
     };
   });
 
-  // Guards so URL<->state syncing doesn't loop or fight each other.
+  // Legacy ?tag= support — resolved once against loaded tags, then dropped from the URL.
+  const [tagParam, setTagParam] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : parseSearch(window.location.search).tag
+  );
+
   const isSyncingFromUrl = useRef(false);
   const isFirstFilterRun = useRef(true);
   const isFirstProductRun = useRef(true);
@@ -92,56 +139,39 @@ export default function ProductsClient({
     return () => clearTimeout(t);
   }, [filters.search]);
 
-  // Wrapper so ProductFilters' setFilters calls keep working unchanged.
   const setFilters = useCallback((next: any) => {
-    setFiltersState(typeof next === "function" ? next : next);
+    setFiltersState((prev) => (typeof next === "function" ? next(prev) : next));
   }, []);
 
+  // ── URL updates now use pushState only — no Next.js navigation, no RSC refetch. ──
+  const pushUrl = useCallback(
+    (search: string) => {
+      const url = `${pathname}${search ? `?${search}` : ""}`;
+      window.history.pushState(null, "", url);
+    },
+    [pathname]
+  );
+
   const setPage = (pageNumber: number) => {
-    const current = new URLSearchParams(Array.from(searchParams.entries()));
-    const currentPageFromUrl = Number(current.get("page")) || 1;
-
-    if (pageNumber !== currentPageFromUrl) {
-      if (pageNumber <= 1) current.delete("page");
-      else current.set("page", String(pageNumber));
-
-      const query = current.toString();
-      router.push(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
+    if (pageNumber === currentPage) return;
+    setCurrentPage(pageNumber);
+    pushUrl(buildSearch(filters, pageNumber));
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // ── Push filter changes into the URL (mirrors the `page` pattern already used). ──
+  // ── Push filter changes into the URL and reset pagination. ──
   useEffect(() => {
     if (isFirstFilterRun.current) {
       isFirstFilterRun.current = false;
       return;
     }
     if (isSyncingFromUrl.current) {
-      // This change originated from the URL itself (e.g. back navigation) — don't re-push.
       isSyncingFromUrl.current = false;
       return;
     }
 
-    const current = new URLSearchParams(Array.from(searchParams.entries()));
-
-    const setOrDelete = (key: string, value: any) => {
-      if (value === null || value === undefined || value === "") current.delete(key);
-      else current.set(key, String(value));
-    };
-
-    setOrDelete("cat", filters.category_id);
-    setOrDelete("subcat", filters.subcategory_id);
-    setOrDelete("subsubcat", filters.sub_subcategory_id);
-    setOrDelete("brand", filters.brand_id);
-    setOrDelete("lifestyle", filters.lifestyle_tag_id);
-    setOrDelete("sort", filters.sort !== "latest" ? filters.sort : null);
-    setOrDelete("q", debouncedSearch);
-    current.delete("page"); // any real filter change resets pagination
-    current.delete("tag"); // once resolved into an id, drop the legacy name param
-
-    const query = current.toString();
-    router.push(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
+    setCurrentPage(1);
+    pushUrl(buildSearch({ ...filters, search: debouncedSearch }, 1));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     filters.category_id,
@@ -153,34 +183,26 @@ export default function ProductsClient({
     debouncedSearch,
   ]);
 
-  // ── Re-sync local filter state whenever the URL changes from elsewhere ──
-  // (browser back/forward, or returning here via a product page's back button).
+  // ── Handle browser back/forward: re-read the URL and sync local state from it. ──
   useEffect(() => {
-    const fromUrl = filtersFromParams(searchParams);
-    setFiltersState((prev) => {
-      const changed =
-        prev.category_id !== fromUrl.category_id ||
-        prev.subcategory_id !== fromUrl.subcategory_id ||
-        prev.sub_subcategory_id !== fromUrl.sub_subcategory_id ||
-        prev.brand_id !== fromUrl.brand_id ||
-        prev.lifestyle_tag_id !== fromUrl.lifestyle_tag_id ||
-        prev.sort !== fromUrl.sort ||
-        prev.search !== fromUrl.search;
-
-      if (!changed) return prev;
+    const onPopState = () => {
+      const { filters: fromUrl, page } = parseSearch(window.location.search);
       isSyncingFromUrl.current = true;
-      return { ...fromUrl };
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+      setFiltersState(fromUrl);
+      setCurrentPage(page);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   // Legacy support: ?tag=running (by name) resolves to an id once tags are loaded.
   useEffect(() => {
     if (!tagParam || lifestyleTags.length === 0) return;
     const foundTag = lifestyleTags.find((t: any) => t.name.toLowerCase() === tagParam.toLowerCase());
     if (foundTag && foundTag.id !== filters.lifestyle_tag_id) {
-      setFilters((prev: any) => ({ ...prev, lifestyle_tag_id: foundTag.id }));
+      setFilters((prev: Filters) => ({ ...prev, lifestyle_tag_id: foundTag.id }));
     }
+    setTagParam(null); // consume it either way so it doesn't linger in state
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tagParam, lifestyleTags]);
 
@@ -206,7 +228,6 @@ export default function ProductsClient({
       if (matchesServerState) {
         return; // server already rendered the right data, skip refetch
       }
-      // otherwise fall through and fetch fresh — URL filters don't match what SSR used
     }
 
     let cancelled = false;
@@ -220,7 +241,7 @@ export default function ProductsClient({
       const fullSelect = `
         id, name, lifestyle_tag_id, category_id, subcategory_id, sub_subcategory_id, brand_id, created_at,
         product_images(image_url),
-        product_variations!inner(*, attributes:size_id(name))
+        product_variations!inner(id, price, stock, size_id, attributes:size_id(name))
       `;
 
       const applyCommonFilters = (q: any) => {
@@ -328,7 +349,10 @@ export default function ProductsClient({
   };
 
   // ── The URL the user should return to after viewing a product ──
-  const returnUrl = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+  const returnUrl = `${pathname}${(() => {
+    const q = buildSearch(filters, currentPage);
+    return q ? `?${q}` : "";
+  })()}`;
 
   const showFullScreenLoader = productsLoading && products.length === 0 && totalCount === 0;
 
