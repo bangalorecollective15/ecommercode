@@ -69,27 +69,27 @@ jobs:
           print('Length check passed.')
           "
 
-      # FIX 1: write the keystore inside android/app/ (where build.gradle's
-      # module directory lives) instead of android/, so a relative
-      # file(storeFile) lookup in build.gradle can actually find it.
+      # Write the keystore inside android/app/ (the module directory).
       - name: Decode Production Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_CONTENT }}
         run: |
           python3 -c "import os, base64; open('android/app/bangalorecollective-release.jks', 'wb').write(base64.b64decode(os.environ['KEYSTORE_BASE64'].strip()))"
 
-      # FIX 2: use an ABSOLUTE path for storeFile. This makes the build work
-      # regardless of whether build.gradle resolves storeFile relative to
-      # android/ or android/app/ -- removing the guesswork entirely.
+      # storeFile MUST be relative to the android/ root, not absolute.
+      # This project's build.gradle resolves it as file("$rootDir/$storeFile")
+      # -- plain string concatenation -- so an absolute path here gets glued
+      # onto rootDir instead of overriding it, producing a broken doubled path
+      # like ".../android/home/runner/.../android/app/....jks".
+      # Since the jks lands in android/app/, the correct relative value is
+      # "app/bangalorecollective-release.jks".
       - name: Create keystore.properties
         run: |
-          echo "storeFile=${{ github.workspace }}/android/app/bangalorecollective-release.jks" >> android/keystore.properties
+          echo "storeFile=app/bangalorecollective-release.jks" >> android/keystore.properties
           echo "storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> android/keystore.properties
           echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}" >> android/keystore.properties
           echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}" >> android/keystore.properties
 
-      # Sanity check: fail fast with a clear message if the file isn't where
-      # we expect, instead of a confusing Gradle signing error later.
       - name: Verify Keystore File Exists
         run: |
           if [ ! -f "android/app/bangalorecollective-release.jks" ]; then
@@ -97,6 +97,12 @@ jobs:
             exit 1
           fi
           echo "Keystore file found: $(ls -la android/app/bangalorecollective-release.jks)"
+
+      # Debug aid: print exactly what's in keystore.properties (passwords
+      # hidden), so if this ever breaks again the log shows the real value
+      # Gradle is using instead of us guessing blind.
+      - name: Show keystore.properties content
+        run: cat android/keystore.properties | sed 's/=.*[Pp]assword.*/=(hidden)/'
 
       - name: Build Release AAB and APK
         run: |
