@@ -1,39 +1,38 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, memo } from "react";
 import OptimizedImage from "./OptimizedImage";
-import { Eye, ShoppingBag, Heart, Check, Loader2 } from "lucide-react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { Eye, ShoppingBag, Heart } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
 import toast from "react-hot-toast";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import supabase from "@/lib/supabase";
 
 interface ProductCardProps {
   product: any;
   userId: string | null;
   priority?: boolean;
   returnUrl?: string;
+  // ── Bulk-fetched once by the parent instead of per-card queries ──
+  isWishlistedInitial?: boolean;
+  isInCartInitial?: boolean;
 }
 
-export default function ProductCard({
+function ProductCard({
   product,
   userId,
   priority = false,
   returnUrl,
+  isWishlistedInitial = false,
+  isInCartInitial = false,
 }: ProductCardProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const [isWishlisted, setIsWishlisted] = useState(false);
-  const [isInCart, setIsInCart] = useState(false);
+  const [isWishlisted, setIsWishlisted] = useState(isWishlistedInitial);
+  const [isInCart, setIsInCart] = useState(isInCartInitial);
   const [loading, setLoading] = useState(false);
   const [selectedVar, setSelectedVar] = useState<any>(product.product_variations?.[0] || null);
 
@@ -51,7 +50,7 @@ export default function ProductCard({
           rawImageString = parsed;
         }
       }
-    } catch (e) { }
+    } catch (e) {}
 
     let cleanStr = String(rawImageString);
     let firstUrl = cleanStr.split(",")[0].trim();
@@ -87,28 +86,6 @@ export default function ProductCard({
       .filter((v: any) => v.displayLabel.length > 0);
   }, [product.product_variations]);
 
-  const checkStatus = useCallback(async () => {
-    if (!userId || !product.id) return;
-
-    try {
-      const [wishRes, cartRes] = await Promise.all([
-        supabase.from("wishlists").select("id").eq("user_id", userId).eq("product_id", product.id).maybeSingle(),
-        selectedVar
-          ? supabase.from("cart").select("id").eq("user_id", userId).eq("variation_id", selectedVar.id).maybeSingle()
-          : Promise.resolve({ data: null }),
-      ]);
-
-      setIsWishlisted(!!wishRes.data);
-      setIsInCart(!!cartRes.data);
-    } catch (err) {
-      console.error("Status check failed", err);
-    }
-  }, [userId, product.id, selectedVar?.id]);
-
-  useEffect(() => {
-    checkStatus();
-  }, [checkStatus]);
-
   const handleWheel = (e: React.WheelEvent) => {
     if (scrollContainerRef.current) {
       const container = scrollContainerRef.current;
@@ -120,95 +97,82 @@ export default function ProductCard({
     }
   };
 
-  const handleAddToCart = async (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleAddToCart = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
 
-    if (!userId) {
-      toast.error("Please login to add items to cart");
-      return;
-    }
-
-    if (isInCart) return router.push("/userinterface/cart");
-    if (isCurrentVarOutOfStock) return toast.error("This variant is out of stock");
-
-    setLoading(true);
-    const { error } = await supabase.from("cart").insert([{
-      user_id: userId,
-      product_id: product.id,
-      variation_id: selectedVar.id,
-      quantity: 1,
-    }]);
-
-    setLoading(false);
-    if (error) {
-      console.error(error);
-      toast.error("Could not add to cart");
-    } else {
-      setIsInCart(true);
-      toast.success("Added to cart");
-      window.dispatchEvent(new Event("cartUpdated"));
-    }
-  };
-
-  const handleWishlist = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-
-    if (!userId) {
-      toast.error("Please login to save to wishlist");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      if (isWishlisted) {
-        await supabase.from("wishlists").delete().eq("user_id", userId).eq("product_id", product.id);
-        setIsWishlisted(false);
-        toast.success("Removed from wishlist");
-      } else {
-        await supabase.from("wishlists").insert([{ user_id: userId, product_id: product.id }]);
-        setIsWishlisted(true);
-        toast.success("Added to wishlist");
+      if (!userId) {
+        toast.error("Please login to add items to cart");
+        return;
       }
-    } catch (err) {
-      toast.error("Wishlist update failed");
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  // Prefer the explicit returnUrl passed by the parent (page + filters + pagination).
-  // Fall back to the raw current URL if the parent didn't pass one.
-  const currentUrl =
-    returnUrl ?? (pathname + (searchParams.toString() ? `?${searchParams.toString()}` : ""));
+      if (isInCart) return router.push("/userinterface/cart");
+      if (isCurrentVarOutOfStock) return toast.error("This variant is out of stock");
+
+      setLoading(true);
+      const { error } = await supabase.from("cart").insert([
+        {
+          user_id: userId,
+          product_id: product.id,
+          variation_id: selectedVar.id,
+          quantity: 1,
+        },
+      ]);
+
+      setLoading(false);
+      if (error) {
+        console.error(error);
+        toast.error("Could not add to cart");
+      } else {
+        setIsInCart(true);
+        toast.success("Added to cart");
+        window.dispatchEvent(new Event("cartUpdated"));
+      }
+    },
+    [userId, isInCart, isCurrentVarOutOfStock, product.id, selectedVar, router]
+  );
+
+  const handleWishlist = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+
+      if (!userId) {
+        toast.error("Please login to save to wishlist");
+        return;
+      }
+
+      setLoading(true);
+      try {
+        if (isWishlisted) {
+          await supabase.from("wishlists").delete().eq("user_id", userId).eq("product_id", product.id);
+          setIsWishlisted(false);
+          toast.success("Removed from wishlist");
+        } else {
+          await supabase.from("wishlists").insert([{ user_id: userId, product_id: product.id }]);
+          setIsWishlisted(true);
+          toast.success("Added to wishlist");
+        }
+      } catch (err) {
+        toast.error("Wishlist update failed");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [userId, isWishlisted, product.id]
+  );
+
+  // returnUrl is always supplied by the parent now; pathname is just a safety fallback.
+  const currentUrl = returnUrl ?? pathname;
 
   const handleNavigate = () => {
-    router.push(
-      `/userinterface/product/${product.id}?returnUrl=${encodeURIComponent(currentUrl)}`
-    );
+    router.push(`/userinterface/product/${product.id}?returnUrl=${encodeURIComponent(currentUrl)}`);
   };
 
   return (
     <div
       onClick={handleNavigate}
-      className="group relative bg-white dark:bg-[#111] rounded-[1.5rem] p-3 border border-slate-100 dark:border-[#2a2a2a] hover:shadow-xl dark:hover:shadow-white/5 transition-all duration-500 cursor-pointer flex flex-col"
+      className="product-card group relative bg-white dark:bg-[#111] rounded-[1.5rem] p-3 border border-slate-100 dark:border-[#2a2a2a] hover:shadow-xl dark:hover:shadow-white/5 transition-all duration-500 cursor-pointer flex flex-col"
     >
-      <style jsx>{`
-        .custom-mini-scroll::-webkit-scrollbar {
-          height: 3px;
-        }
-        .custom-mini-scroll::-webkit-scrollbar-track {
-          background: #f1f5f9;
-          border-radius: 9999px;
-        }
-        .custom-mini-scroll::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
-          border-radius: 9999px;
-        }
-        .custom-mini-scroll::-webkit-scrollbar-thumb:hover {
-          background: #94a3b8;
-        }
-      `}</style>
-
       {/* Media Window Container */}
       <div
         className="relative w-full rounded-[1.1rem] overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100 dark:from-[#1c1c1c] dark:to-[#111] transition-colors duration-300"
@@ -254,16 +218,19 @@ export default function ProductCard({
           </h3>
 
           <span
-            className={`text-sm font-black ${isCurrentVarOutOfStock
+            className={`text-sm font-black ${
+              isCurrentVarOutOfStock
                 ? "text-red-400 line-through decoration-red-500"
                 : "text-brand-blue dark:text-white transition-colors duration-300"
-              }`}
+            }`}
           >
             ₹{selectedVar?.sale_price || selectedVar?.price || "N/A"}
           </span>
         </div>
 
-        <p className="text-[10px] text-slate-400 dark:text-gray-400 line-clamp-2 mb-3 transition-colors duration-300">{product.description}</p>
+        <p className="text-[10px] text-slate-400 dark:text-gray-400 line-clamp-2 mb-3 transition-colors duration-300">
+          {product.description}
+        </p>
 
         {/* VARIATIONS UI */}
         <div
@@ -280,14 +247,15 @@ export default function ProductCard({
                   e.stopPropagation();
                   setSelectedVar(v);
                 }}
-                className={`text-[9px] font-bold px-2 py-1 rounded-md border transition-all relative whitespace-nowrap duration-300 ${selectedVar?.id === v.id
+                className={`text-[9px] font-bold px-2 py-1 rounded-md border transition-all relative whitespace-nowrap duration-300 ${
+                  selectedVar?.id === v.id
                     ? v.stock <= 0
                       ? "bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 border-red-500 line-through"
                       : "bg-brand-blue dark:bg-white text-white dark:text-black border-brand-blue dark:border-white"
                     : v.stock <= 0
-                      ? "bg-red-50 dark:bg-red-900/10 text-red-400 border-red-200 dark:border-red-900/50 line-through"
-                      : "bg-white dark:bg-[#1a1a1a] text-slate-400 dark:text-gray-400 border-slate-200 dark:border-[#333] hover:border-slate-300 dark:hover:border-[#555]"
-                  }`}
+                    ? "bg-red-50 dark:bg-red-900/10 text-red-400 border-red-200 dark:border-red-900/50 line-through"
+                    : "bg-white dark:bg-[#1a1a1a] text-slate-400 dark:text-gray-400 border-slate-200 dark:border-[#333] hover:border-slate-300 dark:hover:border-[#555]"
+                }`}
               >
                 {v.displayLabel}
               </button>
@@ -306,14 +274,19 @@ export default function ProductCard({
           </span>
 
           <div className="flex items-center gap-2">
-            <button onClick={handleWishlist} className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-[#222] transition-colors duration-300">
+            <button
+              onClick={handleWishlist}
+              disabled={loading}
+              className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-[#222] transition-colors duration-300"
+            >
               <Heart size={16} className={isWishlisted ? "text-red-500 fill-red-500" : "text-slate-400 dark:text-gray-500"} />
             </button>
             <button
               onClick={handleAddToCart}
-              disabled={isCurrentVarOutOfStock}
-              className={`p-1.5 rounded-full transition-colors duration-300 ${isInCart ? "bg-brand-gold text-white" : "hover:bg-slate-100 dark:hover:bg-[#222] text-brand-blue dark:text-white"
-                }`}
+              disabled={isCurrentVarOutOfStock || loading}
+              className={`p-1.5 rounded-full transition-colors duration-300 ${
+                isInCart ? "bg-brand-gold text-white" : "hover:bg-slate-100 dark:hover:bg-[#222] text-brand-blue dark:text-white"
+              }`}
             >
               <ShoppingBag size={16} />
             </button>
@@ -323,3 +296,19 @@ export default function ProductCard({
     </div>
   );
 }
+
+// Custom comparator: re-render only when the product itself, its stock status
+// inputs, or its wishlist/cart membership actually change — not on every
+// parent state change (loading toggles, other filters, etc).
+function areEqual(prev: ProductCardProps, next: ProductCardProps) {
+  return (
+    prev.product === next.product &&
+    prev.userId === next.userId &&
+    prev.priority === next.priority &&
+    prev.returnUrl === next.returnUrl &&
+    prev.isWishlistedInitial === next.isWishlistedInitial &&
+    prev.isInCartInitial === next.isInCartInitial
+  );
+}
+
+export default memo(ProductCard, areEqual);
