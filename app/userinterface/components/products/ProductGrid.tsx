@@ -1,5 +1,6 @@
 import { Loader2, SlidersHorizontal } from "lucide-react";
 import ProductCard from "../ProductCard";
+import LazyMount from "../products/LazyMount";
 
 interface ProductGridProps {
   products: any[];
@@ -41,15 +42,34 @@ export default function ProductGrid({
           productsLoading ? "opacity-40 pointer-events-none" : "opacity-100"
         }`}
       >
-        {products.map((item, idx) => (
-          <div
-            key={item.id}
-            className="group product-reveal transition-transform duration-500 hover:-translate-y-2"
-            style={{ animationDelay: `${(idx % 8) * 60}ms` }}
-          >
-            <ProductCard product={item} userId={userId} priority={idx < 4} returnUrl={returnUrl} />
-          </div>
-        ))}
+{products.map((item, idx) => {
+  const card = (
+    <ProductCard
+      product={item}
+      userId={userId}
+      priority={idx < 4}
+      returnUrl={returnUrl}
+      isWishlistedInitial={wishlistedIds.has(item.id)}
+      isInCartInitial={item.product_variations?.some((v: any) => cartVariationIds.has(v.id)) ?? false}
+    />
+  );
+
+  return (
+    <div key={item.id} className="group product-reveal transition-transform duration-500 hover:-translate-y-2" style={{ animationDelay: `${(idx % 8) * 60}ms` }}>
+      {idx < 8 ? (
+        card
+      ) : (
+        <LazyMount
+          placeholder={
+            <div className="aspect-square rounded-[1.5rem] bg-slate-100 dark:bg-[#1c1c1c] animate-pulse" />
+          }
+        >
+          {card}
+        </LazyMount>
+      )}
+    </div>
+  );
+})}
       </div>
 
       {!productsLoading && products.length === 0 && (
