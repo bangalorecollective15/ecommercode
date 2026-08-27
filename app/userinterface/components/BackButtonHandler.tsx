@@ -4,10 +4,9 @@ import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { usePathname, useRouter } from "next/navigation";
 
-// Routes where a back-press should exit the app instead of navigating back
+// Exact routes where a back-press should exit the app
 const ROOT_ROUTES = ["/", "/userinterface", "/userinterface/home"];
 
-// Helper to clean up trailing slashes
 function normalize(path: string) {
   if (path.length > 1 && path.endsWith("/")) {
     return path.slice(0, -1);
@@ -27,12 +26,11 @@ export default function BackButtonHandler() {
     let handle: any;
 
     const setupListener = async () => {
-      handle = await App.addListener("backButton", ({ canGoBack }) => {
-        const currentPath = normalize(window.location.pathname); // Use window.location for absolute current truth
+      handle = await App.addListener("backButton", () => {
+        const currentPath = normalize(window.location.pathname);
         const isRoot = ROOT_ROUTES.includes(currentPath);
 
-        // If we are on a root route OR the native webview history stack cannot go back
-        if (isRoot || !canGoBack) {
+        if (isRoot) {
           if (Capacitor.getPlatform() === "android") {
             App.exitApp();
           }
