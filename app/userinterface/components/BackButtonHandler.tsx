@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { useRouter } from "next/navigation";
@@ -7,10 +7,7 @@ import { useRouter } from "next/navigation";
 const HOME_PATHS = ["", "/", "/userinterface", "/userinterface/home"];
 
 function normalizePath(pathname: string) {
-  return pathname
-    .replace(/\/$/, "")
-    .split("?")[0]
-    .split("#")[0];
+  return pathname.replace(/\/$/, "").split("?")[0].split("#")[0];
 }
 
 export default function BackButtonHandler() {
@@ -18,27 +15,27 @@ export default function BackButtonHandler() {
   const lastBackPress = useRef(0);
 
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) {
-      alert("Not native platform — listener not attached");
-      return;
-    }
-
     let sub: any;
+    let cancelled = false;
+
+    const waitForNative = async () => {
+      // Poll up to ~3 seconds for the native bridge to be ready
+      for (let i = 0; i < 30; i++) {
+        if (Capacitor.isNativePlatform()) return true;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      return Capacitor.isNativePlatform();
+    };
 
     const initListener = async () => {
-      sub = await App.addListener("backButton", ({ canGoBack }) => {
-        const rawPath = window.location.pathname;
-        const path = normalizePath(rawPath);
-        const isHomeOrRoot = HOME_PATHS.includes(path);
+      const isNative = await waitForNative();
+      alert("isNativePlatform after poll: " + isNative); // TEMP DEBUG
 
-        // TEMP DEBUG POPUP — remove after diagnosing
-        alert(
-          "BACK PRESSED\n" +
-          "raw pathname: " + rawPath + "\n" +
-          "normalized: " + path + "\n" +
-          "isHomeOrRoot: " + isHomeOrRoot + "\n" +
-          "canGoBack: " + canGoBack
-        );
+      if (!isNative || cancelled) return;
+
+      sub = await App.addListener("backButton", ({ canGoBack }) => {
+        const path = normalizePath(window.location.pathname);
+        const isHomeOrRoot = HOME_PATHS.includes(path);
 
         if (isHomeOrRoot) {
           const now = Date.now();
@@ -62,6 +59,7 @@ export default function BackButtonHandler() {
     initListener();
 
     return () => {
+      cancelled = true;
       if (sub) sub.remove();
     };
   }, [router]);
