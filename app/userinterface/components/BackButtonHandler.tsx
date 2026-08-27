@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { usePathname, useRouter } from "next/navigation";
@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 // Routes where a back-press should exit the app instead of navigating back
 const ROOT_ROUTES = ["/", "/userinterface", "/userinterface/home"];
 
-// Strip a trailing slash so "/userinterface/home/" and "/userinterface/home" match the same route
+// Helper to clean up trailing slashes
 function normalize(path: string) {
   if (path.length > 1 && path.endsWith("/")) {
     return path.slice(0, -1);
@@ -18,11 +18,6 @@ function normalize(path: string) {
 export default function BackButtonHandler() {
   const pathname = usePathname();
   const router = useRouter();
-  const pathnameRef = useRef(pathname);
-
-  useEffect(() => {
-    pathnameRef.current = pathname;
-  }, [pathname]);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) {
@@ -32,17 +27,17 @@ export default function BackButtonHandler() {
     let handle: any;
 
     const setupListener = async () => {
-      handle = await App.addListener("backButton", () => {
-        const currentPath = normalize(pathnameRef.current);
+      handle = await App.addListener("backButton", ({ canGoBack }) => {
+        const currentPath = normalize(window.location.pathname); // Use window.location for absolute current truth
         const isRoot = ROOT_ROUTES.includes(currentPath);
 
-        if (!isRoot) {
+        // If we are on a root route OR the native webview history stack cannot go back
+        if (isRoot || !canGoBack) {
+          if (Capacitor.getPlatform() === "android") {
+            App.exitApp();
+          }
+        } else {
           router.back();
-          return;
-        }
-
-        if (Capacitor.getPlatform() === "android") {
-          App.exitApp();
         }
       });
     };
@@ -52,7 +47,7 @@ export default function BackButtonHandler() {
     return () => {
       handle?.remove();
     };
-  }, [router]);
+  }, [router, pathname]);
 
   return null;
 }
