@@ -1,23 +1,20 @@
-import type { CapacitorConfig } from "@capacitor/cli";
+import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: "com.banglorecolletive.app",
-  appName: "Banglore Colletive",
-  webDir: "capacitor-www",
-
+  appId: 'com.banglorecolletive.app',
+  appName: 'Banglore Colletive',
+  webDir: 'capacitor-www',
   server: {
-    url: "https://bangalorecollective.com/",
-    cleartext: true,
+    url: 'https://bangalorecollective.com/', 
+    cleartext: true
   },
-
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
       backgroundColor: "#ffffff",
       showSpinner: true,
-      androidScaleType: "CENTER_CROP",
-    },
-  },
+      androidScaleType: "CENTER_CROP"
+    }
+  }
 };
-
 export default config;
