@@ -5,8 +5,7 @@ import { useEffect } from 'react';
 import { App } from '@capacitor/app';
 import { useRouter, usePathname } from 'next/navigation';
 
-const HOME_ROUTES = ['/', '/home']; // adjust to match your actual home route
-
+const HOME_ROUTES = ['/userinterface', '/userinterface/home'];
 export default function BackButtonHandler() {
   const router = useRouter();
   const pathname = usePathname();
