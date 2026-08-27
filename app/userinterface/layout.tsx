@@ -3,7 +3,6 @@
 import { usePathname } from "next/navigation";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
-import BackButtonHandler from "./components/BackButtonHandler";
 import "../globals.css";
 
 export default function UserInterfaceLayout({ children }: { children: React.ReactNode }) {
@@ -14,7 +13,6 @@ const hideLayout = pathname === "/userinterface" || pathname === "/userinterface
 
 return (
 <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
-<BackButtonHandler />
 {!hideLayout && <Header />}
 
 {/* We use pt-32 (8rem / 128px) to account for:

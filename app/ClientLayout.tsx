@@ -79,6 +79,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           },
         }}
       />
+
+      <BackButtonHandler />
       
       {hideLayout ? (
         <div className="w-full h-full overflow-auto">
@@ -93,7 +95,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               <div className="flex-1 flex flex-col h-screen min-w-0">
                 <Header /> 
                 <main className="flex-1 overflow-auto p-2">
-                  <BackButtonHandler />
                   {children}
                 </main>
               </div>
