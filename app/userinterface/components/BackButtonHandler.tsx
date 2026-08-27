@@ -4,14 +4,17 @@ import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { usePathname, useRouter } from "next/navigation";
 
-// Exact routes where a back-press should exit the app
+// Include variations just in case
 const ROOT_ROUTES = ["/", "/userinterface", "/userinterface/home"];
 
 function normalize(path: string) {
-  if (path.length > 1 && path.endsWith("/")) {
-    return path.slice(0, -1);
+  if (!path) return "/";
+  // Remove trailing slashes and potential query params/hashes if any
+  const cleanPath = path.split("?")[0].split("#")[0];
+  if (cleanPath.length > 1 && cleanPath.endsWith("/")) {
+    return cleanPath.slice(0, -1);
   }
-  return path;
+  return cleanPath;
 }
 
 export default function BackButtonHandler() {
@@ -27,8 +30,17 @@ export default function BackButtonHandler() {
 
     const setupListener = async () => {
       handle = await App.addListener("backButton", () => {
-        const currentPath = normalize(window.location.pathname);
-        const isRoot = ROOT_ROUTES.includes(currentPath);
+        const rawPath = window.location.pathname;
+        const currentPath = normalize(rawPath);
+        
+        // DEBUG: Check your IDE console / logcat to see what path it's reading
+        console.log("RAW PATH:", rawPath, "NORMALIZED:", currentPath);
+
+        // Check if it matches any root route or contains the home path indicator
+        const isRoot = 
+          ROOT_ROUTES.includes(currentPath) || 
+          currentPath === "/userinterface/home" || 
+          currentPath === "/userinterface";
 
         if (isRoot) {
           if (Capacitor.getPlatform() === "android") {
