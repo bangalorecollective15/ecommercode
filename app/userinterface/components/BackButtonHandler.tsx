@@ -5,7 +5,6 @@ import { App } from '@capacitor/app';
 import { useRouter, usePathname } from 'next/navigation';
 
 const HOME_ROUTES = ['/userinterface', '/userinterface/home'];
-const HOME_ROUTE = '/userinterface/home';
 
 function normalizePathname(pathname: string | null) {
   const normalized = pathname?.replace(/\/+$/, '');
@@ -39,8 +38,8 @@ export default function BackButtonHandler() {
         return;
       }
 
-      console.log('[BackButton] redirecting to home');
-      router.replace(HOME_ROUTE);
+      console.log('[BackButton] going back in browser history');
+      router.back();
     });
 
     void listener.then(() => {

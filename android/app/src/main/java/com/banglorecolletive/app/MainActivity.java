@@ -111,8 +111,13 @@ public class MainActivity extends BridgeActivity {
                     return;
                 }
 
-                Log.d(TAG, "Non-home detected; loading home");
-                webView.loadUrl(REMOTE_APP_URL + "userinterface/home");
+                if (webView.canGoBack()) {
+                    Log.d(TAG, "Non-home detected; going back in WebView history");
+                    webView.goBack();
+                } else {
+                    Log.d(TAG, "No WebView history; loading home");
+                    webView.loadUrl(REMOTE_APP_URL + "userinterface/home");
+                }
             }
         });
     }
