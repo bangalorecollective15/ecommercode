@@ -1,37 +1,46 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { useRouter } from "next/navigation";
 
+const HOME_PATHS = ["", "/", "/userinterface", "/userinterface/home"];
+
+function normalizePath(pathname: string) {
+  return pathname
+    .replace(/\/$/, "")   // strip trailing slash
+    .split("?")[0]        // strip query string
+    .split("#")[0];       // strip hash
+}
+
 export default function BackButtonHandler() {
   const router = useRouter();
+  const lastBackPress = useRef(0);
 
   useEffect(() => {
-    // Only run on native Android/iOS
     if (!Capacitor.isNativePlatform()) return;
 
     let sub: any;
 
     const initListener = async () => {
       sub = await App.addListener("backButton", ({ canGoBack }) => {
-        const path = window.location.pathname.replace(/\/$/, ""); // Strip trailing slash
-
-        // Define exact root pages where the app should close
-        const isHomeOrRoot = 
-          path === "" || 
-          path === "/" || 
-          path === "/userinterface" || 
-          path === "/userinterface/home";
+        const path = normalizePath(window.location.pathname);
+        const isHomeOrRoot = HOME_PATHS.includes(path);
 
         if (isHomeOrRoot) {
-          // If we are on any home/root screen, exit the app
-          App.exitApp();
-        } else if (canGoBack) {
-          // Otherwise, if history can go back, go back
+          const now = Date.now();
+          if (now - lastBackPress.current < 2000) {
+            App.exitApp();
+          } else {
+            lastBackPress.current = now;
+            // Optional: show a toast "Press back again to exit"
+          }
+          return;
+        }
+
+        if (canGoBack) {
           router.back();
         } else {
-          // Absolute fallback: exit app if nowhere else to go
           App.exitApp();
         }
       });
@@ -40,9 +49,7 @@ export default function BackButtonHandler() {
     initListener();
 
     return () => {
-      if (sub) {
-        sub.remove();
-      }
+      if (sub) sub.remove();
     };
   }, [router]);
 
