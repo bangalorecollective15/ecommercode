@@ -2,62 +2,49 @@
 import { useEffect } from "react";
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
-import { usePathname, useRouter } from "next/navigation";
-
-// Include variations just in case
-const ROOT_ROUTES = ["/", "/userinterface", "/userinterface/home"];
-
-function normalize(path: string) {
-  if (!path) return "/";
-  // Remove trailing slashes and potential query params/hashes if any
-  const cleanPath = path.split("?")[0].split("#")[0];
-  if (cleanPath.length > 1 && cleanPath.endsWith("/")) {
-    return cleanPath.slice(0, -1);
-  }
-  return cleanPath;
-}
+import { useRouter } from "next/navigation";
 
 export default function BackButtonHandler() {
-  const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) {
-      return;
-    }
+    // Only run on native Android/iOS
+    if (!Capacitor.isNativePlatform()) return;
 
-    let handle: any;
+    let sub: any;
 
-    const setupListener = async () => {
-      handle = await App.addListener("backButton", () => {
-        const rawPath = window.location.pathname;
-        const currentPath = normalize(rawPath);
-        
-        // DEBUG: Check your IDE console / logcat to see what path it's reading
-        console.log("RAW PATH:", rawPath, "NORMALIZED:", currentPath);
+    const initListener = async () => {
+      sub = await App.addListener("backButton", ({ canGoBack }) => {
+        const path = window.location.pathname.replace(/\/$/, ""); // Strip trailing slash
 
-        // Check if it matches any root route or contains the home path indicator
-        const isRoot = 
-          ROOT_ROUTES.includes(currentPath) || 
-          currentPath === "/userinterface/home" || 
-          currentPath === "/userinterface";
+        // Define exact root pages where the app should close
+        const isHomeOrRoot = 
+          path === "" || 
+          path === "/" || 
+          path === "/userinterface" || 
+          path === "/userinterface/home";
 
-        if (isRoot) {
-          if (Capacitor.getPlatform() === "android") {
-            App.exitApp();
-          }
-        } else {
+        if (isHomeOrRoot) {
+          // If we are on any home/root screen, exit the app
+          App.exitApp();
+        } else if (canGoBack) {
+          // Otherwise, if history can go back, go back
           router.back();
+        } else {
+          // Absolute fallback: exit app if nowhere else to go
+          App.exitApp();
         }
       });
     };
 
-    setupListener();
+    initListener();
 
     return () => {
-      handle?.remove();
+      if (sub) {
+        sub.remove();
+      }
     };
-  }, [router, pathname]);
+  }, [router]);
 
   return null;
 }
