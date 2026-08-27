@@ -86,16 +86,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         }}
       />
 
-      {showLaunchScreen && (
-        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black">
-          <img
-            src="/logowhite.png"
-            alt="Bangalore Collective"
-            className="w-[82vw] max-w-[760px] object-contain"
-          />
-        </div>
-      )}
-
       <BackButtonHandler />
       
       {hideLayout ? (
