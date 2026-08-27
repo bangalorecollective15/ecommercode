@@ -6,16 +6,21 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import androidx.activity.OnBackPressedCallback;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+
+    private static final String TAG = "BackButtonDebug";
 
     // Local file bundled in the APK (Capacitor copies your webDir contents here
     // automatically on `npx cap sync`).
@@ -84,7 +89,32 @@ public class MainActivity extends BridgeActivity {
             showOfflinePage();
         }
 
+        configureBackButton();
         registerNetworkCallback();
+    }
+
+    private void configureBackButton() {
+        Log.d(TAG, "Native back callback registered");
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                String currentUrl = webView.getUrl();
+                String currentPath = currentUrl == null ? "" : Uri.parse(currentUrl).getPath();
+                Log.d(TAG, "Native back received: url=" + currentUrl + ", path=" + currentPath);
+
+                if ("/userinterface".equals(currentPath)
+                        || "/userinterface/".equals(currentPath)
+                        || "/userinterface/home".equals(currentPath)
+                        || "/userinterface/home/".equals(currentPath)) {
+                    Log.d(TAG, "Home detected; closing app");
+                    finishAndRemoveTask();
+                    return;
+                }
+
+                Log.d(TAG, "Non-home detected; loading home");
+                webView.loadUrl(REMOTE_APP_URL + "userinterface/home");
+            }
+        });
     }
 
     private void showOfflinePage() {
