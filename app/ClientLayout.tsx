@@ -15,6 +15,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const router = useRouter();
 
   const [mounted, setMounted] = useState(false);
+  const [showLaunchScreen, setShowLaunchScreen] = useState(true);
   const [role, setRole] = useState<"admin" | "subadmin" | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
@@ -43,6 +44,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     // 3. Mark auth as complete so the UI can render
     setAuthLoading(false);
   }, [pathname, router]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowLaunchScreen(false), 350);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   // Prevent Hydration Mismatch: Render a simple fragment placeholder until mounted
   if (!mounted) {
@@ -79,6 +85,16 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           },
         }}
       />
+
+      {showLaunchScreen && (
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black">
+          <img
+            src="/logowhite.png"
+            alt="Bangalore Collective"
+            className="w-[82vw] max-w-[760px] object-contain"
+          />
+        </div>
+      )}
 
       <BackButtonHandler />
       
