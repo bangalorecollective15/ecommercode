@@ -1,37 +1,33 @@
 // components/BackButtonHandler.tsx
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { App } from '@capacitor/app';
 import { useRouter, usePathname } from 'next/navigation';
 
 const HOME_ROUTES = ['/userinterface', '/userinterface/home'];
+const HOME_ROUTE = '/userinterface/home';
+
 export default function BackButtonHandler() {
   const router = useRouter();
   const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
 
   useEffect(() => {
-    let handle: any;
+    pathnameRef.current = pathname;
+  }, [pathname]);
 
-    App.addListener('backButton', ({ canGoBack }) => {
-      if (HOME_ROUTES.includes(pathname)) {
-        // Already on home -> exit app
+  useEffect(() => {
+    const listener = App.addListener('backButton', () => {
+      if (HOME_ROUTES.includes(pathnameRef.current)) {
         App.exitApp();
-      } else if (canGoBack) {
-        // Let the webview history go back (About Us -> Home)
-        window.history.back();
       } else {
-        // No webview history left, force navigate to home
-        router.push('/');
+        router.replace(HOME_ROUTE);
       }
-    }).then((h) => {
-      handle = h;
     });
 
-    return () => {
-      handle?.remove();
-    };
-  }, [pathname, router]);
+    return () => { void listener.then((handle) => handle.remove()); };
+  }, [router]);
 
   return null;
 }
