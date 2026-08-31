@@ -75,7 +75,13 @@ export default function Header() {
   const [mobileCategoryOpen, setMobileCategoryOpen] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+const [isAndroid, setIsAndroid] = useState(false);
 
+useEffect(() => {
+  // Detect if device is Android
+  const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : '';
+  setIsAndroid(/android/.test(userAgent));
+}, []);
   const [openDesktopCategory, setOpenDesktopCategory] = useState<number | null>(null);
   const [openSubCategory, setOpenSubCategory] = useState<number | null>(null);
 
@@ -653,51 +659,51 @@ export default function Header() {
         {/* PLAY STORE POPUP — small card that appears just below the header,
             visible for 3 minutes (or until closed / clicked), links to the
             Play Store listing. */}
-        {showPlayStorePopup && (
-          <div className="w-full flex flex-col items-center lg:items-end px-4 lg:px-8 pt-2 pointer-events-none animate-in slide-in-from-top-2 fade-in duration-300 gap-1">
-            <div className="pointer-events-auto flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-2xl pl-3 pr-2 py-2.5 max-w-xs w-full lg:w-auto">
-              <a
-                href={PLAYSTORE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => {
-                  markAppAsInstalled(); // clicking through means they're getting it — don't ask again
-                  setShowPlayStorePopup(false);
-                }}
-                className="flex items-center gap-3 flex-1 min-w-0"
-              >
-                <div className="w-9 h-9 rounded-xl bg-slate-900 dark:bg-white flex items-center justify-center flex-shrink-0">
-                  <Download size={16} className="text-white dark:text-slate-900" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] font-black text-slate-800 dark:text-slate-100 leading-tight">
-                    Get our App
-                  </p>
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
-                    Download on Google Play
-                  </p>
-                </div>
-              </a>
-              <button
-                onClick={() => setShowPlayStorePopup(false)}
-                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 flex-shrink-0 transition-colors"
-                aria-label="Dismiss for now"
-                title="Dismiss for now"
-              >
-                <X size={14} />
-              </button>
-            </div>
-            <button
-              onClick={() => {
-                markAppAsInstalled();
-                setShowPlayStorePopup(false);
-              }}
-              className="pointer-events-auto text-[9px] font-bold text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors"
-            >
-              Already have the app? Don't show this again
-            </button>
-          </div>
-        )}
+   {!isAndroid && showPlayStorePopup && (
+  <div className="w-full flex flex-col items-center lg:items-end px-4 lg:px-8 pt-2 pointer-events-none animate-in slide-in-from-top-2 fade-in duration-300 gap-1">
+    <div className="pointer-events-auto flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-2xl pl-3 pr-2 py-2.5 max-w-xs w-full lg:w-auto">
+      <a
+        href={PLAYSTORE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => {
+          markAppAsInstalled(); // clicking through means they're getting it — don't ask again
+          setShowPlayStorePopup(false);
+        }}
+        className="flex items-center gap-3 flex-1 min-w-0"
+      >
+        <div className="w-9 h-9 rounded-xl bg-slate-900 dark:bg-white flex items-center justify-center flex-shrink-0">
+          <Download size={16} className="text-white dark:text-slate-900" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[11px] font-black text-slate-800 dark:text-slate-100 leading-tight">
+            Get our App
+          </p>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+            Download on Google Play
+          </p>
+        </div>
+      </a>
+      <button
+        onClick={() => setShowPlayStorePopup(false)}
+        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 flex-shrink-0 transition-colors"
+        aria-label="Dismiss for now"
+        title="Dismiss for now"
+      >
+        <X size={14} />
+      </button>
+    </div>
+    <button
+      onClick={() => {
+        markAppAsInstalled();
+        setShowPlayStorePopup(false);
+      }}
+      className="pointer-events-auto text-[9px] font-bold text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 underline underline-offset-2 transition-colors"
+    >
+      Already have the app? Don't show this again
+    </button>
+  </div>
+)}
 
         {/* SEARCH OVERLAY (unchanged) */}
         {isSearchOpen && (
