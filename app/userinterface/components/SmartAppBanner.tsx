@@ -14,7 +14,7 @@ import { getMobileOS } from "@/lib/platform";
 const APP_SCHEME = "banglorecollective";
 const IOS_APP_STORE_URL = "https://apps.apple.com/app/idXXXXXXXXX";
 const ANDROID_PLAY_STORE_URL =
-  "https://play.google.com/store/apps/details?id=com.banglorecollective.app";
+  "https://play.google.com/store/apps/details?id=com.banglorecolletive.app&pli=1";
 
 interface SmartAppBannerProps {
   /** Path (no domain) the app should deep-link straight into, e.g. /userinterface/product/123 */
