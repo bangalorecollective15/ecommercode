@@ -90,7 +90,7 @@ public class MainActivity extends BridgeActivity {
             showOfflinePage();
         }
 
-        handleIncomingIntent(getIntent());
+        webView.post(() -> handleIncomingIntent(getIntent()));
 
         configureBackButton();
         registerNetworkCallback();
