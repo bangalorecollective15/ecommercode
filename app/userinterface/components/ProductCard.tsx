@@ -6,6 +6,7 @@ import { Eye, ShoppingBag, Heart } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import toast from "react-hot-toast";
 import supabase from "@/lib/supabase";
+import ShareButton from "../components/ShareButton";
 
 interface ProductCardProps {
   product: any;
@@ -168,6 +169,11 @@ function ProductCard({
     router.push(`/userinterface/product/${product.id}?returnUrl=${encodeURIComponent(currentUrl)}`);
   };
 
+  // Canonical, query-free link — this is what gets shared (and what the
+  // smart app banner uses to try to hand off into the installed app).
+  const shareUrl =
+    typeof window !== "undefined" ? `${window.location.origin}/userinterface/product/${product.id}` : "";
+
   return (
     <div
       onClick={handleNavigate}
@@ -273,7 +279,13 @@ function ProductCard({
             <Eye size={12} /> Details
           </span>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <ShareButton
+              url={shareUrl}
+              title={product?.name}
+              text={`Check out ${product?.name}`}
+              variant="icon"
+            />
             <button
               onClick={handleWishlist}
               disabled={loading}

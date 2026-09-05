@@ -1,5 +1,4 @@
 "use client";
-import OptimizedImage from "../../components/OptimizedImage"; // adjust relative path to match your folder depth
 import { useEffect, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { createClient } from "@supabase/supabase-js";
@@ -10,7 +9,10 @@ import {
   Tag, Minus, Plus, CreditCard, Sparkles, Star, Play, MessageSquare, Lock,
   X, ZoomIn, ChevronLeft, ChevronRight
 } from "lucide-react";
+import OptimizedImage from "../../components/OptimizedImage";
 import ProductCard from "../../components/ProductCard";
+import ShareButton from "../../components/ShareButton";
+import SmartAppBanner from "../../components/SmartAppBanner";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -66,6 +68,7 @@ function InfoPanelSkeleton() {
       <div className="flex gap-3">
         <div className="w-28 h-12 rounded-xl bg-slate-100 dark:bg-[#222] animate-pulse transition-colors duration-300" />
         <div className="flex-1 h-12 rounded-xl bg-slate-100 dark:bg-[#222] animate-pulse transition-colors duration-300" />
+        <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-[#222] animate-pulse transition-colors duration-300" />
       </div>
       {/* Checkout */}
       <div className="w-full h-14 rounded-xl bg-slate-100 dark:bg-[#222] animate-pulse transition-colors duration-300" />
@@ -657,8 +660,19 @@ const isOutOfStock = !selectedVar || selectedVar.stock <= 0;
     setLightboxOpen(true);
   };
 
+  // ── Sharing ──────────────────────────────────────────────────────────────
+  // Canonical, query-free link. Works both as the plain website URL and as
+  // the path the SmartAppBanner tries to hand off to the installed app.
+  const productPath = `/userinterface/product/${productId}`;
+  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}${productPath}` : "";
+
   return (
     <div className="min-h-screen bg-[#fcfcfc] dark:bg-black text-slate-900 dark:text-white selection:bg-brand-gold/20 transition-colors duration-300">
+      {/* If this page was opened from a shared link in a plain mobile browser
+          (not inside the app), try to hand off into the app; otherwise show
+          a "Get the app" banner while the website below stays fully usable. */}
+      <SmartAppBanner path={productPath} />
+
       <div className="max-w-7xl mx-auto px-6 pt-24 pb-12">
 
         {/* BREADCRUMB & BACK */}
@@ -873,9 +887,9 @@ const isOutOfStock = !selectedVar || selectedVar.stock <= 0;
   </div>
 </div>
 
-                {/* Quantity + Add to Bag */}
+                {/* Quantity + Add to Bag + Share — justified across the full row */}
                 <div className="flex gap-3">
-                  <div className="flex items-center bg-slate-50 dark:bg-[#111] rounded-xl px-4 py-2 border border-slate-100 dark:border-[#333] transition-colors duration-300">
+                  <div className="flex items-center bg-slate-50 dark:bg-[#111] rounded-xl px-4 py-2 border border-slate-100 dark:border-[#333] transition-colors duration-300 flex-shrink-0">
                     <button
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
                       disabled={!selectedVar || selectedVar.stock <= 0}
@@ -904,10 +918,17 @@ const isOutOfStock = !selectedVar || selectedVar.stock <= 0;
                   <button
                     onClick={handleCart}
                     disabled={!selectedVar || selectedVar.stock <= 0}
-                    className="flex-1 bg-white dark:bg-black border-2 border-brand-blue dark:border-white text-brand-blue dark:text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-brand-blue dark:hover:bg-white hover:text-white dark:hover:text-slate-900 transition-all duration-300 disabled:opacity-40 disabled:hover:bg-white dark:disabled:hover:bg-black disabled:hover:text-brand-blue dark:disabled:hover:text-white disabled:cursor-not-allowed"
+                    className="flex-1 min-w-0 bg-white dark:bg-black border-2 border-brand-blue dark:border-white text-brand-blue dark:text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-brand-blue dark:hover:bg-white hover:text-white dark:hover:text-slate-900 transition-all duration-300 disabled:opacity-40 disabled:hover:bg-white dark:disabled:hover:bg-black disabled:hover:text-brand-blue dark:disabled:hover:text-white disabled:cursor-not-allowed"
                   >
                     {selectedVar?.stock <= 0 ? "Out of Stock" : "Add to Bag"}
                   </button>
+
+                  <ShareButton
+                    url={shareUrl}
+                    title={product?.name}
+                    text={`Check out ${product?.name} on ${product?.brands?.name_en || "our store"}`}
+                    variant="square"
+                  />
                 </div>
 
                 {/* Checkout */}
