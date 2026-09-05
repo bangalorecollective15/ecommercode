@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { App } from '@capacitor/app';
 import { useRouter, usePathname } from 'next/navigation';
 
-const HOME_ROUTES = ['/userinterface', '/userinterface/home'];
+const HOME_ROUTES = ['/userinterface', '/userinterface/home', '/userinterface/', '/userinterface/home/'];
 
 function normalizePathname(pathname: string | null) {
   const normalized = pathname?.replace(/\/+$/, '');
@@ -22,36 +21,51 @@ export default function BackButtonHandler() {
 
   useEffect(() => {
     let isActive = true;
+    let removeListener: (() => void) | null = null;
 
-    console.log('[BackButton] registering Capacitor listener');
-    const listener = App.addListener('backButton', () => {
-      if (!isActive) return;
+    const setupListener = async () => {
+      try {
+        const { Capacitor } = await import('@capacitor/core');
+        if (!Capacitor.isNativePlatform()) {
+          return;
+        }
 
-      const currentPath = normalizePathname(pathnameRef.current);
-      console.log('[BackButton] event received', { currentPath });
-      if (HOME_ROUTES.includes(currentPath)) {
-        void App.exitApp().then(() => {
-          console.log('[BackButton] exitApp completed');
-        }).catch((error) => {
-          console.error('[BackButton] exitApp failed', error);
+        const { App } = await import('@capacitor/app');
+        const handle = await App.addListener('backButton', ({ canGoBack }) => {
+          if (!isActive) return;
+
+          const currentPath = normalizePathname(pathnameRef.current);
+          console.log('[BackButton] event received', { currentPath, canGoBack });
+
+          if (HOME_ROUTES.includes(currentPath)) {
+            App.exitApp().catch((error) => {
+              console.error('[BackButton] exitApp error', error);
+            });
+            return;
+          }
+
+          if (canGoBack) {
+            router.back();
+          } else {
+            router.push('/userinterface/home');
+          }
         });
-        return;
+
+        removeListener = () => {
+          handle.remove();
+        };
+      } catch (error) {
+        console.error('[BackButton] setup failed', error);
       }
+    };
 
-      console.log('[BackButton] going back in browser history');
-      router.back();
-    });
-
-    void listener.then(() => {
-      console.log('[BackButton] Capacitor listener registered');
-    }).catch((error) => {
-      console.error('[BackButton] listener registration failed', error);
-    });
+    setupListener();
 
     return () => {
       isActive = false;
-      console.log('[BackButton] removing Capacitor listener');
-      void listener.then((handle) => handle.remove());
+      if (removeListener) {
+        removeListener();
+      }
     };
   }, [router]);
 

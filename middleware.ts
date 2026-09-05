@@ -5,7 +5,22 @@ import type { NextRequest } from 'next/server';
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 1. Initialize Response Stream
+  // 1. Smooth custom route redirects & deep link compatibility
+  if (pathname === '/') {
+    return NextResponse.redirect(new URL('/userinterface/home', request.url));
+  }
+
+  if (pathname.startsWith('/product/')) {
+    const productId = pathname.replace('/product/', '');
+    return NextResponse.redirect(new URL(`/userinterface/product/${productId}`, request.url));
+  }
+
+  if (pathname.startsWith('/category/')) {
+    const categoryId = pathname.replace('/category/', '');
+    return NextResponse.redirect(new URL(`/userinterface/category/${categoryId}`, request.url));
+  }
+
+  // 2. Initialize Response Stream
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -39,13 +54,8 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // 2. Refresh Auth Token Session securely
+  // 3. Refresh Auth Token Session securely
   await supabase.auth.getUser();
-
-  // 3. Smooth custom route redirects 
-  if (pathname === '/') {
-    return NextResponse.redirect(new URL('/userinterface/home', request.url));
-  }
 
   return response;
 }

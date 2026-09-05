@@ -26,9 +26,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     const storedRole = localStorage.getItem("userRole") as "admin" | "subadmin" | null;
 
     const isPublicPage =
+      pathname === "/" ||
       pathname.startsWith("/login") ||
       pathname.startsWith("/reset-password") ||
-      pathname.startsWith("/userinterface");
+      pathname.startsWith("/userinterface") ||
+      pathname.startsWith("/product") ||
+      pathname.startsWith("/category");
 
     // 1. If not logged in and not on a public page, go to login
     if (!isLoggedIn && !isPublicPage) {
@@ -60,7 +63,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     pathname === "/" ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/reset-password") ||
-    pathname.startsWith("/userinterface");
+    pathname.startsWith("/userinterface") ||
+    pathname.startsWith("/product") ||
+    pathname.startsWith("/category");
 
   return (
     <>

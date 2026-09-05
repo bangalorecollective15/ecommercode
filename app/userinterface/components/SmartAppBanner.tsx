@@ -4,13 +4,6 @@ import { useEffect, useState } from "react";
 import { X, Download, ArrowRight } from "lucide-react";
 import { getMobileOS } from "@/lib/platform";
 
-// ─────────────────────────────────────────────────────────────────────────
-// Replace these with your real values.
-// APP_SCHEME must exactly match the <data android:scheme="..."/> entry
-// you added to AndroidManifest.xml.
-// ANDROID_PACKAGE must exactly match your applicationId in
-// android/app/build.gradle AND the package_name in assetlinks.json.
-// ─────────────────────────────────────────────────────────────────────────
 const APP_SCHEME = "banglorecollective";
 const ANDROID_PACKAGE = "com.banglorecolletive.app";
 const ANDROID_PLAY_STORE_URL = `https://play.google.com/store/apps/details?id=com.banglorecolletive.app`;
@@ -31,6 +24,11 @@ export default function SmartAppBanner({ path, dismissedKey = "hideAppBanner" }:
     let cancelled = false;
     (async () => {
       try {
+        if (typeof window !== "undefined" && (window as any).Capacitor?.isNativePlatform?.()) {
+          if (!cancelled) setIsNative(true);
+          return;
+        }
+
         const { Capacitor } = await import("@capacitor/core");
         if (!cancelled) setIsNative(Capacitor.isNativePlatform());
       } catch {
@@ -43,13 +41,17 @@ export default function SmartAppBanner({ path, dismissedKey = "hideAppBanner" }:
   }, []);
 
   // Show the banner once we know: an Android browser, not already inside
-  // the app, not dismissed this session. No silent auto-redirect attempt —
-  // that gets blocked by the browser. The tap on "Open App" below is what
-  // actually works, because it's a real user gesture.
+  // the app, not dismissed this session.
   useEffect(() => {
     if (isNative !== false) return;
     if (typeof window === "undefined") return;
     if (sessionStorage.getItem(dismissedKey) === "1") return;
+
+    // Guard against running inside app webviews
+    const ua = navigator.userAgent || "";
+    if (ua.includes("com.banglorecolletive.app") || ua.includes("Capacitor") || ua.includes("AndroidBridge")) {
+      return;
+    }
 
     const detectedOs = getMobileOS();
     if (detectedOs !== "android") return; // Android-only banner
@@ -60,16 +62,15 @@ export default function SmartAppBanner({ path, dismissedKey = "hideAppBanner" }:
   if (!visible) return null;
 
   const cleanPath = path.replace(/^\//, "");
-  const fallbackUrl = `${window.location.origin}/${cleanPath}`;
+  const fallbackUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/${cleanPath}`
+    : `https://bangalorecollective.com/${cleanPath}`;
 
   const dismiss = () => {
     sessionStorage.setItem(dismissedKey, "1");
     setVisible(false);
   };
 
-  // Runs on a real tap — the intent:// URL tries the app first, and if it's
-  // not installed, Android falls straight through to fallbackUrl. No timers,
-  // no guessing.
   const openInApp = () => {
     const intentUrl =
       `intent://${cleanPath}#Intent;scheme=${APP_SCHEME};` +
