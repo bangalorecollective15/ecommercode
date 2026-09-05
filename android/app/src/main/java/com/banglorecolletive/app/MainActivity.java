@@ -1,6 +1,7 @@
 package com.banglorecolletive.app;
 
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.ConnectivityManager;
 import android.net.Network;
@@ -28,6 +29,10 @@ public class MainActivity extends BridgeActivity {
 
     // The remote URL your app actually points at.
     private static final String REMOTE_APP_URL = "https://bangalorecollective.com/";
+
+    // Must match the custom scheme declared in AndroidManifest.xml's
+    // fallback intent-filter, and APP_SCHEME in SmartAppBanner.tsx.
+    private static final String CUSTOM_SCHEME = "banglorecollective";
 
     private boolean isShowingOfflinePage = false;
     private ConnectivityManager connectivityManager;
@@ -89,8 +94,59 @@ public class MainActivity extends BridgeActivity {
             showOfflinePage();
         }
 
+        // Handle the case where the app was launched fresh by tapping a
+        // shared product link (App Link) or the custom-scheme fallback —
+        // otherwise the webview only ever shows the plain homepage.
+        handleIncomingIntent(getIntent());
+
         configureBackButton();
         registerNetworkCallback();
+    }
+
+    // Called when the app is already running (e.g. singleTask reuses the
+    // existing activity) and a new link is tapped. Without this, a second
+    // deep link tap while the app is already open would be silently ignored.
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleIncomingIntent(intent);
+    }
+
+    // Reads the URI that launched/resumed the activity and, if it's a real
+    // product/page link (either an https App Link or our custom scheme),
+    // loads that exact page in the webview instead of the bare homepage.
+    private void handleIncomingIntent(Intent intent) {
+        if (intent == null) return;
+        Uri data = intent.getData();
+        if (data == null) return;
+
+        String scheme = data.getScheme();
+        String targetUrl;
+
+        if ("https".equals(scheme) || "http".equals(scheme)) {
+            // Tapped an https App Link — load that exact page as-is.
+            targetUrl = data.toString();
+        } else if (CUSTOM_SCHEME.equals(scheme)) {
+            // Tapped the custom-scheme fallback (banglorecollective://path)
+            // — rebuild it into a real https URL on your domain.
+            String host = data.getHost();
+            String path = data.getPath();
+            String rebuiltPath = (host != null ? host : "") + (path != null ? path : "");
+            if (rebuiltPath.isEmpty()) {
+                rebuiltPath = data.getSchemeSpecificPart();
+            }
+            if (rebuiltPath.startsWith("/")) {
+                rebuiltPath = rebuiltPath.substring(1);
+            }
+            targetUrl = REMOTE_APP_URL + rebuiltPath;
+        } else {
+            // Not a link we care about (e.g. a plain launcher tap).
+            return;
+        }
+
+        Log.d(TAG, "Deep link received, loading: " + targetUrl);
+        webView.loadUrl(targetUrl);
     }
 
     private void configureBackButton() {
