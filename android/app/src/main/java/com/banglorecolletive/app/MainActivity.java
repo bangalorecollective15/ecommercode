@@ -90,43 +90,57 @@ public class MainActivity extends BridgeActivity {
             showOfflinePage();
         }
 
+        // IMPORTANT: super.onCreate() above already asynchronously kicked off
+        // loading REMOTE_APP_URL (the homepage) via the Capacitor bridge. If we
+        // call handleIncomingIntent() directly here, it races against that
+        // homepage load — and the homepage often wins, silently overwriting our
+        // deep-link navigation. Posting to the webView's message queue defers
+        // our call until after that initial load call has been dispatched, so
+        // our deep-link navigation happens last and actually sticks.
         webView.post(() -> handleIncomingIntent(getIntent()));
 
         configureBackButton();
         registerNetworkCallback();
-        
     }
 
+    // Called when the app is already running (e.g. singleTask reuses the
+    // existing activity) and a new link is tapped. Without this, a second
+    // deep link tap while the app is already open would be silently ignored.
     @Override
-protected void onNewIntent(Intent intent) {
-    super.onNewIntent(intent);
-    setIntent(intent);
-    handleIncomingIntent(intent);
-}
-private void handleIncomingIntent(Intent intent) {
-    if (intent == null) return;
-    Uri data = intent.getData();
-    if (data == null) return;
-
-    String scheme = data.getScheme();
-    String targetUrl;
-
-    if ("https".equals(scheme) || "http".equals(scheme)) {
-        // Tapped an https App Link — load that exact page.
-        targetUrl = data.toString();
-    } else if ("banglorecollective".equals(scheme)) {
-        // Tapped the custom-scheme fallback (banglorecollective://path)
-        // — rebuild it into a real https URL on your domain.
-        String path = data.getHost() != null ? data.getHost() + data.getPath() : data.getSchemeSpecificPart();
-        if (path.startsWith("/")) path = path.substring(1);
-        targetUrl = REMOTE_APP_URL + path;
-    } else {
-        return; // Not a link we care about (e.g. normal launcher tap)
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleIncomingIntent(intent);
     }
 
-    Log.d(TAG, "Deep link received, loading: " + targetUrl);
-    webView.loadUrl(targetUrl);
-}
+    // Reads the URI that launched/resumed the activity and, if it's a real
+    // product/page link (either an https App Link or our custom scheme),
+    // loads that exact page in the webview instead of the bare homepage.
+    private void handleIncomingIntent(Intent intent) {
+        if (intent == null) return;
+        Uri data = intent.getData();
+        if (data == null) return;
+
+        String scheme = data.getScheme();
+        String targetUrl;
+
+        if ("https".equals(scheme) || "http".equals(scheme)) {
+            // Tapped an https App Link — load that exact page.
+            targetUrl = data.toString();
+        } else if ("banglorecollective".equals(scheme)) {
+            // Tapped the custom-scheme fallback (banglorecollective://path)
+            // — rebuild it into a real https URL on your domain.
+            String path = data.getHost() != null ? data.getHost() + data.getPath() : data.getSchemeSpecificPart();
+            if (path.startsWith("/")) path = path.substring(1);
+            targetUrl = REMOTE_APP_URL + path;
+        } else {
+            return; // Not a link we care about (e.g. normal launcher tap)
+        }
+
+        Log.d(TAG, "Deep link received, loading: " + targetUrl);
+        webView.loadUrl(targetUrl);
+    }
+
     private void configureBackButton() {
         Log.d(TAG, "Native back callback registered");
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
