@@ -18,6 +18,29 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- ── App Links: lets Android open the app automatically for
+                 real https:// links to your domain, once assetlinks.json
+                 is verified. REPLACE yourdomain.com with your real domain. ── -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="yourdomain.com" />
+            </intent-filter>
+
+            <!-- ── Custom scheme fallback: used by the "Open App" button /
+                 intent:// links from the website when App Links hasn't
+                 verified yet, or as a manual deep-link target. Must match
+                 APP_SCHEME in SmartAppBanner.tsx. ── -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="banglorecollective" />
+            </intent-filter>
         </activity>
 
         <provider

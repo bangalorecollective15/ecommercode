@@ -1,20 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Download } from "lucide-react";
+import { X, Download, ArrowRight } from "lucide-react";
 import { getMobileOS } from "@/lib/platform";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Replace these with your real values.
-// APP_SCHEME must match the custom URL scheme registered for your app
-// (Android: intent-filter in AndroidManifest.xml, iOS: CFBundleURLSchemes
-// in Info.plist). It does NOT have to match capacitor.config.ts's appId,
-// but keeping them related is a good convention.
+// APP_SCHEME must exactly match the <data android:scheme="..."/> entry
+// you added to AndroidManifest.xml.
+// ANDROID_PACKAGE must exactly match your applicationId in
+// android/app/build.gradle AND the package_name in assetlinks.json.
 // ─────────────────────────────────────────────────────────────────────────
 const APP_SCHEME = "banglorecollective";
-const IOS_APP_STORE_URL = "https://apps.apple.com/app/idXXXXXXXXX";
-const ANDROID_PLAY_STORE_URL =
-  "https://play.google.com/store/apps/details?id=com.banglorecolletive.app&pli=1";
+const ANDROID_PACKAGE = "com.banglorecollective.app";
+const ANDROID_PLAY_STORE_URL = `https://play.google.com/store/apps/details?id=com.banglorecolletive.app`;
 
 interface SmartAppBannerProps {
   /** Path (no domain) the app should deep-link straight into, e.g. /userinterface/product/123 */
@@ -24,11 +23,10 @@ interface SmartAppBannerProps {
 
 export default function SmartAppBanner({ path, dismissedKey = "hideAppBanner" }: SmartAppBannerProps) {
   const [visible, setVisible] = useState(false);
-  const [os, setOs] = useState<"ios" | "android" | "other">("other");
   const [isNative, setIsNative] = useState<boolean | null>(null);
 
   // Detect whether we're already running inside the Capacitor app shell.
-  // If so, this IS the app — no banner, no redirect needed.
+  // If so, this IS the app — no banner needed at all.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -44,48 +42,40 @@ export default function SmartAppBanner({ path, dismissedKey = "hideAppBanner" }:
     };
   }, []);
 
+  // Show the banner once we know: an Android browser, not already inside
+  // the app, not dismissed this session. No silent auto-redirect attempt —
+  // that gets blocked by the browser. The tap on "Open App" below is what
+  // actually works, because it's a real user gesture.
   useEffect(() => {
-    if (isNative !== false) return; // still checking, or already inside the app
+    if (isNative !== false) return;
     if (typeof window === "undefined") return;
     if (sessionStorage.getItem(dismissedKey) === "1") return;
 
     const detectedOs = getMobileOS();
-    setOs(detectedOs);
-    if (detectedOs === "other") return; // desktop browser — nothing to hand off to
+    if (detectedOs !== "android") return; // Android-only banner
 
-    // Attempt a silent handoff into the installed app first. If the app
-    // isn't installed, the OS just ignores the custom scheme and the
-    // browser stays put, so we show the banner shortly after as a fallback.
-    const deepLink = `${APP_SCHEME}://${path.replace(/^\//, "")}`;
-    let handedOff = false;
-
-    const onVisibilityChange = () => {
-      if (document.hidden) handedOff = true;
-    };
-    document.addEventListener("visibilitychange", onVisibilityChange);
-
-    const attempt = window.setTimeout(() => {
-      window.location.href = deepLink;
-    }, 50);
-
-    const revealBanner = window.setTimeout(() => {
-      if (!handedOff) setVisible(true);
-    }, 1200);
-
-    return () => {
-      window.clearTimeout(attempt);
-      window.clearTimeout(revealBanner);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-    };
-  }, [isNative, path, dismissedKey]);
+    setVisible(true);
+  }, [isNative, dismissedKey]);
 
   if (!visible) return null;
 
-  const storeUrl = os === "ios" ? IOS_APP_STORE_URL : ANDROID_PLAY_STORE_URL;
+  const cleanPath = path.replace(/^\//, "");
+  const fallbackUrl = `${window.location.origin}/${cleanPath}`;
 
   const dismiss = () => {
     sessionStorage.setItem(dismissedKey, "1");
     setVisible(false);
+  };
+
+  // Runs on a real tap — the intent:// URL tries the app first, and if it's
+  // not installed, Android falls straight through to fallbackUrl. No timers,
+  // no guessing.
+  const openInApp = () => {
+    const intentUrl =
+      `intent://${cleanPath}#Intent;scheme=${APP_SCHEME};` +
+      `package=${ANDROID_PACKAGE};` +
+      `S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`;
+    window.location.href = intentUrl;
   };
 
   return (
@@ -99,13 +89,19 @@ export default function SmartAppBanner({ path, dismissedKey = "hideAppBanner" }:
         </p>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
+        <button
+          onClick={openInApp}
+          className="px-3 py-1.5 rounded-lg bg-white/20 dark:bg-black/10 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap flex items-center gap-1"
+        >
+          Open App <ArrowRight size={12} />
+        </button>
         <a
-          href={storeUrl}
+          href={ANDROID_PLAY_STORE_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="px-3 py-1.5 rounded-lg bg-white/20 dark:bg-black/10 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap"
+          className="px-3 py-1.5 rounded-lg bg-white/10 dark:bg-black/5 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap"
         >
-          Get the app
+          Get App
         </a>
         <button onClick={dismiss} aria-label="Dismiss" className="p-1">
           <X size={16} />

@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.banglorecolletive.app",
+      "sha256_cert_fingerprints": [
+        "3A:20:D8:71:2C:F9:7A:D8:9D:D7:CA:CD:FB:C2:2D:07:BF:68:A1:74:4A:4A:4C:64:2A:AF:75:9B:13:A4:53:52"
+      ]
+    }
+  }
+]
