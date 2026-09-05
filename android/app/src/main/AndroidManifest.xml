@@ -20,14 +20,13 @@
         </intent-filter>
 
         <!-- ── App Links: real domain goes HERE, in the autoVerify block ── -->
-        <intent-filter android:autoVerify="true">
-            <action android:name="android.intent.action.VIEW" />
-            <category android:name="android.intent.category.DEFAULT" />
-            <category android:name="android.intent.category.BROWSABLE" />
-            <data
-                android:scheme="https"
-                android:host="bangalorecollective.com" />
-        </intent-filter>
+<intent-filter android:autoVerify="true">
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <data android:scheme="https" android:host="bangalorecollective.com" />
+    <data android:scheme="https" android:host="www.bangalorecollective.com" />
+</intent-filter>
 
         <!-- ── Custom scheme fallback: keep this as your app's own scheme,
             matching APP_SCHEME in SmartAppBanner.tsx ── -->
