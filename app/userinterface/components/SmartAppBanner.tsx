@@ -12,7 +12,7 @@ import { getMobileOS } from "@/lib/platform";
 // android/app/build.gradle AND the package_name in assetlinks.json.
 // ─────────────────────────────────────────────────────────────────────────
 const APP_SCHEME = "banglorecollective";
-const ANDROID_PACKAGE = "com.banglorecollective.app";
+const ANDROID_PACKAGE = "com.banglorecolletive.app";
 const ANDROID_PLAY_STORE_URL = `https://play.google.com/store/apps/details?id=com.banglorecolletive.app`;
 
 interface SmartAppBannerProps {
