@@ -28,7 +28,6 @@ export default function Login() {
       if (email.trim().toLowerCase() === "admin@gmail.com" && password === "Admin@123!") {
         localStorage.setItem("isLoggedIn", "true");
         localStorage.setItem("role", "master-admin");
-        toast.success("Identity Verified");
         router.push("/dashboard");
         return;
       }
@@ -48,7 +47,6 @@ export default function Login() {
 
       localStorage.setItem("isLoggedIn", "true");
       localStorage.setItem("role", "subadmin");
-      toast.success("Identity Verified");
       router.push("/dashboard");
     } catch (err) {
       toast.error("System Error");

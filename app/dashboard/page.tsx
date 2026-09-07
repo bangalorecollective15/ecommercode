@@ -208,7 +208,7 @@ export default function AdminDashboard() {
               title="Inventory"
               value={stats.totalProducts}
               icon={<Package size={20} />}
-              link="/products/listproducts"
+              link="/listproducts"
             />
             <DashboardCard
               title="Members"
