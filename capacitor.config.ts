@@ -5,8 +5,13 @@ const config: CapacitorConfig = {
   appName: 'Banglore Colletive',
   webDir: 'capacitor-www',
   server: {
-    url: 'https://bangalorecollective.com/', 
-    cleartext: true
+    url: 'https://www.bangalorecollective.com/', 
+    cleartext: true,
+    allowNavigation: [
+      'bangalorecollective.com',
+      '*.bangalorecollective.com',
+      'www.bangalorecollective.com'
+    ]
   },
   plugins: {
     SplashScreen: {

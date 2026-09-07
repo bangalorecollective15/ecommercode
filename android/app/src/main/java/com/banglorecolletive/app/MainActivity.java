@@ -24,7 +24,7 @@ public class MainActivity extends BridgeActivity {
     private static final String TAG = "MainActivity";
 
     private static final String OFFLINE_PAGE = "file:///android_asset/public/offline.html";
-    private static final String REMOTE_APP_URL = "https://bangalorecollective.com/";
+    private static final String REMOTE_APP_URL = "https://www.bangalorecollective.com/";
 
     private boolean isShowingOfflinePage = false;
     private ConnectivityManager connectivityManager;
