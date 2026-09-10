@@ -484,16 +484,26 @@ export default function POSPage() {
             </div>
 
             <div className="flex flex-1 max-w-xl gap-3">
-              <div className="relative flex-1 group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-4 h-4 group-focus-within:text-brand-gold transition-colors" />
-                <input
-                  type="text"
-                  placeholder="SEARCH NAME OR SKU..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-brand-gold/20 transition-all text-[10px] font-bold text-brand-blue uppercase placeholder:text-slate-300"
-                />
-              </div>
+<div className="relative flex-1 group">
+  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-4 h-4 group-focus-within:text-brand-gold transition-colors" />
+  <input
+    type="text"
+    placeholder="SEARCH NAME OR SKU..."
+    value={searchTerm}
+    onChange={(e) => setSearchTerm(e.target.value)}
+    className="w-full pl-11 pr-10 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-brand-gold/20 transition-all text-[10px] font-bold text-brand-blue uppercase placeholder:text-slate-300"
+  />
+  {searchTerm && (
+    <button
+      type="button"
+      onClick={() => setSearchTerm("")}
+      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-300 hover:text-brand-gold transition-colors"
+      title="Clear search"
+    >
+      <X className="w-4 h-4" />
+    </button>
+  )}
+</div>
               <select
                 value={selectedCategory || ""}
                 onChange={(e) => setSelectedCategory(Number(e.target.value) || "")}
