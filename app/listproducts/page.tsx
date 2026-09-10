@@ -777,7 +777,7 @@ const fetchProducts = useCallback(async () => {
                         <div className="flex justify-end gap-3 opacity-30 group-hover:opacity-100 transition-all duration-500">
                           <ActionButton icon={<QrCode size={16} />} onClick={() => router.push(`/barcode/${product.id}`)} />
                           <ActionButton icon={<Eye size={16} />} onClick={() => router.push(`/view/${product.id}`)} />
-                          <ActionButton icon={<Pencil size={16} />} onClick={() => router.push(`/edit/${product.id}`)} />
+<ActionButton icon={<Pencil size={16} />} onClick={() => router.push(`/addproducts?id=${product.id}`)} />
                           <ActionButton icon={<Trash2 size={16} />} color="red" onClick={() => { setDeleteId(product.id); setShowDeleteModal(true); }} />
                         </div>
                       </td>

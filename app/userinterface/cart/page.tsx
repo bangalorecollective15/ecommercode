@@ -30,6 +30,8 @@ interface CartItem {
   image: string;
   stock: number;
   isSaleItem: boolean;
+  carryBagBox: boolean;
+  bagBoxPrice: number;
 }
 export default function CartPage() {
   const router = useRouter();
@@ -48,14 +50,13 @@ export default function CartPage() {
   const fetchCart = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
-
-    const { data, error } = await supabase
-      .from("cart")
-      .select(`
-        id, product_id, variation_id, quantity,
-        products ( id, name, product_images ( image_url ), lifestyle_tag:attributes!products_lifestyle_tag_id_fkey ( name ) )
-      `)
-      .eq("user_id", userId);
+const { data, error } = await supabase
+  .from("cart")
+  .select(`
+    id, product_id, variation_id, quantity, carry_bag_box, bag_box_price,
+    products ( id, name, product_images ( image_url ), lifestyle_tag:attributes!products_lifestyle_tag_id_fkey ( name ) )
+  `)
+  .eq("user_id", userId);
 
     if (error) {
       toast.error("Error loading cart");
@@ -98,19 +99,21 @@ export default function CartPage() {
       const tagName = Array.isArray(rawTag) ? rawTag[0]?.name : rawTag?.name;
       const isSaleItem = !!(tagName && tagName.toLowerCase().includes("sale"));
 
-      return {
-        id: item.id,
-        productId: item.product_id,
-        variationId: item.variation_id,
-        variationName: varName, // Empty string if no valid attributes
-        quantity: item.quantity,
-        name: item.products?.name || "Unknown Product",
-        price: activePrice,
-        originalPrice: basePrice,
-        stock: stock,
-        image: item.products?.product_images?.[0]?.image_url || "/placeholder.png",
-        isSaleItem,
-      };
+return {
+  id: item.id,
+  productId: item.product_id,
+  variationId: item.variation_id,
+  variationName: varName, // Empty string if no valid attributes
+  quantity: item.quantity,
+  name: item.products?.name || "Unknown Product",
+  price: activePrice,
+  originalPrice: basePrice,
+  stock: stock,
+  image: item.products?.product_images?.[0]?.image_url || "/placeholder.png",
+  isSaleItem,
+  carryBagBox: !!item.carry_bag_box,
+  bagBoxPrice: item.bag_box_price ? Number(item.bag_box_price) : 500,
+};
     }));
 
     setCart(formattedCart);
@@ -132,7 +135,12 @@ export default function CartPage() {
     await supabase.from("cart").update({ quantity: newQuantity }).eq("id", item.id);
     window.dispatchEvent(new Event("cartUpdated"));
   };
-
+const toggleBagBox = async (item: CartItem) => {
+  const next = !item.carryBagBox;
+  setCart(prev => prev.map(c => c.id === item.id ? { ...c, carryBagBox: next } : c));
+  await supabase.from("cart").update({ carry_bag_box: next }).eq("id", item.id);
+  window.dispatchEvent(new Event("cartUpdated"));
+};
   const removeFromCart = async (item: CartItem) => {
     await supabase.from("cart").delete().eq("id", item.id);
     setCart(prev => prev.filter(c => c.id !== item.id));
@@ -140,7 +148,10 @@ export default function CartPage() {
     window.dispatchEvent(new Event("cartUpdated"));
   };
 
-  const subtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  const subtotal = cart.reduce(
+  (acc, item) => acc + (item.price * item.quantity) + (item.carryBagBox ? item.bagBoxPrice : 0),
+  0
+);
   const shipping = subtotal < 1000 && subtotal > 0 ? 100 : 0;
   const total = subtotal + shipping;
 
@@ -190,12 +201,13 @@ export default function CartPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
             <div className="lg:col-span-7 space-y-3 sm:space-y-4">
               {cart.map((item) => (
-                <CartItemRow
-                  key={item.id}
-                  item={item}
-                  updateQuantity={updateQuantity}
-                  removeFromCart={removeFromCart}
-                />
+<CartItemRow
+  key={item.id}
+  item={item}
+  updateQuantity={updateQuantity}
+  removeFromCart={removeFromCart}
+  toggleBagBox={toggleBagBox}
+/>
               ))}
             </div>
 
@@ -269,7 +281,7 @@ export default function CartPage() {
   );
 }
 
-function CartItemRow({ item, updateQuantity, removeFromCart }: any) {
+function CartItemRow({ item, updateQuantity, removeFromCart, toggleBagBox }: any) {
   const isVideo = item.image && (
     item.image.toLowerCase().endsWith('.mp4') ||
     item.image.toLowerCase().endsWith('.webm') ||
@@ -349,7 +361,21 @@ function CartItemRow({ item, updateQuantity, removeFromCart }: any) {
             <Trash2 size={14} />
           </button>
         </div>
-
+{/* Bag & Box add-on, editable directly in cart */}
+<label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
+  <input
+    type="checkbox"
+    checked={item.carryBagBox}
+    onChange={() => toggleBagBox(item)}
+    className="w-3.5 h-3.5 accent-brand-gold cursor-pointer"
+  />
+  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 dark:text-gray-400">
+    Bag & Box
+  </span>
+  <span className="text-[9px] font-black text-brand-gold">
+    +₹{item.bagBoxPrice}
+  </span>
+</label>
         <div className="flex items-center justify-between mt-3 sm:mt-4">
           <div className="flex items-center bg-white/60 dark:bg-[#222]/60 border border-white dark:border-[#333] rounded-lg p-0.5 transition-colors duration-300">
             <button
@@ -372,15 +398,14 @@ function CartItemRow({ item, updateQuantity, removeFromCart }: any) {
               <Plus size={10} />
             </button>
           </div>
-
-          <div className="text-right">
-            {item.originalPrice > item.price && (
-              <span className="block text-[9px] font-bold text-slate-300 dark:text-gray-500 line-through transition-colors duration-300">₹{item.originalPrice.toLocaleString()}</span>
-            )}
-            <p className="font-black text-sm text-slate-950 dark:text-white transition-colors duration-300">
-              ₹{(item.price * (isOutOfStock ? 0 : item.quantity)).toLocaleString()}
-            </p>
-          </div>
+<div className="text-right">
+  {item.originalPrice > item.price && (
+    <span className="block text-[9px] font-bold text-slate-300 dark:text-gray-500 line-through transition-colors duration-300">₹{item.originalPrice.toLocaleString()}</span>
+  )}
+  <p className="font-black text-sm text-slate-950 dark:text-white transition-colors duration-300">
+    ₹{((item.price * (isOutOfStock ? 0 : item.quantity)) + (item.carryBagBox ? item.bagBoxPrice : 0)).toLocaleString()}
+  </p>
+</div>
         </div>
       </div>
     </div>

@@ -314,7 +314,7 @@ export default function ProductViewPage({ params }: { params: Promise<{ id: stri
               {/* CTA Section */}
               <div className="pt-8">
                 <button
-                  onClick={() => router.push(`edit/${product.id}`)}
+                  onClick={() => router.push(`/addproducts?id=${product.id}`)}
                   className="w-full bg-[#2b2652] text-[#c4a174] py-7 rounded-[2rem] font-black uppercase tracking-[0.3em] text-[11px] hover:bg-[#1a1733] transition-all flex items-center justify-center gap-4 shadow-2xl shadow-[#2b2652]/20 active:scale-[0.98]"
                 >
                   Modify Product Architecture <ArrowRight size={18} strokeWidth={3} />

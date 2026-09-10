@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import toast, { Toaster } from "react-hot-toast";
-import { Plus, Save, Layers, ChevronDown, Image as ImageIcon, X, Loader2, Hash } from "lucide-react";
+import { Plus, Save, Layers, ChevronDown, Image as ImageIcon, X, Loader2, Hash, Package } from "lucide-react";
 
 // Initialize outside component to prevent "Multiple GoTrueClient instances" warning
 const supabase = createClient(
@@ -11,7 +12,18 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// Replace your INITIAL_FORM_STATE with this:
+type VariationRow = {
+  id?: number; // present only for variations that already exist in the DB
+  color_id: string;
+  size_id: string;
+  price: string;
+  sale_price: string;
+  stock: string;
+  carry_bag_box: boolean;
+};
+
+type ExistingImage = { id: number; image_url: string };
+
 const INITIAL_FORM_STATE = {
   name: "",
   sku: "",
@@ -22,13 +34,17 @@ const INITIAL_FORM_STATE = {
   brand_id: "",
   lifestyle_tag_id: "",
   active: true,
-  // Added sale_price here
-  variations: [{ color_id: "", size_id: "", price: "", sale_price: "", stock: "" }],
+  variations: [{ color_id: "", size_id: "", price: "", sale_price: "", stock: "", carry_bag_box: false }] as VariationRow[],
   images: [] as File[],
   imagePreviews: [] as string[],
 };
 
 export default function AddLifestyleProduct() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("id");
+  const isEditMode = !!editId;
+
   const [categories, setCategories] = useState<any[]>([]);
   const [subcategories, setSubcategories] = useState<any[]>([]);
   const [subSubcategories, setSubSubcategories] = useState<any[]>([]);
@@ -38,10 +54,23 @@ export default function AddLifestyleProduct() {
   const [lifestyleTags, setLifestyleTags] = useState<any[]>([]);
 
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState(INITIAL_FORM_STATE);
 
+  // Existing images already saved in the DB (edit mode only)
+  const [existingImages, setExistingImages] = useState<ExistingImage[]>([]);
+  // Variation IDs the product had when it was first loaded — used to figure out
+  // which variations were removed by the user and need deleting on save.
+  const [originalVariationIds, setOriginalVariationIds] = useState<number[]>([]);
+
   useEffect(() => { fetchInitialData(); }, []);
+
+  // Load the product for editing once we know the id (and after categories exist)
+  useEffect(() => {
+    if (editId) loadProductForEdit(editId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId]);
 
   const fetchInitialData = async () => {
     try {
@@ -54,6 +83,67 @@ export default function AddLifestyleProduct() {
       setDbSizes(attrData?.filter((a) => a.type === "size") || []);
       setLifestyleTags(attrData?.filter((a) => a.type === "lifestyle_tag") || []);
     } catch (err) { toast.error("Error loading initial data"); }
+  };
+
+  const loadProductForEdit = async (id: string) => {
+    setInitialLoading(true);
+    try {
+      const { data: product, error: pErr } = await supabase.from("products").select("*").eq("id", id).single();
+      if (pErr) throw pErr;
+      if (!product) throw new Error("Product not found");
+
+      const [{ data: images, error: imgErr }, { data: variations, error: varErr }] = await Promise.all([
+        supabase.from("product_images").select("id, image_url").eq("product_id", id),
+        supabase.from("product_variations").select("*").eq("product_id", id),
+      ]);
+      if (imgErr) throw imgErr;
+      if (varErr) throw varErr;
+
+      // Pre-load the subcategory / sub-subcategory chain so the selects show correctly
+      if (product.category_id) {
+        const { data: subs } = await supabase.from("subcategories").select("*").eq("category_id", product.category_id);
+        setSubcategories(subs || []);
+      }
+      if (product.subcategory_id) {
+        const { data: subSubs } = await supabase.from("sub_subcategories").select("*").eq("subcategory_id", product.subcategory_id);
+        setSubSubcategories(subSubs || []);
+      }
+
+      const loadedVariations: VariationRow[] = (variations && variations.length > 0)
+        ? variations.map((v: any) => ({
+            id: v.id,
+            color_id: v.color_id ? String(v.color_id) : "",
+            size_id: v.size_id ? String(v.size_id) : "",
+            price: v.price != null ? String(v.price) : "",
+            sale_price: v.sale_price != null ? String(v.sale_price) : "",
+            stock: v.stock != null ? String(v.stock) : "",
+            carry_bag_box: !!v.carry_bag_box,
+          }))
+        : [{ color_id: "", size_id: "", price: "", sale_price: "", stock: "", carry_bag_box: false }];
+
+      setForm({
+        name: product.name || "",
+        sku: product.sku || "",
+        description: product.description || "",
+        category_id: product.category_id ? String(product.category_id) : "",
+        subcategory_id: product.subcategory_id ? String(product.subcategory_id) : "",
+        sub_subcategory_id: product.sub_subcategory_id ? String(product.sub_subcategory_id) : "",
+        brand_id: product.brand_id ? String(product.brand_id) : "",
+        lifestyle_tag_id: product.lifestyle_tag_id ? String(product.lifestyle_tag_id) : "",
+        active: !!product.active,
+        variations: loadedVariations,
+        images: [],
+        imagePreviews: [],
+      });
+
+      setExistingImages(images || []);
+      setOriginalVariationIds((variations || []).map((v: any) => v.id));
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load product for editing");
+      console.error("Load product error:", err);
+    } finally {
+      setInitialLoading(false);
+    }
   };
 
   const handleCategoryChange = async (categoryId: string) => {
@@ -71,9 +161,17 @@ export default function AddLifestyleProduct() {
     setSubSubcategories(data || []);
   };
 
+  // Handles text/select fields on a variation row
   const handleVariationChange = (index: number, field: string, value: string) => {
     const newVariations = [...form.variations];
     (newVariations[index] as any)[field] = value;
+    setForm({ ...form, variations: newVariations });
+  };
+
+  // Handles the "Bag & Box" checkbox toggle on a variation row
+  const handleVariationCheckbox = (index: number, field: string, checked: boolean) => {
+    const newVariations = [...form.variations];
+    (newVariations[index] as any)[field] = checked;
     setForm({ ...form, variations: newVariations });
   };
 
@@ -81,6 +179,20 @@ export default function AddLifestyleProduct() {
     const filesArray = Array.from(e.target.files || []);
     const previews = filesArray.map((file) => URL.createObjectURL(file));
     setForm({ ...form, images: [...form.images, ...filesArray], imagePreviews: [...form.imagePreviews, ...previews] });
+  };
+
+  // Permanently removes an already-saved image (storage + DB row) — edit mode only
+  const handleRemoveExistingImage = async (img: ExistingImage) => {
+    try {
+      const path = img.image_url.split('/product-images/')[1];
+      if (path) await supabase.storage.from('product-images').remove([path]);
+      const { error } = await supabase.from("product_images").delete().eq("id", img.id);
+      if (error) throw error;
+      setExistingImages(prev => prev.filter(i => i.id !== img.id));
+      toast.success("Image removed");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to remove image");
+    }
   };
 
   const generateSKU = () => {
@@ -94,67 +206,117 @@ export default function AddLifestyleProduct() {
     setLoading(true);
 
     try {
-      // 1. Upload Images to Storage
-      const uploadedUrls = [];
+      // 1. Upload any newly-added images to Storage
+      const uploadedUrls: string[] = [];
       for (const file of form.images) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-        // This will correctly name it .mp4, .mov, .jpg, etc.
         const { error: uploadError } = await supabase.storage.from('product-images').upload(`products/${fileName}`, file);
         if (uploadError) throw uploadError;
         const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(`products/${fileName}`);
         uploadedUrls.push(publicUrl);
       }
 
-      // 2. Insert Main Product
-     const { data: productData, error: pError } = await supabase.from("products").insert([{
-        name: form.name,
-        sku: form.sku,
-        description: form.description,
-        brand_id: form.brand_id ? parseInt(form.brand_id) : null,
-        category_id: form.category_id ? parseInt(form.category_id) : null,
-        subcategory_id: form.subcategory_id ? parseInt(form.subcategory_id) : null,
-        sub_subcategory_id: form.sub_subcategory_id ? parseInt(form.sub_subcategory_id) : null,
-        lifestyle_tag_id: form.lifestyle_tag_id ? parseInt(form.lifestyle_tag_id) : null,
-        active: form.active,
-      }]).select().single();
+      let productId: number;
 
-      if (pError) {
-        // Handle unique constraint violation (SKU taken)
-        if (pError.code === '23505') throw new Error("This SKU is already in use. Please generate a new one.");
-        throw pError;
+      if (isEditMode && editId) {
+        // 2a. Update the existing product
+        const { error: pError } = await supabase.from("products").update({
+          name: form.name,
+          sku: form.sku,
+          description: form.description,
+          brand_id: form.brand_id ? parseInt(form.brand_id) : null,
+          category_id: form.category_id ? parseInt(form.category_id) : null,
+          subcategory_id: form.subcategory_id ? parseInt(form.subcategory_id) : null,
+          sub_subcategory_id: form.sub_subcategory_id ? parseInt(form.sub_subcategory_id) : null,
+          lifestyle_tag_id: form.lifestyle_tag_id ? parseInt(form.lifestyle_tag_id) : null,
+          active: form.active,
+        }).eq("id", editId);
+
+        if (pError) {
+          if (pError.code === '23505') throw new Error("This SKU is already in use. Please choose another.");
+          throw pError;
+        }
+        productId = parseInt(editId);
+      } else {
+        // 2b. Insert a brand new product
+        const { data: productData, error: pError } = await supabase.from("products").insert([{
+          name: form.name,
+          sku: form.sku,
+          description: form.description,
+          brand_id: form.brand_id ? parseInt(form.brand_id) : null,
+          category_id: form.category_id ? parseInt(form.category_id) : null,
+          subcategory_id: form.subcategory_id ? parseInt(form.subcategory_id) : null,
+          sub_subcategory_id: form.sub_subcategory_id ? parseInt(form.sub_subcategory_id) : null,
+          lifestyle_tag_id: form.lifestyle_tag_id ? parseInt(form.lifestyle_tag_id) : null,
+          active: form.active,
+        }]).select().single();
+
+        if (pError) {
+          if (pError.code === '23505') throw new Error("This SKU is already in use. Please generate a new one.");
+          throw pError;
+        }
+        productId = productData.id;
       }
 
-      // 3. Insert Product Images (Linking table)
+      // 3. Insert any newly uploaded images (linking table)
       if (uploadedUrls.length > 0) {
         const { error: imgError } = await supabase.from("product_images").insert(
-          uploadedUrls.map(url => ({ product_id: productData.id, image_url: url }))
+          uploadedUrls.map(url => ({ product_id: productId, image_url: url }))
         );
         if (imgError) throw imgError;
       }
 
-      // 4. Insert Variations
-      // Find "4. Insert Variations" inside handleSubmit and replace the payload:
-      const variationPayload = form.variations.map(v => ({
-        product_id: productData.id,
-        color_id: v.color_id ? parseInt(v.color_id) : null,
-        size_id: v.size_id ? parseInt(v.size_id) : null,
-        price: parseFloat(v.price) || 0,
-        sale_price: v.sale_price ? parseFloat(v.sale_price) : null, // Added this line
-        stock: parseInt(v.stock) || 0
-      }));
+      // 4. Variations — figure out what to delete / update / insert
+      const currentIds = form.variations.filter(v => v.id).map(v => v.id as number);
+      const idsToDelete = originalVariationIds.filter(id => !currentIds.includes(id));
 
-      const { error: vError } = await supabase.from("product_variations").insert(variationPayload);
-      if (vError) throw vError;
+      if (idsToDelete.length > 0) {
+        const { error: delErr } = await supabase.from("product_variations").delete().in("id", idsToDelete);
+        if (delErr) throw delErr;
+      }
 
-      toast.success("Product saved successfully!");
-      setForm(prev => ({ ...prev, variations: [] }));
-      // Cleanup and Reset
-      form.imagePreviews.forEach(url => URL.revokeObjectURL(url));
-      setForm(INITIAL_FORM_STATE);
-      setSubcategories([]);
-      setSubSubcategories([]);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      const toUpdate = form.variations.filter(v => v.id);
+      const toInsert = form.variations.filter(v => !v.id);
+
+      for (const v of toUpdate) {
+        const { error: updErr } = await supabase.from("product_variations").update({
+          color_id: v.color_id ? parseInt(v.color_id) : null,
+          size_id: v.size_id ? parseInt(v.size_id) : null,
+          price: parseFloat(v.price) || 0,
+          sale_price: v.sale_price ? parseFloat(v.sale_price) : null,
+          stock: parseInt(v.stock) || 0,
+          carry_bag_box: !!v.carry_bag_box,
+        }).eq("id", v.id);
+        if (updErr) throw updErr;
+      }
+
+      if (toInsert.length > 0) {
+        const insertPayload = toInsert.map(v => ({
+          product_id: productId,
+          color_id: v.color_id ? parseInt(v.color_id) : null,
+          size_id: v.size_id ? parseInt(v.size_id) : null,
+          price: parseFloat(v.price) || 0,
+          sale_price: v.sale_price ? parseFloat(v.sale_price) : null,
+          stock: parseInt(v.stock) || 0,
+          carry_bag_box: !!v.carry_bag_box,
+        }));
+        const { error: insErr } = await supabase.from("product_variations").insert(insertPayload);
+        if (insErr) throw insErr;
+      }
+
+      toast.success(isEditMode ? "Product updated successfully!" : "Product saved successfully!");
+
+      if (isEditMode) {
+        // Send them back to the registry so they can see the change reflected
+        router.push("/listproducts");
+      } else {
+        form.imagePreviews.forEach(url => URL.revokeObjectURL(url));
+        setForm(INITIAL_FORM_STATE);
+        setSubcategories([]);
+        setSubSubcategories([]);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
 
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
@@ -163,6 +325,15 @@ export default function AddLifestyleProduct() {
       setLoading(false);
     }
   };
+
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen bg-[#FBFBFC] flex flex-col items-center justify-center gap-4">
+        <Loader2 className="animate-spin text-[#c4a174]" size={40} />
+        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Loading Product...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#FBFBFC] p-6 md:p-12 text-[#2b2652] font-sans selection:bg-[#c4a174] selection:text-white">
@@ -177,7 +348,11 @@ export default function AddLifestyleProduct() {
               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Inventory Management System</span>
             </div>
             <h1 className="text-4xl font-black uppercase tracking-tighter text-[#2b2652]">
-              NEW <span className="text-[#c4a174] italic">COLLECTION</span> ITEM
+              {isEditMode ? (
+                <>EDIT <span className="text-[#c4a174] italic">COLLECTION</span> ITEM</>
+              ) : (
+                <>NEW <span className="text-[#c4a174] italic">COLLECTION</span> ITEM</>
+              )}
             </h1>
           </div>
 
@@ -205,7 +380,7 @@ export default function AddLifestyleProduct() {
               ) : (
                 <>
                   <Save size={16} className="group-hover:scale-110 transition-transform" />
-                  SAVE LISTING
+                  {isEditMode ? "UPDATE LISTING" : "SAVE LISTING"}
                 </>
               )}
             </button>
@@ -216,7 +391,6 @@ export default function AddLifestyleProduct() {
           {/* Main Content Area */}
           <div className="lg:col-span-3 space-y-14">
 
-            {/* Name & SKU Section */}
             {/* Name & SKU Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
               <div className="space-y-3">
@@ -273,7 +447,7 @@ export default function AddLifestyleProduct() {
 
               <div className="space-y-6">
                 {form.variations.map((v, i) => (
-                  <div key={i} className="grid grid-cols-12 gap-6 items-end border-b border-white/5 pb-6 group">
+                  <div key={v.id ?? `new-${i}`} className="grid grid-cols-12 gap-6 items-end border-b border-white/5 pb-6 group">
 
                     <div className="col-span-2 space-y-2">
                       <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Color</p>
@@ -329,7 +503,32 @@ export default function AddLifestyleProduct() {
                       />
                     </div>
 
-                    <div className="col-span-3 flex justify-end pb-1">
+                    {/* Carry Bag & Box checkbox column */}
+                    <div className="col-span-2 space-y-2">
+                      <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-1">
+                        <Package size={10} className="text-[#c4a174]" /> Bag & Box
+                      </p>
+                      <label className="flex items-center gap-2 py-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={!!v.carry_bag_box}
+                          onChange={e => handleVariationCheckbox(i, "carry_bag_box", e.target.checked)}
+                          className="peer sr-only"
+                        />
+                        <span className="w-5 h-5 flex items-center justify-center rounded-md border-2 border-white/20 bg-transparent peer-checked:bg-[#c4a174] peer-checked:border-[#c4a174] transition-all">
+                          {v.carry_bag_box && (
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#2b2652" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          )}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-300 peer-checked:text-[#c4a174]">
+                          {v.carry_bag_box ? "Included" : "Not Included"}
+                        </span>
+                      </label>
+                    </div>
+
+                    <div className="col-span-1 flex justify-end pb-1">
                       <button
                         type="button"
                         onClick={() => setForm({ ...form, variations: form.variations.filter((_, idx) => idx !== i) })}
@@ -343,7 +542,7 @@ export default function AddLifestyleProduct() {
 
                 <button
                   type="button"
-                  onClick={() => setForm({ ...form, variations: [...form.variations, { color_id: "", size_id: "", price: "", sale_price: "", stock: "" }] })}
+                  onClick={() => setForm({ ...form, variations: [...form.variations, { color_id: "", size_id: "", price: "", sale_price: "", stock: "", carry_bag_box: false }] })}
                   className="w-full py-4 mt-6 border-2 border-dashed border-white/10 rounded-2xl text-[9px] font-black uppercase tracking-[0.3em] text-[#c4a174] hover:bg-[#c4a174]/5 hover:border-[#c4a174]/30 transition-all active:scale-[0.99]"
                 >
                   + Add New Variation
@@ -393,12 +592,42 @@ export default function AddLifestyleProduct() {
               </h3>
 
               <div className="grid grid-cols-2 gap-4">
+                {/* Already-saved images (edit mode) */}
+                {existingImages.map((img) => {
+                  const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(img.image_url);
+                  return (
+                    <div key={`existing-${img.id}`} className="relative aspect-[3/4] rounded-[1.5rem] overflow-hidden border-2 border-white shadow-md group bg-black">
+                      {isVideo ? (
+                        <video
+                          src={img.image_url}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                          muted
+                          loop
+                          onMouseOver={(e) => e.currentTarget.play()}
+                          onMouseOut={(e) => e.currentTarget.pause()}
+                        />
+                      ) : (
+                        <img src={img.image_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="existing" />
+                      )}
+                      <div className="absolute inset-0 bg-[#2b2652]/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveExistingImage(img)}
+                          className="bg-white text-red-600 p-2 rounded-xl shadow-xl hover:scale-110 transition-transform"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Newly added (not-yet-uploaded) images */}
                 {form.imagePreviews.map((src, i) => {
-                  // Check if the file is a video based on the file object or URL
                   const isVideo = form.images[i]?.type.startsWith('video');
 
                   return (
-                    <div key={i} className="relative aspect-[3/4] rounded-[1.5rem] overflow-hidden border-2 border-white shadow-md group bg-black">
+                    <div key={`new-${i}`} className="relative aspect-[3/4] rounded-[1.5rem] overflow-hidden border-2 border-white shadow-md group bg-black">
                       {isVideo ? (
                         <video
                           src={src}
@@ -439,7 +668,6 @@ export default function AddLifestyleProduct() {
                 </button>
               </div>
 
-              {/* IMPORTANT: Update accept to include video/* */}
               <input
                 type="file"
                 ref={fileInputRef}

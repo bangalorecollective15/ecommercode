@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 import {
   ShoppingBag, Heart, Truck, ArrowLeft, ShieldCheck,
   Tag, Minus, Plus, CreditCard, Sparkles, Star, Play, MessageSquare, Lock,
-  X, ZoomIn, ChevronLeft, ChevronRight
+  X, ZoomIn, ChevronLeft, ChevronRight, Package
 } from "lucide-react";
 import OptimizedImage from "../../components/OptimizedImage";
 import ProductCard from "../../components/ProductCard";
@@ -158,7 +158,6 @@ function ImageLightbox({
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
-
   const dragStart = useRef({ x: 0, y: 0 });
   const posStart = useRef({ x: 0, y: 0 });
   const pinchStartDist = useRef<number | null>(null);
@@ -385,10 +384,12 @@ export default function ProductDetailsPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [wantBagBox, setWantBagBox] = useState(false);
 
   // ── Image lightbox state ───────────────────────────────────────────────
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+const BAG_BOX_PRICE = 500;
 
   // ── Per-section loading flags ──────────────────────────────────────────────
   // Each paints the moment its own query resolves — nothing waits on anything else.
@@ -540,8 +541,8 @@ export default function ProductDetailsPage() {
   const handleVariationChange = (variation: any) => {
     setSelectedVar(variation);
     setQuantity(1);
+    setWantBagBox(false); // reset choice when switching variation
   };
-
   const submitReview = async () => {
     if (!userId) { toast.error("Please login to write a review"); return; }
     if (!reviewText.trim()) return toast.error("Please write something");
@@ -592,13 +593,14 @@ export default function ProductDetailsPage() {
       return;
     }
 
-    const { error } = await supabase.from("cart").insert([{
-      user_id: userId,
-      product_id: product?.id,
-      variation_id: selectedVar?.id,
-      quantity,
-    }]);
-
+const { error } = await supabase.from("cart").insert([{
+  user_id: userId,
+  product_id: product?.id,
+  variation_id: selectedVar?.id,
+  quantity,
+  carry_bag_box: selectedVar?.carry_bag_box ? wantBagBox : false,
+  bag_box_price: selectedVar?.carry_bag_box && wantBagBox ? BAG_BOX_PRICE : 0,
+}]);
     if (!error) {
       toast.success("Added to bag");
       window.dispatchEvent(new Event("cartUpdated"));
@@ -634,9 +636,11 @@ export default function ProductDetailsPage() {
     router.push("/userinterface/cart");
   };
 
- const displayPrice = cleanPrice(selectedVar?.price);
+const displayPrice = cleanPrice(selectedVar?.price);
 const displaySalePrice = cleanPrice(selectedVar?.sale_price);
 const isOutOfStock = !selectedVar || selectedVar.stock <= 0;
+const unitPrice = displaySalePrice > 0 ? displaySalePrice : displayPrice;
+const lineTotal = unitPrice * quantity + (wantBagBox ? BAG_BOX_PRICE : 0);
   const dynamicDescriptionFallback = `Explore this premium selection from ${product?.brands?.name_en || "our exclusive collections"}. Part of our handpicked ${product?.categories?.name || "designer"} catalog, crafted for discerning tastes.`;
 
   // ── Reviews derived data ───────────────────────────────────────────────
@@ -771,8 +775,8 @@ const isOutOfStock = !selectedVar || selectedVar.stock <= 0;
                         key={img.id}
                         onClick={() => setMainImage(img.image_url)}
                         className={`relative w-16 h-16 flex-shrink-0 rounded-xl border-2 transition-all duration-300 overflow-hidden bg-slate-50 dark:bg-[#111]/50 ${mainImage === img.image_url
-                            ? "border-brand-blue dark:border-white"
-                            : "border-transparent opacity-60 hover:opacity-100"
+                          ? "border-brand-blue dark:border-white"
+                          : "border-transparent opacity-60 hover:opacity-100"
                           }`}
                       >
                         {isThumbVideo ? (
@@ -845,47 +849,84 @@ const isOutOfStock = !selectedVar || selectedVar.stock <= 0;
                 </div>
 
                 {/* Variation selector */}
-               {/* Variation selector */}
-<div className="space-y-3">
-  <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-gray-500 transition-colors duration-300">
-    Select Variation
-  </h4>
-  <div className="flex flex-wrap gap-2">
-    {variations.length > 0 ? (
-      variations.map((v) => {
-        const label =
-          v.color?.name && v.color.name.toLowerCase() !== "default"
-            ? `${v.color.name} / ${v.size?.name || ""}`
-            : v.size?.name || "Standard Edition";
+                {/* Variation selector */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-gray-500 transition-colors duration-300">
+                    Select Variation
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {variations.length > 0 ? (
+                      variations.map((v) => {
+                        const label =
+                          v.color?.name && v.color.name.toLowerCase() !== "default"
+                            ? `${v.color.name} / ${v.size?.name || ""}`
+                            : v.size?.name || "Standard Edition";
 
-        const isSelected = selectedVar?.id === v.id;
-        const variantOutOfStock = v.stock <= 0;
+                        const isSelected = selectedVar?.id === v.id;
+                        const variantOutOfStock = v.stock <= 0;
 
-        return (
-          <button
-            key={v.id}
-            onClick={() => handleVariationChange(v)}
-            className={`px-4 py-3 rounded-xl border-2 text-xs font-bold transition-all duration-300 flex flex-col items-start ${
-              isSelected
-                ? variantOutOfStock
-                  ? "bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 border-red-500 line-through"
-                  : "border-brand-blue dark:border-white bg-brand-blue dark:bg-white text-white dark:text-slate-900 shadow-md"
-                : variantOutOfStock
-                  ? "bg-red-50 dark:bg-red-900/10 text-red-400 border-red-200 dark:border-red-900/50 line-through"
-                  : "border-slate-100 dark:border-[#333] hover:border-brand-gold/30 dark:hover:border-brand-gold/50"
-            }`}
-          >
-            <span>{label}</span>
-          </button>
-        );
-      })
-    ) : (
-      <span className="px-4 py-3 rounded-xl border border-slate-200 dark:border-[#333] bg-slate-50 dark:bg-[#111]/50 text-xs font-bold text-slate-400 dark:text-gray-500 transition-colors duration-300">
-        Standard Edition
-      </span>
-    )}
+                        return (
+                          <button
+                            key={v.id}
+                            onClick={() => handleVariationChange(v)}
+                            className={`px-4 py-3 rounded-xl border-2 text-xs font-bold transition-all duration-300 flex flex-col items-start ${isSelected
+                                ? variantOutOfStock
+                                  ? "bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 border-red-500 line-through"
+                                  : "border-brand-blue dark:border-white bg-brand-blue dark:bg-white text-white dark:text-slate-900 shadow-md"
+                                : variantOutOfStock
+                                  ? "bg-red-50 dark:bg-red-900/10 text-red-400 border-red-200 dark:border-red-900/50 line-through"
+                                  : "border-slate-100 dark:border-[#333] hover:border-brand-gold/30 dark:hover:border-brand-gold/50"
+                              }`}
+                          >
+                            <span>{label}</span>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <span className="px-4 py-3 rounded-xl border border-slate-200 dark:border-[#333] bg-slate-50 dark:bg-[#111]/50 text-xs font-bold text-slate-400 dark:text-gray-500 transition-colors duration-300">
+                        Standard Edition
+                      </span>
+                    )}
+                  </div>
+                  {/* Bag & Box option — only shown if this variation offers it */}
+{/* Bag & Box option — only shown if this variation offers it */}
+{selectedVar?.carry_bag_box && (
+  <label className="flex items-center justify-between rounded-xl border border-slate-100 dark:border-[#333] bg-slate-50 dark:bg-[#111]/50 p-4 cursor-pointer transition-colors duration-300">
+    <div className="flex items-center gap-3">
+      <input
+        type="checkbox"
+        checked={wantBagBox}
+        onChange={(e) => setWantBagBox(e.target.checked)}
+        className="w-4 h-4 accent-brand-gold cursor-pointer"
+      />
+      <Package size={16} className="text-brand-gold" />
+      <div>
+        <p className="text-xs font-bold text-slate-700 dark:text-gray-200 transition-colors duration-300">
+          Bag & Box
+        </p>
+        <p className="text-[10px] text-slate-400 dark:text-gray-500 transition-colors duration-300">
+          Include the original carry bag & box with this order
+        </p>
+      </div>
+    </div>
+    <span className="text-xs font-black text-brand-gold whitespace-nowrap">
+      +₹{BAG_BOX_PRICE}
+    </span>
+  </label>
+)}
+
+{/* Live total, reflects quantity + bag & box */}
+{selectedVar && (
+  <div className="flex items-center justify-between px-1">
+    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-gray-500">
+      Total ({quantity} × ₹{unitPrice}{wantBagBox ? ` + ₹${BAG_BOX_PRICE}` : ""})
+    </span>
+    <span className="text-sm font-black text-slate-900 dark:text-white">
+      ₹{lineTotal.toLocaleString()}
+    </span>
   </div>
-</div>
+)}
+                </div>
 
                 {/* Quantity + Add to Bag + Share — justified across the full row */}
                 <div className="flex gap-3">
