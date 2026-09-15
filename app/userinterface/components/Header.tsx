@@ -162,7 +162,7 @@ useEffect(() => {
     }
   };
 
-  useEffect(() => {
+useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
       const cleanQuery = searchQuery.trim();
 
@@ -178,6 +178,7 @@ useEffect(() => {
             )
           `)
             .ilike("name", `%${cleanQuery}%`)
+            .eq("active", true)   // 👈 only active products
             .limit(5);
 
           if (error) {

@@ -42,8 +42,9 @@ const INITIAL_FORM_STATE = {
 export default function AddLifestyleProduct() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const editId = searchParams.get("id");
-  const isEditMode = !!editId;
+const editId = searchParams.get("id");
+const isEditMode = !!editId;
+const returnPage = searchParams.get("page"); // 👈 add this
 
   const [categories, setCategories] = useState<any[]>([]);
   const [subcategories, setSubcategories] = useState<any[]>([]);
@@ -307,16 +308,16 @@ export default function AddLifestyleProduct() {
 
       toast.success(isEditMode ? "Product updated successfully!" : "Product saved successfully!");
 
-      if (isEditMode) {
-        // Send them back to the registry so they can see the change reflected
-        router.push("/listproducts");
-      } else {
-        form.imagePreviews.forEach(url => URL.revokeObjectURL(url));
-        setForm(INITIAL_FORM_STATE);
-        setSubcategories([]);
-        setSubSubcategories([]);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-      }
+if (isEditMode) {
+  // Send them back to the exact page they edited from
+  router.push(returnPage ? `/listproducts?page=${returnPage}` : "/listproducts");
+} else {
+  form.imagePreviews.forEach(url => URL.revokeObjectURL(url));
+  setForm(INITIAL_FORM_STATE);
+  setSubcategories([]);
+  setSubSubcategories([]);
+  if (fileInputRef.current) fileInputRef.current.value = "";
+}
 
     } catch (err: any) {
       toast.error(err.message || "Something went wrong");
