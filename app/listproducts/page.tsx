@@ -33,9 +33,9 @@ export default function ProductList() {
 
   const [selectedCategory, setSelectedCategory] = usePersistentState("prod_filter_cat", "");
   const [selectedSubCategory, setSelectedSubCategory] = usePersistentState("prod_filter_sub", "");
-const [selectedSubSubCategory, setSelectedSubSubCategory] = usePersistentState("prod_filter_subsub", "");
-const [search, setSearch] = usePersistentState("prod_filter_search", "");
-const [selectedStatus, setSelectedStatus] = usePersistentState("prod_filter_status", "");
+  const [selectedSubSubCategory, setSelectedSubSubCategory] = usePersistentState("prod_filter_subsub", "");
+  const [search, setSearch] = usePersistentState("prod_filter_search", "");
+  const [selectedStatus, setSelectedStatus] = usePersistentState("prod_filter_status", "");
   const [products, setProducts] = useState<Product[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -71,7 +71,7 @@ const [selectedStatus, setSelectedStatus] = usePersistentState("prod_filter_stat
     } else if (type === "subsubcategory") {
       setSelectedSubSubCategory(value);
       if (value) params.set("sub_subcategory_id", value); else params.delete("sub_subcategory_id");
-  } else if (type === "search") {
+    } else if (type === "search") {
       setSearch(value);
     } else if (type === "status") {
       setSelectedStatus(value);
@@ -81,7 +81,7 @@ const [selectedStatus, setSelectedStatus] = usePersistentState("prod_filter_stat
     router.push(`${pathname}?${params.toString()}`);
   };
 
-const handleClearFilters = () => {
+  const handleClearFilters = () => {
     setSelectedCategory("");
     setSelectedSubCategory("");
     setSelectedSubSubCategory("");
@@ -104,7 +104,7 @@ const handleClearFilters = () => {
     router.push(`${pathname}?${params.toString()}`);
   };
 
-const fetchProducts = useCallback(async () => {
+  const fetchProducts = useCallback(async () => {
     setLoading(true);
     let query = supabase.from("products").select(`*, product_images(image_url)`, { count: "exact" });
     if (selectedCategory) query = query.eq("category_id", selectedCategory);
@@ -662,7 +662,7 @@ const fetchProducts = useCallback(async () => {
                 className="w-full pl-16 pr-6 py-5 bg-slate-50/30 rounded-[2rem] outline-none font-bold text-sm text-[#2b2652] placeholder:text-slate-200"
               />
             </div>
-<div className="grid grid-cols-1 md:grid-cols-4 gap-3 flex-[2]">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 flex-[2]">
               <div className="relative">
                 <select value={selectedCategory} onChange={(e) => handleFilterChange("category", e.target.value)}
                   className="w-full px-8 py-5 bg-slate-50/50 border-none rounded-[2rem] outline-none font-black text-[10px] uppercase tracking-widest text-[#2b2652]/60 appearance-none cursor-pointer transition-all hover:bg-slate-50">
@@ -777,7 +777,7 @@ const fetchProducts = useCallback(async () => {
                         <div className="flex justify-end gap-3 opacity-30 group-hover:opacity-100 transition-all duration-500">
                           <ActionButton icon={<QrCode size={16} />} onClick={() => router.push(`/barcode/${product.id}`)} />
                           <ActionButton icon={<Eye size={16} />} onClick={() => router.push(`/view/${product.id}`)} />
-<ActionButton icon={<Pencil size={16} />} onClick={() => router.push(`/addproducts?id=${product.id}`)} />
+                          <ActionButton icon={<Pencil size={16} />} onClick={() => router.push(`/addproducts?id=${product.id}&page=${page}`)} />
                           <ActionButton icon={<Trash2 size={16} />} color="red" onClick={() => { setDeleteId(product.id); setShowDeleteModal(true); }} />
                         </div>
                       </td>
