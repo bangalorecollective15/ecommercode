@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -59,7 +59,7 @@ type CouponErrorType =
   | "success" 
   | null;
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -969,5 +969,19 @@ function SummaryRow({ label, value }: { label: string; value: number }) {
       <span>{label}</span>
       <span className="text-slate-900 dark:text-white transition-colors duration-300">₹{value.toLocaleString()}</span>
     </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-950">
+          <Loader2 className="w-8 h-8 animate-spin text-brand-gold" />
+        </div>
+      }
+    >
+      <CheckoutContent />
+    </Suspense>
   );
 }

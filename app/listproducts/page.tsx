@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import toast, { Toaster } from "react-hot-toast";
@@ -22,7 +22,7 @@ interface Product {
   product_images?: { image_url: string }[];
 }
 
-export default function ProductList() {
+function ProductListContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -866,3 +866,17 @@ function ActionButton({ icon, onClick, color = 'gold' }: ActionButtonProps) {
     </button>
   );
 }
+
+export default function ProductList() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+          <div className="w-8 h-8 rounded-full border-2 border-brand-gold border-t-transparent animate-spin" />
+        </div>
+      }
+    >
+      <ProductListContent />
+    </Suspense>
+  );
+}

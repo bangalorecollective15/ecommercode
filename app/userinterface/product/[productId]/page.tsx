@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import Image from "next/image";
 import { createClient } from "@supabase/supabase-js";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -359,7 +359,7 @@ function ImageLightbox({
 
 // ────────────────────────────────────────────────────────────────────────────
 
-export default function ProductDetailsPage() {
+function ProductDetailsContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1225,5 +1225,19 @@ const lineTotal = unitPrice * quantity + (wantBagBox ? BAG_BOX_PRICE : 0);
         />
       )}
     </div>
+  );
+}
+
+export default function ProductDetailsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white dark:bg-black p-8 max-w-7xl mx-auto space-y-8 animate-pulse">
+          <div className="h-96 bg-slate-100 dark:bg-slate-900 rounded-3xl" />
+        </div>
+      }
+    >
+      <ProductDetailsContent />
+    </Suspense>
   );
 }

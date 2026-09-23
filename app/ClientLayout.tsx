@@ -53,12 +53,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     return () => window.clearTimeout(timer);
   }, []);
 
-  // Prevent Hydration Mismatch: Render a simple fragment placeholder until mounted
-  if (!mounted) {
-    return null; 
-  }
-
-  // Double check your layout hiding condition logic
   const hideLayout =
     pathname === "/" ||
     pathname.startsWith("/login") ||
@@ -66,6 +60,60 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     pathname.startsWith("/userinterface") ||
     pathname.startsWith("/product") ||
     pathname.startsWith("/category");
+
+  // For public storefront pages, render children immediately (enabling full SSR)
+  if (hideLayout) {
+    return (
+      <>
+        <Toaster
+          position="top-center"
+          gutter={12}
+          containerStyle={{
+            top: 20,
+            zIndex: 999999,
+          }}
+          toastOptions={{
+            duration: 2500,
+            style: {
+              background: "rgba(15,23,42,0.95)",
+              color: "#fff",
+              backdropFilter: "blur(12px)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: "16px",
+              padding: "14px 18px",
+              fontWeight: "600",
+              fontSize: "14px",
+            },
+          }}
+        />
+        <BackButtonHandler />
+        <div className="w-full h-full overflow-auto">
+          {children}
+        </div>
+      </>
+    );
+  }
+
+  // For protected admin pages, show an admin shell skeleton while auth is verified
+  if (!mounted || authLoading) {
+    return (
+      <div className="flex w-full h-full bg-slate-50 dark:bg-slate-950 animate-pulse">
+        <div className="w-64 h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 hidden md:block" />
+        <div className="flex-1 flex flex-col h-screen">
+          <div className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800" />
+          <div className="flex-1 p-6 space-y-4">
+            <div className="h-8 w-48 bg-slate-200 dark:bg-slate-800 rounded-lg" />
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="h-28 bg-slate-200 dark:bg-slate-800 rounded-xl" />
+              <div className="h-28 bg-slate-200 dark:bg-slate-800 rounded-xl" />
+              <div className="h-28 bg-slate-200 dark:bg-slate-800 rounded-xl" />
+              <div className="h-28 bg-slate-200 dark:bg-slate-800 rounded-xl" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -92,27 +140,16 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       />
 
       <BackButtonHandler />
-      
-      {hideLayout ? (
-        <div className="w-full h-full overflow-auto">
-          {children}
-        </div>
-      ) : (
-        <div className="flex w-full h-full">
-          {!authLoading && (
-            <>
-              <Sidebar role={role || "admin"} />
 
-              <div className="flex-1 flex flex-col h-screen min-w-0">
-                <Header /> 
-                <main className="flex-1 overflow-auto p-2">
-                  {children}
-                </main>
-              </div>
-            </>
-          )}
+      <div className="flex w-full h-full">
+        <Sidebar role={role || "admin"} />
+        <div className="flex-1 flex flex-col h-screen min-w-0">
+          <Header /> 
+          <main className="flex-1 overflow-auto p-2">
+            {children}
+          </main>
         </div>
-      )}
+      </div>
     </>
   );
 }

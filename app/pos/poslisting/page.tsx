@@ -701,13 +701,7 @@ const handleProcessRemoval = async () => {
   const indicesToRemove = Array.from(selectedRemoveIndices);
   const itemsToRemove = indicesToRemove.map((idx) => items[idx]);
 
-  // Guard: block if it would remove every item (order must keep at least 1 item;
-  // if you want to allow emptying the order entirely, just remove this check)
-  if (itemsToRemove.length === items.length) {
-    toast.error("Cannot remove all items — cancel the order instead");
-    return;
-  }
-
+  // Aggregating items to remove and allowing removal of any/all items
   setRemoveSubmitting(true);
   const restockedVariationIds: number[] = [];
   try {
@@ -746,11 +740,19 @@ const handleProcessRemoval = async () => {
 
     const remainingItems = items.filter((_, idx) => !selectedRemoveIndices.has(idx));
     const currentGrandTotal = Number(removeOrder.grand_total) || 0;
-    const newGrandTotal = Math.max(0, currentGrandTotal - removedValue);
+    const newGrandTotal = remainingItems.length === 0 ? 0 : Math.max(0, currentGrandTotal - removedValue);
+
+    const updatePayload: { order_items: OrderItem[]; grand_total: number; amount_paid?: number } = {
+      order_items: remainingItems,
+      grand_total: newGrandTotal,
+    };
+    if (remainingItems.length === 0 && removeOrder.amount_paid != null) {
+      updatePayload.amount_paid = 0;
+    }
 
     const { data, error: orderErr } = await supabase
       .from("pos_orders")
-      .update({ order_items: remainingItems, grand_total: newGrandTotal })
+      .update(updatePayload)
       .eq("id", Number(removeOrder.id))
       .select();
 
@@ -758,7 +760,11 @@ const handleProcessRemoval = async () => {
       throw new Error(orderErr?.message || "Order update failed — check RLS");
     }
 
-    toast.success(`Removed ${itemsToRemove.length} item(s) — stock restored, total updated`);
+    toast.success(
+      remainingItems.length === 0
+        ? `All ${itemsToRemove.length} item(s) removed — order cleared and stock restored`
+        : `Removed ${itemsToRemove.length} item(s) — stock restored, total updated`
+    );
     closeRemoveModal();
     await fetchData();
   } catch (err: any) {

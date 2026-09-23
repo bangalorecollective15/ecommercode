@@ -1,10 +1,21 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  compress: true,
+  poweredByHeader: false,
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',
     },
+    optimizePackageImports: [
+      'lucide-react',
+      '@heroicons/react',
+      'chart.js',
+      'framer-motion',
+      'react-chartjs-2',
+      'date-fns',
+      'swiper',
+    ],
   },
   images: {
     // Bypass Next's built-in /_next/image optimizer entirely. Instead, route every
@@ -71,6 +82,25 @@ const nextConfig: NextConfig = {
   },
   output: "standalone",
   trailingSlash: true,
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/userinterface/home/',
+        permanent: true,
+      },
+      {
+        source: '/product/:id',
+        destination: '/userinterface/product/:id/',
+        permanent: true,
+      },
+      {
+        source: '/category/:id',
+        destination: '/userinterface/category/:id/',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

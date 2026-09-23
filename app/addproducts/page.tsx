@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import toast, { Toaster } from "react-hot-toast";
@@ -39,7 +39,7 @@ const INITIAL_FORM_STATE = {
   imagePreviews: [] as string[],
 };
 
-export default function AddLifestyleProduct() {
+function AddLifestyleProductContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 const editId = searchParams.get("id");
@@ -682,5 +682,19 @@ if (isEditMode) {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AddLifestyleProduct() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+          <Loader2 className="w-8 h-8 animate-spin text-brand-gold" />
+        </div>
+      }
+    >
+      <AddLifestyleProductContent />
+    </Suspense>
   );
 }

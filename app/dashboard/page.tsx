@@ -66,17 +66,17 @@ export default function AdminDashboard() {
         customers, banners, offers, last7DaysOrders, monthlyOrders,
         monthlyPosOrders, productCategories
       ] = await Promise.all([
-        supabase.from("orders").select("id", { count: "exact" }),
-        supabase.from("pos_orders").select("id", { count: "exact" }),
+        supabase.from("orders").select("id", { count: "exact", head: true }),
+        supabase.from("pos_orders").select("id", { count: "exact", head: true }),
         supabase.from("orders").select("grand_total").eq("status", "confirmed"),
         supabase.from("pos_orders").select("grand_total"),
-        supabase.from("products").select("id", { count: "exact" }),
-        supabase.from("customers").select("id", { count: "exact" }),
-        supabase.from("banner").select("id", { count: "exact" }).eq("active", true),
-        supabase.from("offers").select("id", { count: "exact" }).eq("is_active", true),
+        supabase.from("products").select("id", { count: "exact", head: true }),
+        supabase.from("customers").select("id", { count: "exact", head: true }),
+        supabase.from("banner").select("id", { count: "exact", head: true }).eq("active", true),
+        supabase.from("offers").select("id", { count: "exact", head: true }).eq("is_active", true),
         supabase.from("orders").select("grand_total, order_date").gte("order_date", new Date(Date.now() - 7 * 86400000).toISOString()),
-        supabase.from("orders").select("id").gte("order_date", "2025-01-01"),
-        supabase.from("pos_orders").select("id").gte("order_date", "2025-01-01"),
+        supabase.from("orders").select("id", { count: "exact", head: true }).gte("order_date", "2025-01-01"),
+        supabase.from("pos_orders").select("id", { count: "exact", head: true }).gte("order_date", "2025-01-01"),
         supabase.from("products").select("category_id"),
       ]);
 
@@ -106,7 +106,7 @@ export default function AdminDashboard() {
       setComparisonChart({
         labels: ["Online Store", "In-Store POS"],
         datasets: [{
-          data: [monthlyOrders?.data?.length ?? 0, monthlyPosOrders?.data?.length ?? 0],
+          data: [monthlyOrders?.count ?? 0, monthlyPosOrders?.count ?? 0],
           backgroundColor: ["#2b2652", "#c4a174"],
           borderRadius: 12,
           barThickness: 40,

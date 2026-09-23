@@ -3,7 +3,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { notFound, useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { use, useState, useEffect, useMemo, useRef } from "react";
+import { use, useState, useEffect, useMemo, useRef, Suspense } from "react";
 import ShopHeader from "../../components/shop/ShopHeader";
 import ShopFilterBar from "../../components/shop/ShopFilterBar";
 import ShopProductGrid from "../../components/shop/ShopProductGrid";
@@ -18,7 +18,7 @@ interface PageProps {
   params: Promise<{ slug: string[] }>;
 }
 
-export default function UnifiedShopPage({ params }: PageProps) {
+function UnifiedShopContent({ params }: PageProps) {
   const { slug } = use(params);
   const [type, id] = slug || [];
 
@@ -298,5 +298,19 @@ export default function UnifiedShopPage({ params }: PageProps) {
         <ShopPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setPage} />
       </div>
     </main>
+  );
+}
+
+export default function UnifiedShopPage(props: PageProps) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-950">
+          <Loader2 className="w-8 h-8 animate-spin text-brand-gold" />
+        </div>
+      }
+    >
+      <UnifiedShopContent {...props} />
+    </Suspense>
   );
 }
