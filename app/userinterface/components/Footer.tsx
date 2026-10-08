@@ -313,7 +313,7 @@ export default function Footer() {
           </div>
 
           {/* Developer Attribution */}
-          {/* <p className="text-center md:text-right text-xs">
+           <p className="text-center md:text-right text-xs">
             Designed & Developed by{" "}
             <a
               href="https://rakvih.in/"
@@ -324,7 +324,7 @@ export default function Footer() {
               Rakvih
               <ExternalLink size={10} className="opacity-60" />
             </a>
-          </p> */}
+          </p> 
         </div>
 
       </div>
