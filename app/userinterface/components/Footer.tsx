@@ -135,7 +135,7 @@ export default function Footer() {
   ].filter(item => item.href !== "");
 
   return (
-    <footer className="bg-white dark:bg-black border-t border-neutral-200 dark:border-[#333] text-neutral-800 dark:text-gray-300 pt-16 pb-12 transition-all duration-300">
+    <footer className="bg-white dark:bg-black border-t border-neutral-200 dark:border-[#333] text-neutral-800 dark:text-gray-300 pt-16 pb-24 md:pb-12 transition-all duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Main Links Grid */}
